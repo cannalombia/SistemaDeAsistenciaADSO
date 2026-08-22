@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Asistencia SENA</title>
+
+    <link rel="stylesheet" href="estilos_generales.css">
+
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>.auth-pending body{visibility:hidden}</style>
+    <script>document.documentElement.classList.add("auth-pending");</script>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar" data-navegacion-principal></aside>
+
+        <!-- CONTENIDO PRINCIPAL -->
+
+        <main class="main">
+
+            <header class="header">
+
+                <div>
+
+                    <p>Sistema de Gestión Académica SENA</p>
+                </div>
+
+                <div class="header-right">
+
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input id="dashboard-search" type="search" placeholder="Buscar en el horario" aria-label="Buscar en el horario">
+                    </div>
+
+                    <i class="fas fa-bell notification"></i>
+
+                    <div class="profile" title="Cuenta autenticada">
+                        <img data-auth-avatar src="logo_sena.png" alt="Perfil del usuario">
+                        <span data-auth-name>Usuario</span>
+                    </div>
+
+                </div>
+
+            </header>
+
+            <!-- TARJETAS -->
+
+            <section class="cards">
+
+                    <div class="card card-presentes">
+
+                        <div class="top">
+                            <i class="fas fa-user-check"></i>
+                            <span>Aprendices</span>
+                        </div>
+
+                        <h2>120</h2>
+
+                        <div class="bottom">
+                            <span>Registrados</span>
+                        </div>
+
+                    </div>
+
+                    <div class="card card-ausentes">
+
+                        <div class="top">
+                            <i class="fas fa-folder"></i>
+                            <span>Fichas</span>
+                        </div>
+
+                        <h2>20</h2>
+
+                        <div class="bottom">
+                            <span>Activas</span>
+                        </div>
+
+                    </div>
+
+                    <div class="card card-asistencia">
+
+                        <div class="top">
+                            <i class="fas fa-calendar-check"></i>
+                            <span>Asistencia</span>
+                        </div>
+
+                        <h2>92%</h2>
+
+                        <div class="bottom">
+                            <span>General</span>
+                        </div>
+
+                    </div>
+
+</section>
+
+            <!-- TABLA -->
+
+            <section class="table-container">
+
+                <h2 style="margin-bottom:20px;">
+                    Horario General
+                </h2>
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+                            <th>Día</th>
+                            <th>Horario</th>
+                            <th>Ambiente</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        <tr>
+                            <td>Lunes</td>
+                            <td>08:00 - 12:00</td>
+                            <td>Ambiente 101</td>
+                        </tr>
+
+                        <tr>
+                            <td>Martes</td>
+                            <td>08:00 - 12:00</td>
+                            <td>Ambiente 202</td>
+                        </tr>
+
+                        <tr>
+                            <td>Miércoles</td>
+                            <td>08:00 - 12:00</td>
+                            <td>Ambiente 303</td>
+                        </tr>
+
+                        <tr>
+                            <td>Jueves</td>
+                            <td>08:00 - 12:00</td>
+                            <td>Ambiente 404</td>
+                        </tr>
+
+                        <tr>
+                            <td>Viernes</td>
+                            <td>08:00 - 12:00</td>
+                            <td>Ambiente 505</td>
+                        </tr>
+
+
+                    </tbody>
+
+                </table>
+
+             </section>
+
+        </main>
+
+    </div>
+
+    <script src="navegacion.js"></script>
+<script src="autenticacion.js"></script>
+    <script src="datos_demostracion.js"></script>
+<script src="aplicacion.js"></script>
+</body>
+</html>

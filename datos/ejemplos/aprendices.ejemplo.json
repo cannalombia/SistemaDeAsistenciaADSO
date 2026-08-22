@@ -1,0 +1,31 @@
+[
+  {
+    "id": "aprendiz-demostracion",
+    "document": "1000000001",
+    "name": "APRENDIZ DE MUESTRA",
+    "email": "aprendiz@example.com",
+    "phone": "3000000000",
+    "address": "",
+    "role": "Aprendiz",
+    "status": "Activo",
+    "program": {
+      "code": "3349882",
+      "name": "Análisis y Desarrollo de Software",
+      "level": "Tecnólogo",
+      "ficha": "3349882",
+      "schedule": "Mañana",
+      "mode": "Presencial",
+      "status": "En formación"
+    },
+    "attendance": [
+      {
+        "quarter": "Trimestre 1",
+        "present": 18,
+        "late": 1,
+        "absent": 1,
+        "justified": 0,
+        "percentage": 90
+      }
+    ]
+  }
+]

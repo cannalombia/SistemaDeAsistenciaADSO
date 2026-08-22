@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistencia de Estudiantes | Sistema SENA</title>
+    <link rel="stylesheet" href="estilos_generales.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>.auth-pending body{visibility:hidden}</style>
+    <script>document.documentElement.classList.add("auth-pending");</script>
+</head>
+<body class="attendance-page">
+<div class="container">
+    <aside class="sidebar" data-navegacion-principal></aside>
+
+    <main class="main attendance-main">
+        <header class="header attendance-heading">
+            <div>
+                <h1>Asistencia de Estudiantes</h1>
+                <p>Registro diario por instructor o administrador</p>
+            </div>
+        </header>
+
+        <section class="attendance-filters" aria-label="Filtros de asistencia">
+            <label class="attendance-field field-role">
+                <span>Rol</span>
+                <span class="control-with-icon"><i class="far fa-user"></i>
+                    <select id="attendance-role" disabled aria-label="Rol autenticado">
+                        <option value="Instructor">Instructor</option>
+                        <option value="Administrador">Administrador</option>
+                    </select>
+                </span>
+            </label>
+            <label class="attendance-field field-ficha">
+                <span>Ficha</span>
+                <span class="control-with-icon"><i class="far fa-address-card"></i>
+                    <select id="attendance-ficha" aria-label="Seleccionar ficha"><option value="">Cargando fichas...</option></select>
+                </span>
+            </label>
+            <label class="attendance-field field-date">
+                <span>Fecha</span>
+                <span class="control-with-icon"><i class="far fa-calendar"></i>
+                    <input id="attendance-date" type="date" aria-label="Fecha de asistencia">
+                </span>
+            </label>
+            <label class="attendance-field field-journey">
+                <span>Jornada</span>
+                <span class="control-with-icon journey-icon"><i class="far fa-sun"></i>
+                    <select id="attendance-journey" aria-label="Seleccionar jornada">
+                        <option value="Mañana">Mañana</option>
+                        <option value="Tarde">Tarde</option>
+                        <option value="Noche">Noche</option>
+                    </select>
+                </span>
+            </label>
+            <label class="attendance-field field-search">
+                <span>Buscar aprendiz</span>
+                <span class="search-control">
+                    <input id="attendance-search" type="search" placeholder="Buscar por nombre o identificación..." autocomplete="off">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                </span>
+            </label>
+        </section>
+
+        <div class="attendance-layout">
+            <section class="attendance-register-card">
+                <div class="attendance-card-header">
+                    <div>
+                        <h2>Registro de asistencia</h2>
+                        <p>Seleccione el estado de cada aprendiz</p>
+                    </div>
+                    <div class="attendance-actions">
+                        <button type="button" class="btn-mark-present" data-action="mark-all-present"><i class="far fa-circle-check"></i> Marcar todos presentes</button>
+                        <button type="button" class="btn-save-attendance" data-action="save-attendance"><i class="far fa-floppy-disk"></i> Guardar asistencia</button>
+                    </div>
+                </div>
+
+                <div class="attendance-table-wrap">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr><th>#</th><th>Aprendiz</th><th>Identificación</th><th>Ficha</th><th>Estado</th><th>Observación</th></tr>
+                        </thead>
+                        <tbody id="attendance-table-body">
+                            <tr><td colspan="6" class="attendance-empty"><i class="fas fa-circle-notch fa-spin"></i> Cargando aprendices...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <footer class="attendance-pagination">
+                    <p id="attendance-count">Mostrando 0 de 0 aprendices</p>
+                    <nav id="attendance-pages" aria-label="Paginación de aprendices"></nav>
+                    <label class="page-size"><select id="attendance-page-size" aria-label="Aprendices por página"><option value="8">8 por página</option><option value="10" selected>10 por página</option><option value="15">15 por página</option><option value="20">20 por página</option></select></label>
+                </footer>
+            </section>
+
+            <aside class="attendance-summary" aria-labelledby="summary-title">
+                <h2 id="summary-title">Resumen del día</h2>
+                <p><span id="summary-ficha">Seleccione una ficha</span> <span aria-hidden="true">•</span> <span id="summary-journey">Mañana</span></p>
+                <div id="attendance-donut" class="attendance-donut" role="img" aria-label="Distribución de estados de asistencia">
+                    <div><small>Total</small><strong id="summary-total">0</strong><span>aprendices</span></div>
+                </div>
+                <div class="summary-statuses">
+                    <div class="summary-status status-present"><span class="summary-icon"><i class="fas fa-user-check"></i></span><strong>Presentes</strong><b data-summary-count="presente">0</b><small data-summary-percent="presente">0%</small></div>
+                    <div class="summary-status status-late"><span class="summary-icon"><i class="far fa-clock"></i></span><strong>Tardanzas</strong><b data-summary-count="tardanza">0</b><small data-summary-percent="tardanza">0%</small></div>
+                    <div class="summary-status status-absent"><span class="summary-icon"><i class="far fa-user"></i></span><strong>Ausentes</strong><b data-summary-count="ausente">0</b><small data-summary-percent="ausente">0%</small></div>
+                    <div class="summary-status status-justified"><span class="summary-icon"><i class="far fa-clipboard"></i></span><strong>Justificados</strong><b data-summary-count="justificado">0</b><small data-summary-percent="justificado">0%</small></div>
+                </div>
+                <div class="summary-updated"><i class="far fa-clock"></i><span>Última actualización<br><strong id="summary-updated">Sin guardar</strong></span></div>
+            </aside>
+        </div>
+
+        <section id="attendance-legend" class="attendance-legend" aria-labelledby="legend-title">
+            <h2 id="legend-title">Estados de asistencia</h2>
+            <div><span class="legend-dot present"><i class="fas fa-check"></i></span><p><strong>Presente</strong><small>Asistió a la formación</small></p></div>
+            <div><span class="legend-dot late"><i class="far fa-clock"></i></span><p><strong>Tardanza</strong><small>Llegó después de la hora</small></p></div>
+            <div><span class="legend-dot absent"><i class="fas fa-user-minus"></i></span><p><strong>Ausente</strong><small>No asistió</small></p></div>
+            <div><span class="legend-dot justified"><i class="far fa-clipboard"></i></span><p><strong>Justificado</strong><small>Ausencia con soporte</small></p></div>
+        </section>
+    </main>
+</div>
+<script src="navegacion.js"></script>
+<script src="autenticacion.js"></script>
+<script src="datos_demostracion.js"></script>
+<script src="aplicacion.js"></script>
+<script src="asistencia.js"></script>
+</body>
+</html>

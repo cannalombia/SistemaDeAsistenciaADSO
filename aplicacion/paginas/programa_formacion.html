@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programa de Formación</title>
+
+    <link rel="stylesheet" href="estilos_generales.css">
+
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>.auth-pending body{visibility:hidden}</style>
+    <script>document.documentElement.classList.add("auth-pending");</script>
+</head>
+
+<body class="programas-page">
+
+<div class="container">
+
+    <aside class="sidebar" data-navegacion-principal></aside>
+
+    <main class="main programas-main">
+        <header class="header programas-header">
+            <div>
+                <h1>Programas de Formación</h1>
+                <p>Administración de programas académicos</p>
+            </div>
+            <button type="button" class="btn program-primary-button" data-action="new-program">
+                <i class="fas fa-plus" aria-hidden="true"></i>
+                Nuevo Programa
+            </button>
+        </header>
+
+        <section class="program-metric-grid" aria-label="Resumen de programas">
+            <article class="program-metric-card metric-active">
+                <span class="program-metric-icon"><i class="fas fa-book-open" aria-hidden="true"></i></span>
+                <div><p>Programas activos</p><strong id="program-stat-active">0</strong><small>Según estado actual</small></div>
+            </article>
+            <article class="program-metric-card metric-levels">
+                <span class="program-metric-icon"><i class="fas fa-layer-group" aria-hidden="true"></i></span>
+                <div><p>Niveles de formación</p><strong id="program-stat-levels">0</strong><small id="program-stat-level-names">Sin niveles registrados</small></div>
+            </article>
+            <article class="program-metric-card metric-fichas">
+                <span class="program-metric-icon"><i class="fas fa-folder-open" aria-hidden="true"></i></span>
+                <div><p>Fichas vinculadas</p><strong id="program-stat-fichas">0</strong><small>Relación actual del sistema</small></div>
+            </article>
+            <article class="program-metric-card metric-review">
+                <span class="program-metric-icon"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i></span>
+                <div><p>En revisión</p><strong id="program-stat-review">0</strong><small>Pendientes por validar</small></div>
+            </article>
+        </section>
+
+        <section class="program-panel program-filter-panel" aria-labelledby="program-query-title">
+            <div class="program-section-heading">
+                <div>
+                    <h2 id="program-query-title">Consulta y gestión de programas</h2>
+                    <p>Busca y filtra la oferta académica registrada.</p>
+                </div>
+                <button type="button" class="program-clear-button" id="program-clear-filters">
+                    <i class="fas fa-rotate-left" aria-hidden="true"></i> Limpiar filtros
+                </button>
+            </div>
+            <div class="program-filter-grid">
+                <label class="program-search-field">
+                    <span>Buscar programa</span>
+                    <span class="program-input-icon"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><input id="program-search" type="search" placeholder="Busca por código, nombre o número de ficha" autocomplete="off"></span>
+                </label>
+                <label><span>Ficha</span><select id="program-ficha-filter"><option value="">Cargando fichas...</option></select></label>
+                <label><span>Nivel</span><select id="program-level-filter"><option value="">Todos los niveles</option></select></label>
+                <label><span>Estado</span><select id="program-status-filter"><option value="">Todos los estados</option></select></label>
+                <label><span>Modalidad</span><select id="program-modality-filter"><option value="">Todas las modalidades</option></select></label>
+            </div>
+        </section>
+
+        <section class="program-panel program-table-panel" aria-labelledby="program-list-title">
+            <div class="program-section-heading program-list-heading">
+                <div>
+                    <h2 id="program-list-title">Listado de programas</h2>
+                    <p id="program-list-summary">Cargando información del sistema...</p>
+                </div>
+                <button type="button" class="program-export-button" id="program-export">
+                    <i class="fas fa-file-arrow-down" aria-hidden="true"></i> Exportar CSV
+                </button>
+            </div>
+
+            <div class="program-table-scroll">
+                <table class="program-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Programa</th>
+                            <th>Nivel</th>
+                            <th>Duración</th>
+                            <th>Modalidad</th>
+                            <th>Fichas</th>
+                            <th>Estado</th>
+                            <th class="program-actions-column">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaProgramas">
+                        <tr><td colspan="8" class="program-empty-state"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Cargando programas...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="program-table-footer">
+                <p id="program-pagination-summary">Mostrando 0 de 0 programas</p>
+                <nav class="program-pagination" id="program-pagination" aria-label="Paginación de programas"></nav>
+                <label class="program-page-size">Filas por página
+                    <select id="program-page-size"><option value="10">10</option><option value="20">20</option><option value="50">50</option></select>
+                </label>
+            </div>
+        </section>
+
+        <section class="program-insight-grid">
+            <article class="program-panel program-distribution-card">
+                <div class="program-section-heading">
+                    <div><h2>Distribución por nivel</h2><p>Participación según los programas cargados.</p></div>
+                    <span class="program-mini-icon"><i class="fas fa-chart-simple" aria-hidden="true"></i></span>
+                </div>
+                <div class="program-distribution" id="program-distribution"></div>
+            </article>
+
+            <article class="program-panel program-featured-card">
+                <div class="program-section-heading">
+                    <div><h2>Programa destacado</h2><p>Seleccionado por su vinculación académica.</p></div>
+                    <span class="program-mini-icon"><i class="fas fa-star" aria-hidden="true"></i></span>
+                </div>
+                <div id="program-featured" class="program-featured-content">
+                    <p class="program-empty-state">Cargando programa destacado...</p>
+                </div>
+            </article>
+        </section>
+    </main>
+
+</div>
+
+<script src="navegacion.js"></script>
+<script src="autenticacion.js"></script>
+<script src="datos_demostracion.js"></script>
+<script src="aplicacion.js"></script>
+<script src="programas.js"></script>
+</body>
+</html>

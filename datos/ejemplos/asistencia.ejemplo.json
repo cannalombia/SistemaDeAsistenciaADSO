@@ -1,0 +1,13 @@
+[
+  {
+    "identificacion": "1000000001",
+    "nombre": "APRENDIZ DE MUESTRA",
+    "ficha": "3349882",
+    "fecha": "2026-08-20",
+    "jornada": "Mañana",
+    "estado": "presente",
+    "observacion": "Registro de demostración",
+    "hora_registro": "2026-08-20T08:00:00-05:00",
+    "registrado_por": "Datos de ejemplo"
+  }
+]

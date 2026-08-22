@@ -1,0 +1,20 @@
+{
+  "name": "sistema-asistencia-sena",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de asistencia con roles Administrador, Instructor y Aprendiz",
+  "scripts": {
+    "start": "node servidor/servidor.js",
+    "start:ensure": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/asegurar_servidor.ps1",
+    "status": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/asegurar_servidor.ps1 -StatusOnly",
+    "install:autostart": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/instalar_inicio_automatico.ps1",
+    "test": "node pruebas/prueba_modulos.js && node pruebas/prueba_proyecto.js",
+    "test:unit": "node pruebas/prueba_modulos.js",
+    "test:integration": "node pruebas/prueba_proyecto.js",
+    "import:users": "node servidor/importar_usuarios.js",
+    "reset:admin": "node servidor/restablecer_administrador.js"
+  },
+  "dependencies": {
+    "nodemailer": "^9.0.4"
+  }
+}

@@ -1,0 +1,6 @@
+/* Punto de entrada. El orden conserva la cascada histórica del proyecto. */
+@import url("base.css");
+@import url("paneles_academicos.css");
+@import url("navegacion_aprendiz.css");
+@import url("estadisticas_usuarios.css");
+@import url("programas_indicadores.css");

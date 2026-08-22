@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Inicio de Sesión | Sistema SENA</title>
+
+    <link rel="stylesheet" href="estilos_acceso.css">
+
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <script>document.documentElement.classList.add("auth-pending");</script>
+
+</head>
+
+<body>
+
+    <div class="contenedor">
+
+        <!-- LOGIN -->
+
+        <div class="login">
+
+            <img src="logo_sena.png" class="logo">
+
+            <h2>INICIO DE SESIÓN</h2>
+
+            <p>
+                Selecciona tu perfil para ingresar al Sistema de Asistencia SENA.
+            </p>
+
+            <div id="auth-status" class="auth-status" role="status" aria-live="polite" hidden></div>
+
+            <div id="auth-actions">
+                <div class="auth-tabs" role="tablist" aria-label="Método de ingreso">
+                    <button type="button" class="auth-tab active" role="tab" aria-selected="true"
+                        data-auth-tab="staff">Usuario y contraseña</button>
+                    <button type="button" class="auth-tab" role="tab" aria-selected="false"
+                        data-auth-tab="apprentice">Código al correo</button>
+                </div>
+
+                <section id="staff-panel" class="auth-role-panel" role="tabpanel">
+                <form id="staff-login-form">
+                    <label for="login-identifier">Usuario o correo electrónico</label>
+                    <div class="input">
+                        <i class="fa-solid fa-user" aria-hidden="true"></i>
+                        <input id="login-identifier" name="identifier" type="text"
+                            placeholder="Ingrese su usuario o correo" autocomplete="username" required>
+                    </div>
+
+                    <label for="login-password">Contraseña</label>
+                    <div class="input">
+                        <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                        <input id="login-password" name="password" type="password"
+                            placeholder="Ingrese su contraseña" autocomplete="current-password" required>
+                    </div>
+
+                    <button type="submit" class="btn-login">
+                        <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
+                        Ingresar
+                    </button>
+                </form>
+
+                </section>
+
+                <section id="apprentice-panel" class="auth-role-panel" role="tabpanel" hidden>
+                <form id="email-request-form" class="email-code-form">
+                    <label for="apprentice-document">Número de identificación</label>
+                    <div class="input">
+                        <i class="fa-solid fa-id-card" aria-hidden="true"></i>
+                        <input id="apprentice-document" name="document" type="text" inputmode="numeric"
+                            placeholder="Ingrese su identificación" autocomplete="off" required>
+                    </div>
+                    <button type="submit" class="btn-secondary">
+                        <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                        Enviar código
+                    </button>
+                    <p class="auth-help">El código llegará al correo del usuario activo asociado con esa identificación. Nunca se mostrará en esta pantalla.</p>
+                </form>
+
+                <form id="email-verify-form" class="email-code-form" hidden>
+                    <label for="email-code">Código de verificación</label>
+                    <div class="input code-input">
+                        <i class="fa-solid fa-key" aria-hidden="true"></i>
+                        <input id="email-code" name="code" type="text" inputmode="numeric"
+                            pattern="[0-9]{6}" maxlength="6" placeholder="000000"
+                            autocomplete="one-time-code" required>
+                    </div>
+                    <button type="submit" class="btn-login">
+                        Verificar e ingresar
+                    </button>
+                    <button type="button" class="btn-link" data-auth-action="change-email">
+                        Usar otra identificación
+                    </button>
+                </form>
+
+                </section>
+            </div>
+
+            <div id="auth-account" class="auth-account" hidden>
+                <img data-auth-avatar src="logo_sena.png" alt="Perfil del usuario">
+                <strong data-auth-name>Usuario</strong>
+                <span data-auth-email></span>
+                <small data-auth-method></small>
+                <button type="button" class="btn-login" data-auth-action="continue">
+                    Continuar al sistema
+                </button>
+                <button type="button" class="btn-link" data-auth-action="logout">
+                    Cerrar sesión
+                </button>
+            </div>
+
+        </div>
+
+        <!-- IMAGEN DERECHA -->
+             <div class="imagen"> <img src="perfil_aprendiz.png" alt="Aprendiz">
+    </div>
+
+    </div>
+
+    <script src="autenticacion.js"></script>
+
+</body>
+
+</html>

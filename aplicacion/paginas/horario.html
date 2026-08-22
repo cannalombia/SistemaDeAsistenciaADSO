@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horarios</title>
+
+    <link rel="stylesheet" href="estilos_generales.css">
+
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>.auth-pending body{visibility:hidden}</style>
+    <script>document.documentElement.classList.add("auth-pending");</script>
+</head>
+
+<body>
+
+<div class="container">
+
+    <aside class="sidebar" data-navegacion-principal></aside>
+
+    <main class="main">
+
+        <header class="header">
+
+            <div>
+                <h1>Gestión de Horarios</h1>
+                <p>Programación académica de fichas</p>
+            </div>
+
+            <button type="button" class="btn" data-action="new-schedule">
+                <i class="fas fa-plus"></i>
+                Nuevo Horario
+            </button>
+
+        </header>
+<section class="table-container">
+
+    <h2 style="margin-bottom:20px;">
+        Consultar Horario por Ficha
+    </h2>
+
+    <div class="form-group">
+
+        <label>Seleccione una ficha</label>
+
+        <select id="ficha">
+
+            <option value="">Seleccione...</option>
+
+            <option value="3349881">3349881</option>
+            <option value="3349882">3349882</option>
+            <option value="3349884">3349884</option>
+            <option value="3349885">3349885</option>
+            <option value="3349886">3349886</option>
+            <option value="3349887">3349887</option>
+            <option value="3349888">3349888</option>
+            <option value="3349889">3349889</option>
+
+        </select>
+
+    </div>
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th>Aprendiz</th>
+                <th>Zona</th>
+                <th>Día</th>
+                <th>Instructor</th>
+                <th>Hora</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody id="tablaHorarios">
+
+        </tbody>
+
+    </table>
+
+</section>
+    </main>
+
+</div>
+
+    <script src="navegacion.js"></script>
+<script src="autenticacion.js"></script>
+
+<script>
+
+const datos = {
+
+"3349882":[
+["Juan Pérez","Zona 1","Lunes","Jorge Raigosa","6:00 - 14:00"],
+["María Rodríguez","Zona 1","Martes","Yuly Saenz","6:00 - 14:00"],
+["Carlos Gómez","Zona 1","Miércoles","Luis Fernando Amarillo","6:00 - 14:00"],
+["Ana López","Zona 2","Jueves","Yuly Saenz","6:00 - 14:00"]
+],
+
+"3349884":[
+["Luis Martínez","Zona 2","Viernes","Jhoan Sebastián Duque","6:00 - 14:00"],
+["Sofía Ramírez","Zona 2","Lunes","Jorge Raigosa","6:00 - 14:00"]
+],
+
+"33498824":[
+["Pedro Ruiz","Zona 3","Martes","Yuly Saenz","6:00 - 14:00"]
+],
+
+"3349885":[
+["Laura Torres","Zona 3","Miércoles","Luis Fernando Amarillo","6:00 - 14:00"],
+["Andrés Castro","Zona 3","Jueves","Yuly Saenz","6:00 - 14:00"],
+["Natalia Jiménez","Zona 6","Lunes","Jorge Raigosa","6:00 - 14:00"]
+],
+
+"33498825":[
+["Camila Herrera","Zona 4","Viernes","Jhoan Sebastián Duque","6:00 - 14:00"]
+],
+
+"3349886":[
+["Diego Sánchez","Zona 4","Lunes","Jorge Raigosa","6:00 - 14:00"]
+],
+
+"33498827":[
+["Valentina Moreno","Zona 4","Martes","Yuly Saenz","6:00 - 14:00"]
+],
+
+"3349887":[
+["Miguel Rojas","Zona 5","Miércoles","Luis Fernando Amarillo","6:00 - 14:00"]
+],
+
+"3349888":[
+["Daniela Vargas","Zona 5","Jueves","Yuly Saenz","6:00 - 14:00"]
+],
+
+"3349889":[
+["Sebastián Ortiz","Zona 5","Viernes","Jhoan Sebastián Duque","6:00 - 14:00"]
+],
+
+"3349881":[
+["Felipe Mendoza","Zona 6","Martes","Yuly Saenz","6:00 - 14:00"],
+["Juliana Castaño","Zona 6","Miércoles","Luis Fernando Amarillo","6:00 - 14:00"],
+["Santiago Giraldo","Zona 6","Jueves","Yuly Saenz","6:00 - 14:00"]
+]
+
+};
+
+const ficha = document.getElementById("ficha");
+const tabla = document.getElementById("tablaHorarios");
+
+ficha.addEventListener("change",function(){
+
+    tabla.innerHTML="";
+
+    if(!datos[this.value]){
+        return;
+    }
+
+    datos[this.value].forEach(function(fila){
+
+        tabla.innerHTML += `
+        <tr>
+            <td>${fila[0]}</td>
+            <td>${fila[1]}</td>
+            <td>${fila[2]}</td>
+            <td>${fila[3]}</td>
+            <td>${fila[4]}</td>
+        </tr>
+        `;
+
+    });
+
+});
+
+</script>
+
+<script src="datos_demostracion.js"></script>
+<script src="aplicacion.js"></script>
+
+</body>
+</html>

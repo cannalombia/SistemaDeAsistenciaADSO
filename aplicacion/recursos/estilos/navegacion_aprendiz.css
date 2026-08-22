@@ -1,0 +1,397 @@
+/*=========================================
+      PORTAL DEL APRENDIZ
+=========================================*/
+
+.apprentice-identity{
+    margin:0 18px 20px;
+    padding:16px 14px;
+    border-radius:14px;
+    background:rgba(255,255,255,.08);
+    color:#fff;
+    text-align:center;
+}
+
+.apprentice-identity strong,
+.apprentice-identity small{display:block}
+.apprentice-identity strong{font-size:13px;line-height:1.35}
+.apprentice-identity small{margin-top:4px;color:#c9d7cf;font-size:11px;overflow-wrap:anywhere}
+
+.apprentice-menu button{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:13px 20px;
+    border:0;
+    background:transparent;
+    color:inherit;
+    cursor:pointer;
+    font:inherit;
+    text-align:left;
+}
+
+.learner-role{
+    padding:9px 14px;
+    border-radius:20px;
+    background:#e9f8ed;
+    color:#26843a;
+    font-weight:700;
+    font-size:13px;
+}
+
+.apprentice-section[hidden]{display:none}
+.apprentice-summary{margin-bottom:25px}
+.learner-status{font-size:20px!important}
+.section-description{margin:6px 0 20px;color:#718087}
+
+/* Mantiene la navegación del aprendiz hasta el borde inferior de la pantalla. */
+@media(min-width:1101px){
+    .apprentice-portal .sidebar{
+        position:fixed;
+        inset:0 auto 0 0;
+        width:270px;
+        height:100dvh;
+        min-height:100vh;
+    }
+
+    .apprentice-portal .main{
+        width:calc(100% - 270px);
+        margin-left:270px;
+        min-height:100dvh;
+    }
+}
+
+.attendance-score{
+    display:inline-block;
+    min-width:58px;
+    padding:6px 9px;
+    border-radius:18px;
+    background:#eaf8ee;
+    color:#25863a;
+    text-align:center;
+    font-weight:800;
+}
+
+.learner-program-card{
+    display:grid;
+    grid-template-columns:110px 1fr;
+    gap:28px;
+    align-items:start;
+}
+
+.program-icon{
+    width:100px;
+    height:100px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:24px;
+    background:#eaf8ee;
+    color:#39b54a;
+    font-size:42px;
+}
+
+.eyebrow{color:#39b54a;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+.learner-program-card h2{margin:6px 0 22px;color:#00304d}
+.program-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px}
+.program-details p{padding-bottom:12px;border-bottom:1px solid #e6eaec;color:#52616a}
+.full-width{grid-column:1/-1}
+
+body.dark-mode .apprentice-identity{background:rgba(255,255,255,.1)}
+body.dark-mode .learner-program-card h2{color:#fff}
+body.dark-mode .program-details p{border-color:#324650;color:#d3dde1}
+
+@media(max-width:700px){
+    .learner-program-card{grid-template-columns:1fr}
+    .program-details{grid-template-columns:1fr}
+}
+
+/*=========================================
+      MENÚ LATERAL PARA TODOS LOS ROLES
+=========================================*/
+
+@property --sidebar-glow-angle{
+    syntax:"<angle>";
+    initial-value:0deg;
+    inherits:false;
+}
+
+@keyframes sidebarGlowRotate{
+    to{--sidebar-glow-angle:360deg}
+}
+
+.sidebar{
+    position:sticky;
+    top:0;
+    z-index:1000;
+    flex:0 0 270px;
+    width:270px;
+    height:100vh;
+    overflow-y:auto;
+    background:linear-gradient(180deg,#003b5c 0%,#002b43 58%,#001f31 100%);
+    border-right:1px solid rgba(255,255,255,.09);
+    box-shadow:12px 0 32px rgba(0,35,54,.14);
+    transition:margin-left .28s ease,transform .28s ease,box-shadow .28s ease;
+}
+
+.sidebar .logo{
+    padding-bottom:20px;
+    margin-bottom:18px;
+    border-bottom:1px solid rgba(255,255,255,.12);
+}
+
+.sidebar .logo img{
+    filter:drop-shadow(0 8px 14px rgba(0,0,0,.20));
+}
+
+.menu li,
+.settings{
+    --sidebar-item-surface:rgba(0,46,72,.96);
+    position:relative;
+    isolation:isolate;
+    overflow:hidden;
+    border:1px solid transparent;
+    background:
+        linear-gradient(var(--sidebar-item-surface),var(--sidebar-item-surface)) padding-box,
+        linear-gradient(90deg,transparent,transparent) border-box;
+    animation:sidebarGlowRotate 4s linear infinite paused;
+    transition:transform .25s ease,box-shadow .25s ease,filter .25s ease;
+}
+
+.menu li:hover,
+.settings:hover{
+    --sidebar-item-surface:rgba(0,44,68,.96);
+    background:
+        radial-gradient(circle at 12% 50%,rgba(108,203,47,.24),transparent 34%) padding-box,
+        linear-gradient(var(--sidebar-item-surface),var(--sidebar-item-surface)) padding-box,
+        conic-gradient(from var(--sidebar-glow-angle),transparent 0 18%,#58d7ff 25%,#dfffd8 31%,#6ccb2f 38%,transparent 48% 68%,#39b54a 76%,#c5f7bd 82%,transparent 90%) border-box;
+    border-color:transparent;
+    transform:translateX(4px);
+    box-shadow:0 0 0 1px rgba(108,203,47,.08),0 8px 24px rgba(0,0,0,.18),0 0 18px rgba(57,181,74,.18);
+    animation-play-state:running;
+}
+
+.menu li.active{
+    --sidebar-item-surface:rgba(0,50,70,.97);
+    background:
+        radial-gradient(circle at 10% 50%,rgba(108,203,47,.34),transparent 38%) padding-box,
+        linear-gradient(90deg,rgba(57,181,74,.22),rgba(0,43,67,.96)) padding-box,
+        conic-gradient(from var(--sidebar-glow-angle),transparent 0 15%,#56d8ff 23%,#f0ffe9 29%,#79df52 37%,transparent 48% 67%,#39b54a 75%,#d8ffd1 82%,transparent 91%) border-box;
+    border-color:transparent;
+    box-shadow:0 9px 25px rgba(0,0,0,.17),0 0 21px rgba(57,181,74,.21);
+    animation-play-state:running;
+}
+
+.menu li.active::before{
+    content:"";
+    position:absolute;
+    inset:8px auto 8px 0;
+    width:4px;
+    border-radius:0 5px 5px 0;
+    background:#6ccb2f;
+    box-shadow:0 0 14px rgba(108,203,47,.7);
+}
+
+.menu a,
+.apprentice-menu button,
+.settings a{
+    position:relative;
+    z-index:1;
+    min-height:50px;
+    font-weight:600;
+    letter-spacing:.1px;
+}
+
+.menu a i,
+.apprentice-menu button i,
+.settings a i{
+    width:22px;
+    color:#8ddd5a;
+    text-align:center;
+    font-size:17px;
+    transition:color .22s ease,text-shadow .22s ease,transform .22s ease;
+}
+
+.menu li:hover a i,
+.menu li.active a i,
+.settings:hover a i{
+    color:#dfffd8;
+    text-shadow:0 0 12px rgba(108,203,47,.82);
+    transform:scale(1.06);
+}
+
+@media(prefers-reduced-motion:reduce){
+    .menu li,.settings{animation:none}
+}
+
+.header-start{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    min-width:0;
+}
+
+.app-menu-toggle{
+    flex:0 0 auto;
+    min-width:48px;
+    height:46px;
+    padding:0 14px;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    gap:9px;
+    color:#00304d;
+    background:#fff;
+    border:1px solid #dce5e9;
+    border-radius:14px;
+    box-shadow:0 8px 24px rgba(0,48,77,.10);
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+}
+
+.app-menu-toggle:hover{
+    transform:translateY(-2px);
+    border-color:#6ccb2f;
+    box-shadow:0 12px 28px rgba(0,48,77,.16);
+}
+
+.app-menu-toggle:focus-visible{
+    outline:3px solid rgba(108,203,47,.38);
+    outline-offset:3px;
+}
+
+.sidebar-overlay{
+    position:fixed;
+    inset:0;
+    z-index:990;
+    width:100%;
+    height:100%;
+    border:0;
+    background:rgba(0,20,31,.56);
+    backdrop-filter:blur(3px);
+    cursor:pointer;
+}
+
+.sidebar-overlay[hidden]{display:none}
+
+body.dark-mode .app-menu-toggle{
+    color:#eaf3f5;
+    background:#182a33;
+    border-color:#38505c;
+}
+
+@media(max-width:1100px){
+    .sidebar{
+        display:flex;
+        position:fixed;
+        inset:0 auto 0 0;
+        width:min(310px,86vw);
+        height:100dvh;
+        transform:translateX(-105%);
+        margin-left:0;
+        box-shadow:18px 0 45px rgba(0,20,31,.30);
+    }
+
+    body.sidebar-open .sidebar{
+        transform:translateX(0);
+    }
+
+    body.menu-locked{overflow:hidden}
+
+    .main{
+        width:100%;
+        padding:18px 20px;
+    }
+
+    .header{
+        flex-direction:row;
+        align-items:center;
+        gap:15px;
+    }
+
+    .header-start{width:100%}
+    .app-menu-toggle span{display:none}
+    .app-menu-toggle{display:inline-flex;padding:0;width:46px}
+}
+
+@media(max-width:680px){
+    .main{padding:14px}
+    .header{align-items:flex-start;flex-wrap:wrap}
+    .header-start{align-items:flex-start}
+    .header-start h1{font-size:24px}
+    .header-start p{font-size:13px}
+    .header-right{width:100%;gap:12px}
+    .search-box{flex:1;min-width:0}
+    .search-box input{width:100%;min-width:0}
+    .profile span{display:none}
+}
+
+/* La configuración conserva todas sus opciones visibles y ocupa el alto completo. */
+@media(min-width:1101px){
+    .settings-page .sidebar{
+        position:fixed;
+        inset:0 auto 0 0;
+        width:270px;
+        height:100dvh;
+        min-height:100vh;
+        padding:10px 16px;
+    }
+
+    .settings-page .sidebar .logo{
+        flex:0 0 auto;
+        margin-bottom:10px;
+        padding-bottom:10px;
+    }
+
+    .settings-page .sidebar .logo img{width:80px}
+    .settings-page .menu{min-height:0}
+    .settings-page .menu li{margin-bottom:5px}
+    .settings-page .menu a,
+    .settings-page .settings a{
+        min-height:42px;
+        padding:9px 14px;
+    }
+
+    .settings-page .logout{
+        flex:0 0 auto;
+        min-height:50px;
+        margin-top:10px;
+    }
+
+    .settings-page .settings-main{
+        width:calc(100% - 270px);
+        margin-left:270px;
+        min-height:100dvh;
+    }
+}
+
+/* La navegación de asistencia permanece completa al desplazar la página. */
+@media(min-width:1101px){
+    .attendance-page .sidebar{
+        position:fixed;
+        inset:0 auto 0 0;
+        width:270px;
+        height:100dvh;
+        min-height:100vh;
+    }
+
+    .attendance-page .attendance-main{
+        width:calc(100% - 270px);
+        margin-left:270px;
+    }
+}
+
+@media(max-width:1100px){
+    .attendance-page .sidebar{
+        width:min(310px,86vw);
+        height:100dvh;
+        min-height:100vh;
+    }
+
+    .attendance-page .attendance-main{
+        width:100%;
+        margin-left:0;
+    }
+}

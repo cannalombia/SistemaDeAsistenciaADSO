@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estadísticas | Sistema SENA</title>
+    <link rel="stylesheet" href="estilos_generales.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>.auth-pending body{visibility:hidden}</style>
+    <script>document.documentElement.classList.add("auth-pending");</script>
+</head>
+<body class="statistics-page">
+<div class="container">
+    <aside class="sidebar" data-navegacion-principal></aside>
+
+    <main class="main statistics-main">
+        <header class="header dashboard-header">
+            <div class="dashboard-title">
+                <h1>Bienvenido, <span data-auth-name>Administrador</span></h1>
+                <p>Sistema de Gestión Académica SENA</p>
+            </div>
+            <div class="dashboard-controls">
+                <div class="dashboard-date-range" aria-label="Rango de fechas">
+                    <i class="far fa-calendar"></i>
+                    <label><span>Desde</span><input id="dashboard-date-from" type="date" aria-label="Fecha inicial"></label>
+                    <span class="date-separator">–</span>
+                    <label><span>Hasta</span><input id="dashboard-date-to" type="date" aria-label="Fecha final"></label>
+                </div>
+                <label class="dashboard-period"><span class="sr-only">Periodo</span><select id="dashboard-period" aria-label="Seleccionar periodo"><option value="custom">Rango personalizado</option></select></label>
+                <button id="dashboard-notifications" type="button" class="dashboard-icon-button" aria-label="Ver novedades"><i class="far fa-bell"></i><span id="dashboard-notification-count" hidden>0</span></button>
+            </div>
+        </header>
+
+        <div id="dashboard-loading" class="dashboard-loading" role="status" aria-live="polite" hidden><i class="fas fa-circle-notch fa-spin"></i> Actualizando estadísticas...</div>
+        <div id="dashboard-error" class="dashboard-error" role="alert" hidden></div>
+
+        <section class="dashboard-stat-grid" aria-label="Resumen estadístico">
+            <article class="dashboard-stat-card stat-green dashboard-animate">
+                <span class="stat-icon"><i class="fas fa-users"></i></span>
+                <div class="stat-copy"><span>Aprendices registrados</span><strong data-dashboard-stat="apprentices">0</strong><small>Total activos</small></div>
+                <div class="stat-footer"><span data-dashboard-comparison="apprentices">Sin comparación histórica</span><canvas data-dashboard-sparkline="apprentices" aria-hidden="true"></canvas></div>
+            </article>
+            <article class="dashboard-stat-card stat-blue dashboard-animate">
+                <span class="stat-icon"><i class="fas fa-user-tie"></i></span>
+                <div class="stat-copy"><span>Instructores activos</span><strong data-dashboard-stat="instructors">0</strong><small>En el periodo</small></div>
+                <div class="stat-footer"><span>Fuente: usuarios activos</span><canvas data-dashboard-sparkline="instructors" aria-hidden="true"></canvas></div>
+            </article>
+            <article class="dashboard-stat-card stat-purple dashboard-animate">
+                <span class="stat-icon"><i class="far fa-address-card"></i></span>
+                <div class="stat-copy"><span>Fichas activas</span><strong data-dashboard-stat="fichas">0</strong><small>En formación</small></div>
+                <div class="stat-footer"><span>Fichas con aprendices</span><canvas data-dashboard-sparkline="fichas" aria-hidden="true"></canvas></div>
+            </article>
+            <article class="dashboard-stat-card stat-orange dashboard-animate">
+                <span class="stat-icon"><i class="fas fa-building"></i></span>
+                <div class="stat-copy"><span>Ambientes disponibles</span><strong data-dashboard-stat="environments">0 / 0</strong><small data-dashboard-stat="environment-occupancy">0% ocupación</small></div>
+                <div class="stat-footer"><span>Estado registrado</span><canvas data-dashboard-sparkline="environments" aria-hidden="true"></canvas></div>
+            </article>
+            <article class="dashboard-stat-card stat-green dashboard-animate">
+                <span class="stat-icon"><i class="far fa-circle-check"></i></span>
+                <div class="stat-copy"><span>Asistencia general</span><strong data-dashboard-stat="attendance">0%</strong><small>Promedio del periodo</small></div>
+                <div class="stat-footer"><span data-dashboard-comparison="attendance">Sin comparación histórica</span><canvas data-dashboard-sparkline="attendance" aria-hidden="true"></canvas></div>
+            </article>
+        </section>
+
+        <section class="dashboard-primary-grid">
+            <article class="dashboard-panel composition-panel dashboard-animate">
+                <header class="dashboard-panel-header"><div><h2>Composición por ficha <i class="far fa-circle-question" title="Distribución de estados por ficha"></i></h2></div><select id="dashboard-composition-limit" aria-label="Cantidad de fichas"><option value="5">Top 5</option><option value="all">Ver todas</option></select></header>
+                <div class="composition-legend"><span><i class="present"></i>Presentes</span><span><i class="late"></i>Tardanzas</span><span><i class="absent"></i>Ausentes</span><span><i class="justified"></i>Justificados</span><strong>Asistencia</strong></div>
+                <div id="dashboard-composition" class="composition-list"></div>
+                <footer class="dashboard-panel-footer"><span id="composition-count">0 fichas con registros</span><a href="asistencia.html">Ver informe completo <i class="fas fa-arrow-right"></i></a></footer>
+            </article>
+        </section>
+
+        <section class="dashboard-secondary-grid">
+            <article class="dashboard-panel dashboard-animate">
+                <header class="dashboard-panel-header"><h2>Rendimiento semanal por jornada <i class="far fa-circle-question" title="Asistencia agrupada por jornada y día"></i></h2><span class="panel-static-filter">Porcentaje de asistencia</span></header>
+                <div id="dashboard-heatmap" class="dashboard-heatmap"></div>
+                <div class="heatmap-legend"><span>&lt; 70%</span><i></i><strong>100%</strong></div>
+            </article>
+
+            <article class="dashboard-panel dashboard-animate">
+                <header class="dashboard-panel-header"><h2>Top fichas por asistencia <i class="far fa-circle-question" title="Fichas con mayor asistencia"></i></h2><span class="panel-static-filter">Este periodo</span></header>
+                <ol id="dashboard-top-fichas" class="top-fichas"></ol>
+                <footer class="dashboard-panel-footer centered"><a href="fichas.html">Ver ranking completo <i class="fas fa-arrow-right"></i></a></footer>
+            </article>
+
+            <article id="dashboard-alerts" class="dashboard-panel dashboard-animate">
+                <header class="dashboard-panel-header"><h2><i class="far fa-bell"></i> Novedades y alertas</h2></header>
+                <div id="dashboard-alert-list" class="dashboard-alert-list"></div>
+                <footer class="dashboard-panel-footer"><span></span><a href="estadisticas.html#dashboard-alerts">Ver todas las novedades <i class="fas fa-arrow-right"></i></a></footer>
+            </article>
+        </section>
+
+        <section class="dashboard-bottom-grid">
+            <article class="dashboard-panel sessions-panel dashboard-animate">
+                <header class="dashboard-panel-header"><h2>Próximas sesiones</h2></header>
+                <div id="dashboard-sessions" class="dashboard-sessions"></div>
+                <footer class="dashboard-panel-footer"><span></span><a href="horario.html">Ver horario completo <i class="fas fa-arrow-right"></i></a></footer>
+            </article>
+        </section>
+    </main>
+</div>
+<script src="navegacion.js"></script>
+<script src="autenticacion.js"></script>
+<script src="datos_demostracion.js"></script>
+<script src="aplicacion.js"></script>
+<script src="estadisticas.js"></script>
+</body>
+</html>

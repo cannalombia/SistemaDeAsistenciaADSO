@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal del Aprendiz | Sistema SENA</title>
+    <link rel="stylesheet" href="estilos_generales.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>.auth-pending body{visibility:hidden}</style>
+    <script>document.documentElement.classList.add("auth-pending");</script>
+</head>
+<body class="apprentice-portal">
+<div class="container">
+    <aside class="sidebar" data-navegacion-principal></aside>
+
+    <main class="main">
+        <header class="header">
+            <div>
+                <h1>Hola, <span data-auth-name>Aprendiz</span></h1>
+                <p>Consulta tu proceso formativo y tu asistencia</p>
+            </div>
+            <div class="learner-role"><i class="fas fa-user-graduate"></i> Aprendiz</div>
+        </header>
+
+        <section id="apprentice-attendance" class="apprentice-section active">
+            <div class="cards apprentice-summary">
+                <div class="card card-asistencia">
+                    <div class="top"><i class="fas fa-chart-pie"></i><span>Asistencia acumulada</span></div>
+                    <h2 data-apprentice-stat="average">0%</h2>
+                    <div class="bottom"><span>Año formativo</span></div>
+                </div>
+                <div class="card">
+                    <div class="top"><i class="fas fa-id-card"></i><span>Ficha</span></div>
+                    <h2 data-apprentice-program="ficha">-</h2>
+                    <div class="bottom"><span>Asignada</span></div>
+                </div>
+                <div class="card card-dark">
+                    <div class="top"><i class="fas fa-graduation-cap"></i><span>Estado</span></div>
+                    <h2 class="learner-status" data-apprentice-program="status">-</h2>
+                    <div class="bottom"><span>Programa actual</span></div>
+                </div>
+            </div>
+
+            <section class="table-container">
+                <h2>Asistencia por trimestre</h2>
+                <p class="section-description">Resumen personal. Esta información es de solo lectura.</p>
+                <table>
+                    <thead><tr><th>Periodo</th><th>Presentes</th><th>Tardanzas</th><th>Ausencias</th><th>Justificadas</th><th>Porcentaje</th></tr></thead>
+                    <tbody id="apprentice-attendance-table"></tbody>
+                </table>
+            </section>
+        </section>
+
+        <section id="apprentice-program" class="apprentice-section" hidden>
+            <section class="form-container learner-program-card">
+                <div class="program-icon"><i class="fas fa-laptop-code"></i></div>
+                <div>
+                    <span class="eyebrow">Programa de formación</span>
+                    <h2 data-apprentice-program="name">-</h2>
+                    <div class="program-details">
+                        <p><strong>Código:</strong> <span data-apprentice-program="code">-</span></p>
+                        <p><strong>Nivel:</strong> <span data-apprentice-program="level">-</span></p>
+                        <p><strong>Ficha:</strong> <span data-apprentice-program="ficha">-</span></p>
+                        <p><strong>Jornada:</strong> <span data-apprentice-program="schedule">-</span></p>
+                        <p><strong>Modalidad:</strong> <span data-apprentice-program="mode">-</span></p>
+                        <p><strong>Estado:</strong> <span data-apprentice-program="status">-</span></p>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <section id="apprentice-profile" class="apprentice-section" hidden>
+            <section class="form-container">
+                <h2>Actualizar mis datos</h2>
+                <p class="section-description">Puedes modificar tu teléfono y dirección. La cédula y el correo son datos protegidos.</p>
+                <form id="apprentice-profile-form">
+                    <div class="form-grid">
+                        <div class="form-group"><label>Nombre</label><input name="name" type="text" readonly></div>
+                        <div class="form-group"><label>Cédula</label><input name="document" type="text" readonly></div>
+                        <div class="form-group"><label>Correo</label><input name="email" type="email" readonly></div>
+                        <div class="form-group"><label>Teléfono</label><input name="phone" type="tel" maxlength="30"></div>
+                        <div class="form-group full-width"><label>Dirección</label><input name="address" type="text" maxlength="160"></div>
+                    </div>
+                    <button type="submit" class="btn"><i class="fas fa-save"></i> Guardar cambios</button>
+                </form>
+            </section>
+        </section>
+    </main>
+</div>
+<script src="navegacion.js"></script>
+<script src="autenticacion.js"></script>
+<script src="datos_demostracion.js"></script>
+<script src="aplicacion.js"></script>
+</body>
+</html>

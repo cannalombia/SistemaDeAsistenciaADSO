@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Usuario</title>
+
+    <link rel="stylesheet" href="estilos_generales.css">
+
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>.auth-pending body{visibility:hidden}</style>
+    <script>document.documentElement.classList.add("auth-pending");</script>
+</head>
+
+<body class="create-user-page">
+
+<div class="container">
+
+    <aside class="sidebar" data-navegacion-principal></aside>
+
+    <main class="main create-user-main">
+
+        <header class="header create-user-header">
+
+            <div>
+                <h1>Crear Usuario</h1>
+                <p>Administra las cuentas y permisos del sistema SENA</p>
+            </div>
+
+            <div class="user-header-actions">
+                <span class="user-sync-status"><i class="fas fa-circle-check"></i> Datos sincronizados</span>
+            </div>
+
+        </header>
+
+        <section class="user-metric-grid" aria-label="Resumen y filtros de usuarios">
+            <button type="button" class="user-metric-card active" data-user-filter="all" aria-pressed="true">
+                <span class="user-metric-icon users"><i class="fas fa-users"></i></span>
+                <span class="user-metric-copy"><small>Usuarios registrados</small><strong data-user-stat="total">0</strong><span>Todos los perfiles del sistema</span></span>
+                <span class="user-metric-action">Ver directorio <i class="fas fa-arrow-right"></i></span>
+            </button>
+            <button type="button" class="user-metric-card" data-user-filter="Instructor" aria-pressed="false">
+                <span class="user-metric-icon instructors"><i class="fas fa-user-tie"></i></span>
+                <span class="user-metric-copy"><small>Instructores activos</small><strong data-user-stat="instructors">0</strong><span>Personal de formación</span></span>
+                <span class="user-metric-action">Filtrar instructores <i class="fas fa-arrow-right"></i></span>
+            </button>
+            <button type="button" class="user-metric-card" data-user-filter="Aprendiz" aria-pressed="false">
+                <span class="user-metric-icon students"><i class="fas fa-user-graduate"></i></span>
+                <span class="user-metric-copy"><small>Aprendices activos</small><strong data-user-stat="students">0</strong><span>Vinculados a una ficha</span></span>
+                <span class="user-metric-action">Filtrar aprendices <i class="fas fa-arrow-right"></i></span>
+            </button>
+        </section>
+
+        <section class="user-import-panel" aria-labelledby="user-import-title">
+            <div class="user-import-copy">
+                <span class="user-import-icon"><i class="fas fa-file-csv" aria-hidden="true"></i></span>
+                <div>
+                    <span class="user-eyebrow">Carga desde archivo</span>
+                    <h2 id="user-import-title">Importar usuarios desde CSV</h2>
+                    <p>El archivo debe usar estas columnas: <strong>identificacion; tipo_documento; nombre; correo; rol; estado; ficha</strong>.</p>
+                </div>
+            </div>
+            <form id="user-csv-import-form" class="user-import-controls">
+                <input id="user-csv-file" class="user-file-input" type="file" accept=".csv,text/csv" required>
+                <label for="user-csv-file" class="user-file-picker"><i class="fas fa-folder-open" aria-hidden="true"></i><span>Examinar archivo</span></label>
+                <span id="user-csv-file-name" class="user-file-name">Ningún archivo seleccionado</span>
+                <button id="user-csv-import-button" type="submit" class="user-import-button" disabled><i class="fas fa-cloud-arrow-up" aria-hidden="true"></i> Importar</button>
+            </form>
+            <div id="user-import-result" class="user-import-result" role="status" aria-live="polite" hidden></div>
+        </section>
+
+        <section id="user-directory" class="user-directory-panel">
+            <header class="user-panel-heading">
+                <div><span class="user-eyebrow">Directorio en tiempo real</span><h2 id="user-directory-title">Todos los usuarios</h2><p id="user-directory-summary">Cargando usuarios registrados...</p></div>
+                <label class="user-directory-search"><i class="fas fa-magnifying-glass"></i><input id="user-directory-search" type="search" placeholder="Buscar por nombre, documento o correo" aria-label="Buscar usuarios"></label>
+            </header>
+            <div class="user-directory-table-wrap">
+                <table class="user-directory-table">
+                    <thead><tr><th>Usuario</th><th>Documento</th><th>Rol</th><th>Estado</th><th class="user-actions-heading">Acciones</th></tr></thead>
+                    <tbody id="user-directory-body"><tr><td colspan="5" class="user-directory-empty">Cargando directorio...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+    <section class="form-container user-form-panel">
+
+    <header class="user-form-heading">
+        <span class="user-form-icon"><i class="fas fa-user-plus"></i></span>
+        <div><span class="user-eyebrow">Nueva cuenta</span><h2>Información del usuario</h2><p>El usuario ingresará con el código de seis dígitos enviado al correo registrado.</p></div>
+    </header>
+
+    <form id="create-user-form">
+
+        <div class="form-grid user-form-grid">
+
+            <div class="form-group">
+                <label>Tipo de documento</label>
+
+                <select name="tipo_documento" required>
+                    <option>Cédula de Ciudadanía</option>
+                    <option>Tarjeta de Identidad</option>
+                    <option>Cédula de Extranjería</option>
+                    <option>Pasaporte</option>
+                    <option>Permiso de protección temporal</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Número de documento</label>
+                <input name="identificacion" type="text" inputmode="numeric" pattern="[0-9]{6,15}" placeholder="Ingrese identificación" required>
+            </div>
+
+            <div class="form-group">
+                <label>Nombre completo</label>
+                <input name="nombre" type="text" maxlength="160" autocomplete="name" placeholder="Ingrese nombres y apellidos" required>
+            </div>
+
+            <div class="form-group">
+                <label>Correo electrónico</label>
+                <input name="correo" type="email" autocomplete="email" placeholder="Ingrese correo" required>
+            </div>
+
+            <div class="form-group">
+                <label>Rol</label>
+
+                <select name="rol" required>
+                    <option>Administrador</option>
+                    <option>Instructor</option>
+                    <option>Aprendiz</option>
+                    <option>Coordinador</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Estado</label>
+                <select name="estado" required>
+                    <option>Activo</option>
+                    <option>Inactivo</option>
+                </select>
+            </div>
+
+            <div class="form-group" data-user-field="ficha">
+                <label data-user-ficha-label>Ficha</label>
+                <select name="ficha"><option value="">Seleccione una ficha...</option></select>
+            </div>
+
+        </div>
+
+        <div class="user-form-actions">
+        <p><i class="fas fa-envelope-circle-check"></i> Al iniciar sesión, el código de acceso llegará al correo registrado.</p>
+        <button type="submit" class="btn user-submit-button">
+            <i class="fas fa-save"></i>
+            Guardar Usuario
+        </button>
+        </div>
+
+    </form>
+
+</section>
+
+</main>
+
+</div>
+
+<script src="navegacion.js"></script>
+<script src="autenticacion.js"></script>
+<script src="datos_demostracion.js"></script>
+<script src="aplicacion.js"></script>
+<script src="usuarios.js"></script>
+
+</body>
+</html>

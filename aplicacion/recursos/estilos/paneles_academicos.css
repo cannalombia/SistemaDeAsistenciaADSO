@@ -1,0 +1,1107 @@
+/*==========================
+    TARJETA APRENDICES
+==========================*/
+
+.card-aprendices{
+    animation:pulseCard 2.5s infinite;
+}
+
+@keyframes pulseCard{
+
+    0%,100%{
+        transform:scale(1);
+    }
+
+    50%{
+        transform:scale(1.03);
+    }
+
+}
+
+/*==========================
+    TARJETA INSTRUCTORES
+==========================*/
+
+.card-instructores{
+    animation:flotar 3s ease-in-out infinite;
+}
+
+@keyframes flotar{
+
+    0%,100%{
+        transform:translateY(0);
+    }
+
+    50%{
+        transform:translateY(-8px);
+    }
+
+}
+
+/*==========================
+    TARJETA ASISTENCIA
+==========================*/
+
+.card-asistencia{
+
+    position:relative;
+    overflow:hidden;
+
+}
+
+.card-asistencia::before{
+
+    content:"";
+    position:absolute;
+    top:0;
+    left:-150%;
+    width:70%;
+    height:100%;
+
+    background:linear-gradient(
+        90deg,
+        transparent,
+        rgba(255,255,255,.35),
+        transparent
+    );
+
+    animation:brillo 2.5s infinite;
+
+}
+
+@keyframes brillo{
+
+    from{
+        left:-150%;
+    }
+
+    to{
+        left:150%;
+    }
+
+}
+
+/*==========================
+    TARJETAS ASISTENCIA
+==========================*/
+
+.card-presentes{
+    background:#ffffff;
+    color:#000;
+}
+
+.card-ausentes{
+    background:#ffffff;
+    color:#000;
+}
+
+.card-asistencia{
+    background:#00304D;
+    color:#fff;
+}
+
+.card-presentes .top i,
+.card-ausentes .top i{
+
+    background:#f4f6f9;
+    color:#000;
+}
+
+.card-asistencia .top i{
+
+    background:white;
+    color:#00304D;
+}
+.card-ausentes .top i{
+
+    color:#E53935;
+
+}
+
+.card-asistencia .top i{
+
+    color:#00304D;
+
+}
+
+.card-presentes:hover,
+.card-ausentes:hover,
+.card-asistencia:hover{
+
+    transform:translateY(-10px);
+
+    transition:.4s;
+
+    cursor:pointer;
+
+}
+
+.card-presentes{
+
+    animation:subir 3s infinite;
+
+}
+
+@keyframes subir{
+
+    0%,100%{
+
+        transform:translateY(0);
+
+    }
+
+    50%{
+
+        transform:translateY(-6px);
+
+    }
+
+}
+
+.card-presentes .top i{
+
+    background:white;
+    color:#39B54A;
+    animation:rebote 2s infinite;
+
+}
+
+.card-ausentes .top i{
+
+    background:white;
+    color:#E53935;
+    animation:girar 3s infinite;
+
+}
+
+.card-asistencia .top i{
+
+    background:white;
+    color:#00304D;
+    animation:latido 1.3s infinite;
+
+}
+
+@keyframes rebote{
+
+    0%,100%{
+
+        transform:translateY(0);
+
+    }
+
+    50%{
+
+        transform:translateY(-8px);
+
+    }
+
+}
+
+@keyframes girar{
+
+    0%{
+
+        transform:rotate(0deg);
+
+    }
+
+    25%{
+
+        transform:rotate(-15deg);
+
+    }
+
+    75%{
+
+        transform:rotate(15deg);
+
+    }
+
+    100%{
+
+        transform:rotate(0deg);
+
+    }
+
+}
+
+@keyframes latido{
+
+    0%,100%{
+
+        transform:scale(1);
+
+    }
+
+    50%{
+
+        transform:scale(1.2);
+
+    }
+
+}
+
+/* reglasde pantalla */
+
+.form-container form{
+    width:100%;
+}
+
+.form-group{
+    width:100%;
+}
+
+.form-group input,
+.form-group select{
+    width:100%;
+}
+
+/* final  */
+
+html,
+body{
+    width:100%;
+    overflow-x:hidden;
+}
+
+.main{
+    width:100%;
+    max-width:100%;
+}
+
+.table-container{
+    width:100%;
+    overflow-x:auto;
+}
+
+.form-container{
+    margin-top:0;
+}
+
+.header{
+    margin-bottom:10px;
+}
+
+.main{
+    padding-top:15px;
+}
+
+/*=========================================
+      DASHBOARD ASISTENCIA NUEVO
+=========================================*/
+
+.asistencia-dashboard{
+
+    display:grid;
+
+    grid-template-columns:320px 520px 300px;
+
+    gap:40px;
+
+    justify-content:center;
+
+    align-items:center;
+
+    margin-top:30px;
+
+}
+
+/*======================
+PANEL IZQUIERDO
+======================*/
+
+.student-panel{
+
+    background:white;
+
+    border-radius:25px;
+
+    padding:25px;
+
+    box-shadow:0 15px 40px rgba(0,0,0,.08);
+
+}
+
+.student-panel h2{
+
+    margin-bottom:20px;
+
+    color:#00304D;
+
+}
+
+.search-student{
+
+    display:flex;
+
+    align-items:center;
+
+    border:1px solid #ddd;
+
+    border-radius:40px;
+
+    padding:12px 18px;
+
+    margin-bottom:25px;
+
+}
+
+.search-student input{
+
+    flex:1;
+
+    border:none;
+
+    outline:none;
+
+    font-size:15px;
+
+}
+
+.student-card{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    padding:15px;
+
+    border-radius:18px;
+
+    transition:.35s;
+
+    margin-bottom:12px;
+
+    cursor:pointer;
+
+}
+
+.student-card:hover{
+
+    background:#f4fff7;
+
+    transform:translateX(8px);
+
+}
+
+.avatar{
+
+    width:48px;
+
+    height:48px;
+
+    border-radius:50%;
+
+    background:#E8F8EC;
+
+    color:#39B54A;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-weight:bold;
+
+    margin-right:15px;
+
+}
+
+.student-card{
+
+    display:flex;
+    align-items:center;
+    gap:15px;
+
+}
+
+.student-card .avatar{
+
+    flex:0 0 50px;
+
+    width:50px;
+    height:50px;
+
+    border-radius:50%;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    font-weight:bold;
+
+}
+
+.student-card .student-info{
+
+    flex:1;
+
+}
+
+.dot{
+
+    width:10px;
+    height:10px;
+
+    min-width:10px;
+    min-height:10px;
+
+    border-radius:50%;
+
+    flex:0 0 10px;
+
+    margin-left:auto;
+
+}
+
+.green{
+
+    background:#39B54A;
+
+}
+
+.yellow{
+
+    background:#FFC107;
+
+}
+
+.red{
+
+    background:#F44336;
+
+}
+
+/*=========================
+    PANEL CENTRAL
+==========================*/
+
+.circle-panel{
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+}
+
+.attendance-circle{
+
+    width:420px;
+
+    height:420px;
+
+    border-radius:50%;
+
+    background:#fff;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    align-items:center;
+
+    position:relative;
+
+    box-shadow:
+        0 0 30px rgba(57,181,74,.18),
+        0 20px 50px rgba(0,0,0,.08);
+
+    animation:respirar 3s infinite ease-in-out;
+
+}
+
+.attendance-circle::before{
+
+    content:"";
+
+    position:absolute;
+
+    width:350px;
+
+    height:350px;
+
+    border-radius:50%;
+
+    border:20px solid #39B54A;
+
+}
+
+.attendance-circle::after{
+
+    content:"";
+
+    position:absolute;
+
+    width:385px;
+
+    height:385px;
+
+    border-radius:50%;
+
+    border:14px solid rgba(57,181,74,.12);
+
+}
+
+.attendance-circle h4{
+
+    color:#777;
+
+    letter-spacing:1px;
+
+}
+
+.attendance-circle h1{
+
+    font-size:82px;
+
+    color:#39B54A;
+
+    margin:15px 0;
+
+}
+
+.attendance-circle p{
+
+    color:#666;
+
+}
+
+@keyframes respirar{
+
+    0%,100%{
+
+        transform:scale(1);
+
+    }
+
+    50%{
+
+        transform:scale(1.03);
+
+    }
+
+}
+
+
+/* estados */
+
+/*=========================
+ESTADOS
+=========================*/
+
+.status-panel{
+
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+
+}
+
+.status-panel h2{
+
+    color:#00304D;
+    margin-bottom:5px;
+
+}
+
+.status-card{
+
+    background:#fff;
+
+    border-radius:18px;
+
+    padding:20px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    box-shadow:0 10px 25px rgba(0,0,0,.08);
+
+    transition:.35s;
+
+}
+
+.status-card:hover{
+
+    transform:translateY(-6px);
+
+}
+
+.status-icon{
+
+    width:55px;
+
+    height:55px;
+
+    border-radius:50%;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:22px;
+
+    margin-right:15px;
+
+}
+
+.status-info{
+
+    flex:1;
+
+}
+
+.progress{
+
+    width:100%;
+
+    height:8px;
+
+    background:#ececec;
+
+    border-radius:30px;
+
+    overflow:hidden;
+
+    margin-top:10px;
+
+}
+
+.bar{
+
+    height:100%;
+
+    border-radius:30px;
+
+}
+
+.green{
+
+    width:78%;
+    background:#39B54A;
+
+}
+
+.yellow{
+
+    width:11%;
+    background:#FFC107;
+
+}
+
+.red{
+
+    width:11%;
+    background:#F44336;
+
+}
+
+.blue{
+
+    width:0%;
+    background:#2196F3;
+
+}
+
+/* colores */
+
+.presentes .status-icon{
+
+    color:#39B54A;
+    background:#EAF8EE;
+
+}
+
+.tarde .status-icon{
+
+    color:#FFC107;
+    background:#FFF8E2;
+
+}
+
+.ausente .status-icon{
+
+    color:#F44336;
+    background:#FFEAEA;
+
+}
+
+.justificado .status-icon{
+
+    color:#2196F3;
+    background:#EAF4FF;
+
+}
+
+/* ================================================================
+   REGISTRO DE ASISTENCIA — estilos aislados de asistencia.html
+   ================================================================ */
+.attendance-page{
+    --attendance-green:#39b54a;
+    --attendance-green-dark:#229736;
+    --attendance-ink:#102a43;
+    --attendance-muted:#718096;
+    --attendance-border:#e4e9ee;
+    --attendance-orange:#f5a609;
+    --attendance-red:#ff454d;
+    --attendance-blue:#2475d9;
+    background:#f4f6f8;
+    color:var(--attendance-ink);
+}
+
+.attendance-page .sidebar{flex:0 0 260px}
+.attendance-main{min-width:0;padding:26px 28px 30px;background:linear-gradient(135deg,#f8fafc 0%,#f2f5f7 48%,#eef3f6 100%)}
+.attendance-heading{display:flex;align-items:center;justify-content:space-between;margin:0 0 22px}
+.attendance-heading h1{font-size:30px;line-height:1.15;letter-spacing:-.6px;color:var(--attendance-ink)}
+.attendance-heading p{margin-top:5px;color:var(--attendance-muted);font-size:16px}
+
+.attendance-filters,.attendance-register-card,.attendance-summary,.attendance-legend{
+    background:rgba(255,255,255,.96);border:1px solid rgba(229,233,238,.95);border-radius:14px;box-shadow:0 8px 24px rgba(31,49,67,.07)
+}
+.attendance-filters{display:grid;grid-template-columns:minmax(155px,.75fr) minmax(230px,1.25fr) minmax(170px,.8fr) minmax(145px,.68fr) minmax(260px,1.3fr);gap:20px;padding:18px 20px;margin-bottom:18px}
+.attendance-field{display:flex;min-width:0;flex-direction:column;gap:7px;color:#29394a;font-size:12px;font-weight:600}
+.control-with-icon,.search-control{position:relative;display:block}
+.control-with-icon>i{position:absolute;z-index:1;left:14px;top:50%;transform:translateY(-50%);color:var(--attendance-green);font-size:16px;pointer-events:none}
+.control-with-icon.journey-icon>i{color:var(--attendance-orange)}
+.attendance-field select,.attendance-field input,.page-size select{
+    width:100%;height:41px;border:1px solid #dce2e7;border-radius:9px;background:#fff;color:#29394a;font:500 13px 'Segoe UI',sans-serif;outline:none;transition:border-color .2s,box-shadow .2s
+}
+.attendance-field select{padding:0 34px 0 42px;cursor:pointer}
+.attendance-field input{padding:0 38px 0 13px}
+.attendance-field select:focus,.attendance-field input:focus,.page-size select:focus{border-color:var(--attendance-green);box-shadow:0 0 0 3px rgba(57,181,74,.12)}
+.attendance-field select:disabled{opacity:1;color:#29394a;cursor:default}
+.search-control i{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#7f8b96}
+.search-control input::placeholder{color:#9ba4ad}
+
+.attendance-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:20px;align-items:start}
+.attendance-register-card{min-width:0;overflow:hidden}
+.attendance-card-header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 21px 18px}
+.attendance-card-header h2,.attendance-summary h2{font-size:18px;letter-spacing:-.2px;color:var(--attendance-ink)}
+.attendance-card-header p,.attendance-summary>p{margin-top:5px;color:var(--attendance-muted);font-size:13px}
+.attendance-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.btn-mark-present,.btn-save-attendance{height:39px;padding:0 17px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:transform .15s,box-shadow .15s,background .15s}
+.btn-mark-present{border:1px solid var(--attendance-green);background:#fff;color:var(--attendance-green-dark)}
+.btn-save-attendance{min-width:175px;border:1px solid var(--attendance-green-dark);background:linear-gradient(135deg,var(--attendance-green),var(--attendance-green-dark));color:#fff;box-shadow:0 6px 14px rgba(57,181,74,.22)}
+.btn-mark-present:hover,.btn-save-attendance:hover{transform:translateY(-1px);box-shadow:0 7px 16px rgba(26,70,45,.14)}
+.btn-mark-present:disabled,.btn-save-attendance:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+
+.attendance-table-wrap{overflow-x:auto;padding:0 20px}
+.attendance-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12.5px}
+.attendance-table thead{background:#f8f9fa}
+.attendance-table th{padding:13px 10px;text-align:left;color:#4a5560;font-size:11.5px;font-weight:700;border-bottom:1px solid var(--attendance-border)}
+.attendance-table td{padding:10px;border-bottom:1px solid #edf0f2;vertical-align:middle;color:#26384a}
+.attendance-table tbody tr:hover{background:#fbfdfb}
+.attendance-table th:nth-child(1){width:42px}.attendance-table th:nth-child(2){width:25%}.attendance-table th:nth-child(3){width:17%}.attendance-table th:nth-child(4){width:12%}.attendance-table th:nth-child(5){width:19%}.attendance-table th:nth-child(6){width:27%}
+.attendance-student{display:flex;align-items:center;gap:9px;min-width:0}
+.attendance-avatar{display:grid;place-items:center;flex:0 0 31px;height:31px;border-radius:50%;background:#e3f5e8;color:var(--attendance-green-dark);font-size:10px;font-weight:800}
+.attendance-student strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#172b3e;font-size:12.5px;text-transform:capitalize}
+.attendance-status{width:100%;min-width:115px;height:31px;padding:0 28px 0 12px;border-radius:8px;font-weight:700;font-size:12px;outline:none;cursor:pointer}
+.attendance-status.status-presente{border:1px solid #a8ddb4;background:#edf9ef;color:#168a2d}
+.attendance-status.status-tardanza{border:1px solid #f6d47a;background:#fff9e9;color:#c47d00}
+.attendance-status.status-ausente{border:1px solid #ff9fa4;background:#fff0f0;color:#e32631}
+.attendance-status.status-justificado{border:1px solid #9fc4f4;background:#eef5ff;color:#1762c1}
+.attendance-observation{width:100%;min-width:160px;height:32px;padding:0 10px;border:1px solid #e0e5e9;border-radius:8px;color:#34495e;outline:none;font-size:12px}
+.attendance-observation:focus{border-color:var(--attendance-green);box-shadow:0 0 0 2px rgba(57,181,74,.1)}
+.attendance-observation::placeholder{color:#a3abb3}
+.attendance-empty{height:190px!important;text-align:center!important;color:#7b8793!important;font-size:14px!important}
+.attendance-empty i{margin-right:7px;color:var(--attendance-green)}
+
+.attendance-pagination{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;padding:13px 20px 17px}
+.attendance-pagination p{color:var(--attendance-muted);font-size:12px}
+.attendance-pagination nav{display:flex;gap:6px}
+.attendance-pagination button{min-width:30px;height:30px;padding:0 8px;border:1px solid #e0e5e9;border-radius:7px;background:#fff;color:#33475a;cursor:pointer}
+.attendance-pagination button.active{border-color:var(--attendance-green-dark);background:var(--attendance-green-dark);color:#fff;font-weight:700}
+.attendance-pagination button:disabled{opacity:.4;cursor:default}
+.page-size{justify-self:end}.page-size select{width:126px;height:33px;padding:0 10px;font-size:12px}
+
+.attendance-summary{padding:21px 20px 18px}
+.attendance-donut{position:relative;display:grid;place-items:center;width:156px;height:156px;margin:18px auto 15px;border-radius:50%;background:#e8edf0}
+.attendance-donut::after{content:"";position:absolute;inset:19px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 1px #eef1f3}
+.attendance-donut>div{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;line-height:1}
+.attendance-donut small{font-size:11px}.attendance-donut strong{margin:3px 0;font-size:31px;color:#11283d}.attendance-donut span{color:#707b85;font-size:10px}
+.summary-statuses{display:grid;gap:9px}
+.summary-status{display:grid;grid-template-columns:32px 1fr auto 35px;align-items:center;gap:7px;min-height:48px;padding:7px 9px;border:1px solid #e6eaed;border-radius:9px;box-shadow:0 3px 8px rgba(20,40,60,.035)}
+.summary-status .summary-icon{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;font-size:13px}.summary-status strong{font-size:11.5px}.summary-status b{text-align:right;font-size:19px}.summary-status small{text-align:right;color:#56616b;font-size:10.5px}
+.status-present .summary-icon,.status-present b{color:var(--attendance-green-dark)}.status-present .summary-icon{background:#eaf8ee}
+.status-late .summary-icon,.status-late b{color:var(--attendance-orange)}.status-late .summary-icon{background:#fff7e0}
+.status-absent .summary-icon,.status-absent b{color:var(--attendance-red)}.status-absent .summary-icon{background:#fff0f1}
+.status-justified .summary-icon,.status-justified b{color:var(--attendance-blue)}.status-justified .summary-icon{background:#eef5ff}
+.summary-updated{display:flex;align-items:center;gap:11px;margin-top:17px;padding-top:16px;border-top:1px solid #e6eaed;color:#7b858e;font-size:10.5px}.summary-updated>i{font-size:17px}.summary-updated strong{font-weight:500}
+
+.attendance-legend{display:grid;grid-template-columns:150px repeat(4,1fr);align-items:center;gap:20px;margin-top:14px;padding:14px 20px}
+.attendance-legend h2{font-size:12px}.attendance-legend>div{display:flex;align-items:center;gap:9px}.legend-dot{display:grid;place-items:center;flex:0 0 24px;height:24px;border-radius:50%;font-size:10px}.attendance-legend p{display:flex;flex-direction:column;gap:2px}.attendance-legend strong{font-size:11px}.attendance-legend small{color:#84909a;font-size:9.5px}
+.legend-dot.present{color:var(--attendance-green-dark);background:#e4f6e8}.legend-dot.late{color:var(--attendance-orange);background:#fff4d7}.legend-dot.absent{color:var(--attendance-red);background:#ffe7e9}.legend-dot.justified{color:var(--attendance-blue);background:#e6f0ff}
+
+@media (max-width:1280px){
+    .attendance-filters{grid-template-columns:repeat(6,1fr)}
+    .field-role{grid-column:span 2}.field-ficha{grid-column:span 2}.field-date{grid-column:span 2}.field-journey{grid-column:span 2}.field-search{grid-column:span 4}
+    .attendance-layout{grid-template-columns:minmax(0,1fr) 260px}.attendance-card-header{align-items:flex-start;flex-direction:column}.attendance-actions{width:100%;justify-content:flex-start}
+}
+@media (max-width:1000px){
+    .attendance-layout{grid-template-columns:1fr}.attendance-summary{display:grid;grid-template-columns:1fr 180px 1.5fr;column-gap:18px}.attendance-summary>h2,.attendance-summary>p{grid-column:1}.attendance-donut{grid-column:2;grid-row:1/4}.summary-statuses{grid-column:3;grid-row:1/5}.summary-updated{grid-column:1;margin-top:12px}
+    .attendance-legend{grid-template-columns:repeat(2,1fr)}.attendance-legend h2{grid-column:1/-1}
+}
+@media (max-width:760px){
+    .attendance-main{padding:18px 14px}.attendance-heading{align-items:flex-start}.attendance-heading h1{font-size:24px}.attendance-heading p{font-size:14px}
+    .attendance-filters{grid-template-columns:1fr 1fr;gap:13px}.attendance-filters .attendance-field{grid-column:span 1}.attendance-filters .field-search{grid-column:1/-1}
+    .attendance-actions{display:grid;grid-template-columns:1fr}.btn-save-attendance{min-width:0}.attendance-card-header{padding:17px}
+    .attendance-table-wrap{padding:0}.attendance-table{min-width:820px}.attendance-pagination{grid-template-columns:1fr auto}.attendance-pagination nav{grid-column:1/-1;grid-row:2;justify-self:center}.page-size{grid-column:2}
+    .attendance-summary{display:block}.attendance-legend{grid-template-columns:1fr}
+}
+
+/*=========================================
+      COMPONENTES FUNCIONALES
+=========================================*/
+
+.student-list{
+    max-height:520px;
+    overflow-y:auto;
+    padding-right:5px;
+}
+
+button.student-card{
+    width:100%;
+    border:0;
+    background:transparent;
+    color:inherit;
+    text-align:left;
+    font:inherit;
+}
+
+.student-card strong,
+.student-card small{
+    display:block;
+}
+
+.student-card small{
+    margin-top:4px;
+    color:#777;
+}
+
+.attendance-badge{
+    min-width:82px;
+    padding:6px 9px;
+    border-radius:20px;
+    text-align:center;
+    font-size:11px;
+    font-weight:700;
+}
+
+.attendance-badge.presente{background:#eaf8ee;color:#218838}
+.attendance-badge.tarde{background:#fff8e2;color:#9a7000}
+.attendance-badge.ausente{background:#ffeaea;color:#c62828}
+.attendance-badge.justificado{background:#eaf4ff;color:#1769aa}
+
+.empty-state{
+    padding:25px 10px;
+    color:#777;
+    text-align:center;
+}
+
+.app-toast{
+    position:fixed;
+    right:24px;
+    bottom:24px;
+    z-index:3000;
+    max-width:380px;
+    padding:14px 18px;
+    border-radius:12px;
+    background:#173d2a;
+    color:#fff;
+    box-shadow:0 14px 35px rgba(0,0,0,.22);
+    opacity:0;
+    transform:translateY(18px);
+    pointer-events:none;
+    transition:.25s;
+}
+
+.app-toast[data-type="error"]{background:#a32929}
+
+.app-toast.show{
+    opacity:1;
+    transform:translateY(0);
+}
+
+.app-dialog-overlay{
+    position:fixed;
+    inset:0;
+    z-index:2500;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(0,24,38,.58);
+    backdrop-filter:blur(4px);
+}
+
+.app-dialog{
+    width:min(560px,100%);
+    max-height:90vh;
+    overflow:auto;
+    padding:24px;
+    border-radius:20px;
+    background:#fff;
+    box-shadow:0 25px 70px rgba(0,0,0,.28);
+}
+
+.app-dialog-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    margin-bottom:20px;
+}
+
+.app-dialog-header h2{color:#00304d}
+
+.dialog-close{
+    width:38px;
+    height:38px;
+    border:0;
+    border-radius:50%;
+    background:#f2f4f5;
+    color:#455a64;
+    cursor:pointer;
+    font-size:25px;
+}
+
+.dialog-form{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:16px;
+}
+
+.dialog-form label{
+    color:#40515c;
+    font-size:13px;
+    font-weight:600;
+}
+
+.dialog-form input,
+.dialog-form select{
+    width:100%;
+    margin-top:7px;
+    padding:12px;
+    border:1px solid #d7dde1;
+    border-radius:9px;
+    background:#fff;
+    color:#263238;
+    font:inherit;
+}
+
+.dialog-actions{
+    grid-column:1/-1;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:8px;
+}
+
+.dialog-cancel{background:#66737a}
+.dialog-content{color:#52616a;line-height:1.6}
+.email-service-summary{display:grid;gap:5px;margin-top:20px;min-height:48px}.email-service-summary strong{font-size:14px}.email-service-summary small{color:#6b7280;font-size:11px;line-height:1.4}.email-service-summary strong::before{content:"";display:inline-block;width:9px;height:9px;margin-right:8px;border-radius:50%;background:#94a3b8}.email-service-summary strong.is-ready::before{background:#22a447;box-shadow:0 0 0 4px rgba(34,164,71,.13)}.email-service-summary strong.is-warning::before{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.13)}.email-service-summary strong.is-error::before{background:#dc3545;box-shadow:0 0 0 4px rgba(220,53,69,.13)}
+.email-history-dialog{width:min(720px,94vw)}.email-delivery-history{display:grid;gap:10px;max-height:52vh;overflow:auto;padding-right:4px}.email-delivery-entry{display:grid;grid-template-columns:12px 1fr auto;align-items:center;gap:10px;padding:12px;border:1px solid #e3e8ed;border-radius:11px;background:#f8fafb}.email-delivery-dot{width:9px;height:9px;border-radius:50%;background:#dc3545}.email-delivery-entry.is-accepted .email-delivery-dot{background:#22a447}.email-delivery-entry strong,.email-delivery-entry small{display:block}.email-delivery-entry strong{color:#233248;font-size:12px}.email-delivery-entry small,.email-delivery-entry time{color:#728095;font-size:10px}.email-delivery-entry p{grid-column:2/4;margin:0;color:#a12b36;font-size:10.5px}.email-history-empty{padding:25px 10px;text-align:center;color:#718096}
+
+.academic-committee-dialog{width:min(520px,100%);border-top:6px solid #ef3e42}
+.academic-committee-dialog .app-dialog-header{margin-bottom:8px}
+.academic-committee-dialog .app-dialog-header h2{color:#a51f2b}
+.academic-committee-alert{text-align:center}
+.academic-alert-icon{
+    width:72px;
+    height:72px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:4px auto 14px;
+    border-radius:50%;
+    background:#ffeaeb;
+    color:#d92f3a;
+    font-size:31px;
+}
+.academic-alert-eyebrow{margin:0;color:#a51f2b;font-size:12px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
+.academic-alert-count{margin:6px 0 12px;color:#172d3d;font-size:21px}
+.academic-alert-count strong{color:#d92f3a;font-size:34px}
+.academic-committee-alert>p:last-of-type{max-width:410px;margin:0 auto;color:#52616a}
+.academic-alert-meta{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:9px;
+    margin-top:20px;
+    padding:12px;
+    border-radius:10px;
+    background:#fff4e5;
+    color:#8a5500;
+    font-size:13px;
+    font-weight:700;
+}
+
+.btn:disabled{
+    cursor:wait;
+    opacity:.65;
+}
+
+body.dark-mode{background:#101a20;color:#e5ecef}
+body.dark-mode .main{background:#101a20}
+body.dark-mode .header,
+body.dark-mode .card,
+body.dark-mode .table-container,
+body.dark-mode .form-container,
+body.dark-mode .student-panel,
+body.dark-mode .attendance-circle,
+body.dark-mode .status-card,
+body.dark-mode .app-dialog{background:#1b2931;color:#e5ecef}
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3,
+body.dark-mode h4,
+body.dark-mode .app-dialog-header h2{color:#f1f6f8}
+body.dark-mode .academic-alert-count{color:#fff}
+body.dark-mode .academic-committee-alert>p:last-of-type{color:#d7e0e4}
+body.dark-mode p,
+body.dark-mode small,
+body.dark-mode label{color:#bdc8ce}
+body.dark-mode table th{background:#253842}
+body.dark-mode table td{border-color:#324650;color:#e5ecef}
+body.dark-mode input,
+body.dark-mode select{background:#142229;color:#fff;border-color:#40535d}
+body.dark-mode button.student-card:hover{background:#243a31}
+body.dark-mode .dialog-close{background:#31434c;color:#fff}
+
+@media(max-width:1350px){
+    .asistencia-dashboard{grid-template-columns:minmax(300px,1fr) minmax(320px,1fr);align-items:start}
+    .status-panel{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr)}
+    .status-panel h2{grid-column:1/-1}
+    .attendance-circle{width:360px;height:360px}
+    .attendance-circle::before{width:295px;height:295px}
+    .attendance-circle::after{width:325px;height:325px}
+}
+
+@media(max-width:800px){
+    .asistencia-dashboard{grid-template-columns:1fr;gap:22px}
+    .circle-panel,.status-panel{grid-column:auto}
+    .status-panel{grid-template-columns:1fr 1fr}
+    .attendance-circle{width:290px;height:290px}
+    .attendance-circle::before{width:235px;height:235px;border-width:15px}
+    .attendance-circle::after{width:260px;height:260px;border-width:10px}
+    .attendance-circle h1{font-size:60px}
+    .dialog-form{grid-template-columns:1fr}
+}
+
+@media(max-width:520px){
+    .status-panel{grid-template-columns:1fr}
+    .app-toast{right:14px;bottom:14px;left:14px}
+}
