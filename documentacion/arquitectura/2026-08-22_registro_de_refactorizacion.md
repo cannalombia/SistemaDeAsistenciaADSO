@@ -17,6 +17,9 @@ posterior.
 - El comportamiento móvil quedó junto a la navegación que controla.
 - Programas y gestión de usuarios dejaron de compartir un único archivo con el
   resto de las pantallas.
+- El CRUD de usuarios quedó en `script.js`. Sus comandos principales tienen
+  comentarios `//` para que puedan explicarse como evidencia del trabajo de
+  clase sin perder la conexión real con el servidor.
 - Los datos visuales de muestra quedaron en un archivo identificado y reducido.
 - La hoja general de 2.635 líneas quedó distribuida en cinco archivos temáticos,
   conservando el mismo orden de carga.

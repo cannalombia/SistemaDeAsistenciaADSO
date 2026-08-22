@@ -67,7 +67,7 @@ for (const file of htmlFiles) {
     }
 }
 
-for (const file of ["navegacion.js", "datos_demostracion.js", "autenticacion.js", "aplicacion.js", "asistencia.js", "estadisticas.js", "programas.js", "usuarios.js"]) {
+for (const file of ["navegacion.js", "datos_demostracion.js", "autenticacion.js", "aplicacion.js", "asistencia.js", "estadisticas.js", "programas.js", "script.js"]) {
     try {
         new vm.Script(fs.readFileSync(path.join(scriptsRoot, file), "utf8"), { filename: file });
     } catch (error) {
@@ -81,11 +81,12 @@ try {
 }
 
 const login = fs.readFileSync(path.join(root, "login.html"), "utf8");
-const appSource = ["aplicacion.js", "asistencia.js", "estadisticas.js", "programas.js", "usuarios.js"]
+const appSource = ["aplicacion.js", "asistencia.js", "estadisticas.js", "programas.js", "script.js"]
     .map((file) => fs.readFileSync(path.join(scriptsRoot, file), "utf8"))
     .join("\n");
 const authSource = fs.readFileSync(path.join(scriptsRoot, "autenticacion.js"), "utf8");
 const navigationSource = fs.readFileSync(path.join(scriptsRoot, "navegacion.js"), "utf8");
+const crudSource = fs.readFileSync(path.join(scriptsRoot, "script.js"), "utf8");
 const operationalApprentices = path.join(projectRoot, "datos", "aprendices.json");
 const sampleApprentices = path.join(projectRoot, "datos", "ejemplos", "aprendices.ejemplo.json");
 const operationalUsers = path.join(projectRoot, "datos", "importaciones", "usuarios_activos.csv");
@@ -154,7 +155,7 @@ check(!statisticsPage.includes("dashboard-help"), "estadisticas.html: no debe mo
 check(!fs.readFileSync(path.join(root, "asistencia.html"), "utf8").includes("attendance-help"), "asistencia.html: no debe mostrar la opción Ayuda");
 check(fs.existsSync(path.join(scriptsRoot, "aplicacion.js")), "Falta el archivo funcional aplicacion.js");
 check(fs.readFileSync(path.join(root, "programa_formacion.html"), "utf8").includes('src="programas.js"'), "programa_formacion.html: falta su módulo de pantalla");
-check(fs.readFileSync(path.join(root, "crear_usuario.html"), "utf8").includes('src="usuarios.js"'), "crear_usuario.html: falta su módulo de pantalla");
+check(fs.readFileSync(path.join(root, "crear_usuario.html"), "utf8").includes('src="script.js"'), "crear_usuario.html: falta cargar script.js");
 check(fs.existsSync(path.join(automationRoot, "asegurar_servidor.ps1")) && fs.existsSync(path.join(automationRoot, "vigilante_servidor.ps1")) && fs.existsSync(path.join(automationRoot, "instalar_inicio_automatico.ps1")), "Faltan los scripts de recuperación automática del servidor");
 check(navigationSource.includes("function configurarMenuAdaptable"), "navegacion.js: falta el menú adaptable para los roles");
 check(appSource.includes("academic-committee-dialog") && appSource.includes("fallas sin justificación"), "script.js: falta la alerta académica del aprendiz");
@@ -162,6 +163,16 @@ check(appSource.includes('fetch("/api/users"') && appSource.includes("playUserSa
 check(!statisticsPage.includes("Tendencia de asistencia general") && !statisticsPage.includes("Acciones rápidas"), "estadisticas.html: debe ocultar tendencia general y acciones rápidas");
 check(!fs.readFileSync(path.join(root, "crear_usuario.html"), "utf8").includes("Probar sonido"), "crear_usuario.html: el sonido interno no debe mostrarse como botón de prueba");
 check(appSource.includes('data-user-action="edit"') && appSource.includes('data-user-action="status"') && appSource.includes('data-user-action="delete"'), "script.js: faltan acciones reales para modificar, activar, desactivar o eliminar usuarios");
+const classroomCommands = [
+    "document.getElementById(", "document.querySelector(", ".selectedIndex", ".checked", ".value", ".trim()", ".toUpperCase()",
+    ".innerHTML", ".textContent", ".push(", ".find(", ".map(", ".join(", ".reduce(", ".splice(",
+    "Math.random()", "Math.floor(", "Math.round(", "Math.min(", "Math.max(", "setInterval(", "clearInterval(",
+    "new Date()", ".toLocaleString(", "window.AudioContext", "window.webkitAudioContext", ".createOscillator(",
+    ".createGain(", ".connect(", ".start(", ".stop(", "setTimeout(", "alert(",
+    "reproducirSonidoDinero.play(", "reproducirSonidoDinero.currentTime", "function calcular()", "switch ("
+];
+classroomCommands.forEach((command) => check(crudSource.includes(command), `script.js: falta evidenciar ${command}`));
+check(crudSource.includes("// ") && crudSource.includes("CRUD"), "script.js: faltan comentarios // que expliquen el código del CRUD");
 check(fs.readFileSync(serverFile, "utf8").includes('pathname === "/api/users/import"'), "servidor.js: falta la importación CSV de usuarios");
 check(appSource.includes("/api/programs") && appSource.includes("downloadProgramCsv"), "script.js: programas no consulta la API real o no exporta los resultados filtrados");
 check(!appSource.includes('loadData("programs")'), "script.js: programas no debe volver a la lista simulada de localStorage");
@@ -198,7 +209,7 @@ async function smokeTest() {
             "asistencia.js",
             "estadisticas.js",
             "programas.js",
-            "usuarios.js",
+            "script.js",
             "estilos_generales.css",
             "estilos_acceso.css",
             "base.css",

@@ -59,6 +59,9 @@ ARCHIVOS PRINCIPALES
 - aplicacion/recursos/scripts/navegacion.js
   Unica fuente del menu lateral para administrador y aprendiz.
 
+- aplicacion/recursos/scripts/script.js
+  CRUD de usuarios y evidencia comentada de los comandos vistos en clase.
+
 - datos/importaciones/usuarios_activos.csv
   Fuente activa de usuarios. Su nombre permanece estable porque el sistema la actualiza.
 

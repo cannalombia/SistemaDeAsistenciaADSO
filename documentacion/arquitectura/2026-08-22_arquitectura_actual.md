@@ -29,8 +29,10 @@ trabajo todavía conviene hacer.
   identificados como tales. No se confunden con registros reales.
 - `aplicacion/recursos/scripts/asistencia.js` y `estadisticas.js`: lógica
   específica de esas pantallas.
-- `aplicacion/recursos/scripts/programas.js` y `usuarios.js`: formularios,
-  filtros y operaciones propias de cada directorio.
+- `aplicacion/recursos/scripts/programas.js`: filtros y operaciones del
+  directorio de programas.
+- `aplicacion/recursos/scripts/script.js`: CRUD real de usuarios, acompañado de
+  comentarios que explican los comandos trabajados en clase.
 - `aplicacion/recursos/estilos/estilos_generales.css`: punto de entrada de los
   estilos. Importa archivos más pequeños sin alterar el orden de la cascada.
 

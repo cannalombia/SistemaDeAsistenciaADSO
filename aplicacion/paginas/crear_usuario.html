@@ -148,12 +148,30 @@
 
         </div>
 
+        <div class="crud-learning-row">
+            <label>
+                <input id="confirmar-datos" type="checkbox">
+                Confirmo que revisé los datos
+            </label>
+            <div>
+                <strong id="progreso-formulario">Formulario 0% completo</strong>
+                <time id="reloj-crud">Cargando hora...</time>
+            </div>
+        </div>
+
         <div class="user-form-actions">
         <p><i class="fas fa-envelope-circle-check"></i> Al iniciar sesión, el código de acceso llegará al correo registrado.</p>
         <button type="submit" class="btn user-submit-button">
             <i class="fas fa-save"></i>
             Guardar Usuario
         </button>
+        </div>
+
+        <div class="crud-session-log">
+            <strong>Operaciones CRUD de esta sesión</strong>
+            <ul id="historial-crud" data-max-items="6">
+                <li>Todavía no hay operaciones registradas.</li>
+            </ul>
         </div>
 
     </form>
@@ -168,7 +186,8 @@
 <script src="autenticacion.js"></script>
 <script src="datos_demostracion.js"></script>
 <script src="aplicacion.js"></script>
-<script src="usuarios.js"></script>
+<audio id="reproducirSonidoDinero" preload="auto" aria-hidden="true"></audio>
+<script src="script.js"></script>
 
 </body>
 </html>
