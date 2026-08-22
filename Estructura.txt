@@ -1,111 +1,68 @@
-SISTEMA DE ASISTENCIA SENA - INDICE DEL PROYECTO
+SISTEMA DE ASISTENCIA SENA - MAPA DEL PROYECTO
 Actualizado: 2026-08-22
 
-RAIZ
-|-- aplicacion/                 Interfaz que se abre en el navegador
-|   |-- paginas/                Paginas HTML del sistema
-|   `-- recursos/
-|       |-- estilos/            CSS separado por areas de la interfaz
-|       |-- imagenes/           Logos e imagenes de la interfaz
-|       `-- scripts/            Navegacion, acceso y funciones de las paginas
-|
-|-- base_datos/                 Estructura SQL de referencia
-|-- datos/                      Informacion operativa y persistente
-|   |-- ejemplos/               Datos anonimos para una instalacion nueva
-|   `-- importaciones/          CSV y archivos fuente de usuarios/asistencia
-|-- documentacion/
-|   |-- arquitectura/           Decisiones, flujo de calidad y cambios realizados
-|   |-- diseno/                 Referencias visuales con fecha
-|   |-- guias/                  Manuales de configuracion con fecha
-|   `-- horarios/               Horarios PDF organizados por fecha
-|-- herramientas/
-|   `-- automatizacion/         Inicio, vigilancia y recuperacion del servidor
-|-- pruebas/                    Verificacion automatica del proyecto
-|-- respaldos/
-|   `-- 2026/08/diseno/         Versiones anteriores, ordenadas por ano y mes
-|-- servidor/                   API y composicion de la aplicacion
-|   |-- configuracion/          Rutas y valores estructurales
-|   |-- dominio/                Reglas de programas, usuarios y estadisticas
-|   `-- modulos/                Correo, persistencia y utilidades compartidas
-|
-|-- ABRIR_PROYECTO.cmd         Acceso directo para iniciar y abrir el sistema
-|-- .env                       Configuracion privada local (no se sube a Git)
-|-- .env.example               Plantilla segura de configuracion
-|-- .gitignore                 Exclusiones de seguridad para Git
-|-- .vscode/                   Inicio y tareas preparadas para Visual Studio Code
-|-- index.html                 Entrada visible para abrir el proyecto
-|-- package.json               Comandos y dependencias del proyecto
-|-- package-lock.json          Versiones exactas de dependencias
-|-- README.md                  Instrucciones principales
-`-- Estructura.txt             Este indice
+PARA EMPEZAR
 
-ARCHIVOS PRINCIPALES
+- ABRIR_PROYECTO.cmd inicia el servidor y abre la pantalla de ingreso.
+- index.html muestra una entrada sencilla para abrir el proyecto.
+- README.md explica la instalación, el correo y las pruebas.
 
-- ABRIR_PROYECTO.cmd
-  Opcion recomendada en Windows. Inicia el servidor y abre el navegador.
+CARPETAS PRINCIPALES
 
-- index.html
-  Punto de entrada visible en la carpeta raiz. Abre la pantalla de acceso.
+aplicacion/
+  paginas/                 Pantallas HTML que se abren en el navegador.
+  recursos/
+    estilos/               Diseño visual de las pantallas.
+    imagenes/              Logo e imágenes utilizadas por la interfaz.
+    scripts/               Comportamiento de cada pantalla.
+
+base_datos/
+  estructura_sistema_asistencia.sql
+                           Estructura SQL de referencia.
+
+datos/
+  ejemplos/                Información anónima para una instalación nueva.
+  importaciones/           Archivos operativos locales; no se publican.
+
+documentacion/
+  arquitectura/            Decisiones técnicas y forma de trabajo.
+  diseno/                  Referencias visuales del proyecto.
+  guias/                   Ayuda para configurar servicios como el correo.
+
+herramientas/
+  automatizacion/          Inicio, vigilancia y recuperación del servidor.
+
+pruebas/                   Recorridos automáticos del sistema.
+
+servidor/
+  configuracion/           Rutas físicas y opciones del proyecto.
+  dominio/                 Reglas de usuarios, programas y estadísticas.
+  modulos/                 Correo, persistencia y utilidades compartidas.
+  rutas/                   Acceso, usuarios, formación y estado del sistema.
+  servidor.js              Une los módulos y mantiene el servidor activo.
+
+ARCHIVOS QUE SE USAN CON MÁS FRECUENCIA
 
 - aplicacion/paginas/login.html
-  Pantalla de acceso. En el navegador conserva la direccion /login.html.
-
-- servidor/servidor.js
-  Servidor Node.js, autenticacion, permisos y rutas de la API.
-
-- servidor/modulos/correo.js
-  Cola, reintentos, proveedores y plantilla del codigo de acceso.
-
-- aplicacion/recursos/scripts/navegacion.js
-  Unica fuente del menu lateral para administrador y aprendiz.
+  Pantalla de acceso para personal y aprendices.
 
 - aplicacion/recursos/scripts/script.js
-  CRUD de usuarios y evidencia comentada de los comandos vistos en clase.
+  Gestión real de usuarios: consulta, creación, edición, estado y eliminación.
 
-- datos/importaciones/usuarios_activos.csv
-  Fuente activa de usuarios. Su nombre permanece estable porque el sistema la actualiza.
-
-- herramientas/automatizacion/asegurar_servidor.ps1
-  Comprueba el servidor y lo inicia cuando sea necesario.
-
-- herramientas/automatizacion/vigilante_servidor.ps1
-  Mantiene la aplicacion disponible en segundo plano.
+- servidor/restablecer_administrador.js
+  Permite crear una contraseña administrativa nueva desde una terminal.
 
 - pruebas/prueba_proyecto.js
-  Recorridos de integracion de paginas, permisos y API.
+  Comprueba acceso, correo, programas y operaciones reales de usuarios.
 
-- pruebas/prueba_modulos.js
-  Pruebas rapidas de reglas, CSV y utilidades.
+COMANDOS
 
-COMANDOS DE TRABAJO
-
-- Iniciar:                   npm.cmd start
-- Comprobar estado:          npm.cmd run status
-- Instalar inicio automatico: npm.cmd run install:autostart
-- Ejecutar pruebas:          npm.cmd test
-- Solo pruebas unitarias:    npm.cmd run test:unit
-- Solo integracion:          npm.cmd run test:integration
-- Restablecer administrador: npm.cmd run reset:admin
-
-CRITERIO DE FECHAS
-
-Los documentos, horarios, archivos originales y respaldos llevan la fecha
-YYYY-MM-DD. Los archivos activos de codigo y datos conservan nombres estables
-para no romper enlaces, comandos ni automatizaciones.
-
-DUPLICADOS Y TEMPORALES
-
-No se elimino ningun archivo. El archivo
-datos/importaciones/2026-08-07_usuarios_originales.xlsx se conservo como fuente
-original y los disenos anteriores permanecen en respaldos/2026/08/diseno.
-Los archivos temporales y registros *.log se mantienen fuera de Git mediante
-.gitignore.
-
-Los datos operativos, documentos originales y respaldos siguen en este
-computador, pero no se publican en Git. Una copia nueva comienza con los datos
-anonimos guardados en datos/ejemplos.
+- Iniciar el proyecto:            npm.cmd start
+- Comprobar el servidor:          npm.cmd run status
+- Ejecutar todas las pruebas:     npm.cmd test
+- Cambiar la clave administrativa: npm.cmd run reset:admin
 
 SEGURIDAD
 
-Este indice no contiene usuarios, contrasenas ni claves de correo. La clave del
-administrador se restablece desde la terminal con npm.cmd run reset:admin.
+Las cuentas y contraseñas no se escriben en este índice. La configuración
+privada permanece en .env y en los archivos locales excluidos por Git.

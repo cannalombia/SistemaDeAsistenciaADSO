@@ -1,70 +1,37 @@
-# Flujo de trabajo para mejorar el proyecto
+# Forma de trabajo para los próximos cambios
 
-Este es el orden de trabajo que se seguirá en cada mejora. La idea es que una
-pantalla bonita no tape problemas de datos, seguridad o mantenimiento.
+La intención de esta guía es sencilla: poder corregir una pantalla sin romper
+otra. No hace falta llenar documentos largos; basta con dejar claro qué se va a
+tocar y cómo se comprobó.
 
-## 1. Entender el cambio
+## Antes de programar
 
-- Escribir qué necesita la persona y qué queda fuera.
-- Identificar las páginas, rutas, datos y roles afectados.
-- Guardar una captura o un ejemplo cuando el cambio sea visual.
+- Explicar el problema en dos o tres frases.
+- Revisar la pantalla, la ruta y el archivo donde se guardan sus datos.
+- Confirmar si hay información privada o envío de correos involucrado.
 
-La tarea no empieza a programarse hasta que se pueda explicar en dos o tres
-frases sencillas.
+## Mientras se hace el cambio
 
-## 2. Revisar el código existente
+- Aprovechar una función existente antes de copiarla.
+- Usar nombres que indiquen para qué sirve cada dato.
+- Comentar decisiones o excepciones, no instrucciones obvias de JavaScript.
+- Mantener los datos de demostración separados de los registros reales.
+- Probar un cambio pequeño antes de continuar con el siguiente.
 
-- Buscar una función o componente que ya resuelva algo parecido.
-- Revisar nombres, dependencias y pruebas relacionadas.
-- Confirmar si el cambio toca información privada o envío de correos.
+## Antes de terminar
 
-Si aparece código duplicado, primero se decide cuál será la única fuente y
-después se modifica la interfaz.
+1. Ejecutar `npm.cmd run test:unit`.
+2. Ejecutar `npm.cmd run test:integration`.
+3. Recorrer manualmente la pantalla modificada.
+4. Revisar que no queden claves, correos privados ni archivos temporales.
+5. Actualizar la documentación que haya dejado de ser cierta.
 
-## 3. Hacer un cambio pequeño
+Las pruebas deben comprobar resultados: que un usuario se cree, se modifique o
+se elimine. Buscar solamente el nombre de un comando dentro de un archivo no
+demuestra que la función esté trabajando.
 
-- Separar reglas del negocio, acceso a datos e interfaz.
-- Usar nombres que describan la intención, no nombres genéricos como `data2`,
-  `tempFinal` o `handleThing`.
-- Evitar comentarios que repitan literalmente lo que hace la siguiente línea.
-- No inventar datos de producción. Las muestras deben estar etiquetadas.
+## Historial
 
-Cada paso debe dejar el sistema en un estado que todavía se pueda probar.
-
-## 4. Comprobarlo
-
-- Ejecutar `npm.cmd run test:unit` para reglas y utilidades.
-- Ejecutar `npm.cmd run test:integration` para páginas, permisos y API.
-- Probar manualmente el recorrido modificado desde el navegador.
-- Revisar consola, respuesta de red y mensajes visibles.
-
-Un cambio no se da por terminado solo porque “se ve bien”. También debe fallar
-de forma entendible cuando el dato sea incorrecto o el servicio externo no esté
-disponible.
-
-## 5. Revisar como mantenedor
-
-Antes de cerrar la tarea se responde:
-
-- ¿El nombre del archivo permite adivinar qué contiene?
-- ¿Quedó la misma regla copiada en más de un lugar?
-- ¿Hay una contraseña, correo privado o código temporal dentro del repositorio?
-- ¿La función es demasiado larga para entenderla sin desplazarse varias veces?
-- ¿La prueba verifica comportamiento o solo busca una palabra?
-- ¿La documentación sigue diciendo la verdad después del cambio?
-
-## 6. Dejar rastro
-
-- Actualizar la prueba que protege el comportamiento.
-- Anotar una decisión cuando haya una alternativa razonable.
-- Usar un mensaje de Git que cuente el cambio, por ejemplo:
-  `refactor: separar el servicio de correo`.
-
-No se fabrican fechas, autores ni una secuencia falsa de commits. El historial
-debe mostrar el trabajo real a partir de este punto.
-
-## Criterio de salida
-
-Una tarea está lista cuando pasa las pruebas, funciona en el recorrido manual,
-no expone información privada, tiene nombres comprensibles y deja explícito
-cualquier límite que no se haya resuelto.
+Cada cambio nuevo se guarda con una descripción corta y real. No se inventan
+fechas, autores ni modificaciones anteriores. Si queda una limitación, se anota
+en lugar de presentarla como resuelta.

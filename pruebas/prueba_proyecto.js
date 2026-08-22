@@ -12,9 +12,15 @@ const stylesRoot = path.join(projectRoot, "aplicacion", "recursos", "estilos");
 const imagesRoot = path.join(projectRoot, "aplicacion", "recursos", "imagenes");
 const serverFile = path.join(projectRoot, "servidor", "servidor.js");
 const emailModuleFile = path.join(projectRoot, "servidor", "modulos", "correo.js");
+const apiRoutesRoot = path.join(projectRoot, "servidor", "rutas");
 const automationRoot = path.join(projectRoot, "herramientas", "automatizacion");
 const htmlFiles = fs.readdirSync(root).filter((name) => name.endsWith(".html")).sort();
 const failures = [];
+
+for (const publicDocument of ["README.md", "Estructura.txt"]) {
+    const content = fs.readFileSync(path.join(projectRoot, publicDocument), "utf8");
+    check(!/^(?:usuario|clave|contraseña)\s*:\s*\S+/im.test(content), `${publicDocument}: contiene una credencial escrita en texto visible`);
+}
 
 function publicFile(file) {
     const directories = {
@@ -159,24 +165,17 @@ check(fs.readFileSync(path.join(root, "crear_usuario.html"), "utf8").includes('s
 check(fs.existsSync(path.join(automationRoot, "asegurar_servidor.ps1")) && fs.existsSync(path.join(automationRoot, "vigilante_servidor.ps1")) && fs.existsSync(path.join(automationRoot, "instalar_inicio_automatico.ps1")), "Faltan los scripts de recuperación automática del servidor");
 check(navigationSource.includes("function configurarMenuAdaptable"), "navegacion.js: falta el menú adaptable para los roles");
 check(appSource.includes("academic-committee-dialog") && appSource.includes("fallas sin justificación"), "script.js: falta la alerta académica del aprendiz");
-check(appSource.includes('fetch("/api/users"') && appSource.includes("playUserSavedSound"), "script.js: la gestión de usuarios no consulta datos reales o no reproduce la confirmación al guardar");
+check(crudSource.includes('fetch("/api/users"'), "script.js: la creación de usuarios no consulta la API real");
 check(!statisticsPage.includes("Tendencia de asistencia general") && !statisticsPage.includes("Acciones rápidas"), "estadisticas.html: debe ocultar tendencia general y acciones rápidas");
-check(!fs.readFileSync(path.join(root, "crear_usuario.html"), "utf8").includes("Probar sonido"), "crear_usuario.html: el sonido interno no debe mostrarse como botón de prueba");
+const createUserPage = fs.readFileSync(path.join(root, "crear_usuario.html"), "utf8");
+check(!/reloj-crud|historial-crud|reproducirSonidoDinero|crud-learning-row/.test(createUserPage), "crear_usuario.html: conserva elementos de demostración que no pertenecen al CRUD");
+check(!/AudioContext|playUserSavedSound|registerCrudActivity/.test(crudSource), "script.js: conserva sonidos o historiales artificiales sin relación con la gestión de usuarios");
 check(appSource.includes('data-user-action="edit"') && appSource.includes('data-user-action="status"') && appSource.includes('data-user-action="delete"'), "script.js: faltan acciones reales para modificar, activar, desactivar o eliminar usuarios");
-const classroomCommands = [
-    "document.getElementById(", "document.querySelector(", ".selectedIndex", ".checked", ".value", ".trim()", ".toUpperCase()",
-    ".innerHTML", ".textContent", ".push(", ".find(", ".map(", ".join(", ".reduce(", ".splice(",
-    "Math.random()", "Math.floor(", "Math.round(", "Math.min(", "Math.max(", "setInterval(", "clearInterval(",
-    "new Date()", ".toLocaleString(", "window.AudioContext", "window.webkitAudioContext", ".createOscillator(",
-    ".createGain(", ".connect(", ".start(", ".stop(", "setTimeout(", "alert(",
-    "reproducirSonidoDinero.play(", "reproducirSonidoDinero.currentTime", "function calcular()", "switch ("
-];
-classroomCommands.forEach((command) => check(crudSource.includes(command), `script.js: falta evidenciar ${command}`));
-check(crudSource.includes("// ") && crudSource.includes("CRUD"), "script.js: faltan comentarios // que expliquen el código del CRUD");
-check(fs.readFileSync(serverFile, "utf8").includes('pathname === "/api/users/import"'), "servidor.js: falta la importación CSV de usuarios");
+for (const routeFile of ["acceso.js", "usuarios.js", "formacion.js", "sistema.js", "index.js"]) {
+    check(fs.existsSync(path.join(apiRoutesRoot, routeFile)), `Servidor: falta el grupo de rutas ${routeFile}`);
+}
 check(appSource.includes("/api/programs") && appSource.includes("downloadProgramCsv"), "script.js: programas no consulta la API real o no exporta los resultados filtrados");
 check(!appSource.includes('loadData("programs")'), "script.js: programas no debe volver a la lista simulada de localStorage");
-check(fs.readFileSync(serverFile, "utf8").includes('pathname === "/api/programs"'), "servidor.js: falta la API persistente de programas");
 check(fs.readFileSync(serverFile, "utf8").includes("pendingCodeRequests") && fs.readFileSync(serverFile, "utf8").includes("emailService.enqueueVerificationCode"), "servidor.js: falta protección contra envíos duplicados o saturación del correo");
 check(fs.existsSync(emailModuleFile) && fs.readFileSync(emailModuleFile, "utf8").includes("deliveryTail"), "correo.js: falta la cola independiente de entrega");
 check(navigationSource.includes('className = "sidebar-overlay"'), "navegacion.js: falta cerrar el menú móvil desde el fondo");

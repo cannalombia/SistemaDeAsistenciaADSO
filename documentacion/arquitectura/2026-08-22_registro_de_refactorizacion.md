@@ -45,3 +45,16 @@ conexiones entre archivos que beneficio real.
 
 El comando `npm.cmd test` ejecuta primero las pruebas de módulos y después las
 pruebas de integración. Ambas deben pasar antes de aceptar nuevos cambios.
+
+## Limpieza posterior
+
+Al volver a revisar el CRUD se encontraron elementos que no ayudaban a gestionar
+usuarios: un reloj, un historial temporal y sonidos creados únicamente para
+mostrar métodos de JavaScript. Se retiraron sin cambiar las operaciones reales.
+
+Las pruebas dejaron de exigir una lista de palabras dentro de `script.js`. Los
+recorridos de la API ya crean, consultan, actualizan, desactivan, importan y
+eliminan usuarios, por lo que esos resultados son ahora la evidencia principal.
+
+Las rutas HTTP se agruparon en `servidor/rutas` y se eliminó del índice local la
+credencial que se había escrito allí por error.

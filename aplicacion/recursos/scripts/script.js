@@ -2,7 +2,6 @@
 (function () {
     "use strict";
 
-    // .split(), .map(), .join() y .toUpperCase() forman las iniciales del usuario.
     const { escapeHtml, showToast, openDialog } = window.SenaInterfaz;
 
     function initials(name) {
@@ -10,14 +9,12 @@
     }
 
     function setupCreateUser() {
-        // document.getElementById() obtiene un elemento usando su id único.
         const form = document.getElementById("create-user-form");
         if (!form) return;
         const directoryBody = document.getElementById("user-directory-body");
         const directoryTitle = document.getElementById("user-directory-title");
         const directorySummary = document.getElementById("user-directory-summary");
         const directorySearch = document.getElementById("user-directory-search");
-        // document.querySelector() obtiene el primer elemento que coincide con un selector CSS.
         const fichaField = document.querySelector('[data-user-field="ficha"]');
         const fichaLabel = document.querySelector("[data-user-ficha-label]");
         const fichaSelect = form.elements.ficha;
@@ -29,114 +26,9 @@
         const importFileName = document.getElementById("user-csv-file-name");
         const importButton = document.getElementById("user-csv-import-button");
         const importResult = document.getElementById("user-import-result");
-        const confirmation = document.getElementById("confirmar-datos");
-        const formProgress = document.getElementById("progreso-formulario");
-        const crudClock = document.getElementById("reloj-crud");
-        const crudHistoryList = document.getElementById("historial-crud");
-        const reproducirSonidoDinero = document.getElementById("reproducirSonidoDinero");
-        const state = { users: [], summary: {}, fichas: [], filter: "all", audioContext: null, csvFile: null };
-        const crudHistory = [];
-        let clockInterval = null;
+        const state = { users: [], summary: {}, fichas: [], filter: "all", csvFile: null };
 
-        // Esta fuente mínima permite ejecutar .play(); las notas audibles se crean con AudioContext.
-        reproducirSonidoDinero.src = "data:audio/wav;base64,UklGRiUAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQEAAACA";
-
-        // calcular() revisa el formulario y muestra el porcentaje completado.
-        function calcular() {
-            // .selectedIndex obtiene la posición seleccionada dentro del <select> de roles.
-            let selectedRoleIndex = roleSelect.selectedIndex;
-            let requiresFicha = false;
-
-            // switch ejecuta una opción diferente según el índice del rol.
-            switch (selectedRoleIndex) {
-                case 2:
-                    requiresFicha = true;
-                    break;
-                case 0:
-                case 1:
-                case 3:
-                default:
-                    requiresFicha = false;
-                    break;
-            }
-
-            // .value lee los campos y .trim() quita espacios al inicio y al final.
-            let values = [
-                form.elements.identificacion.value.trim(),
-                form.elements.nombre.value.trim(),
-                form.elements.correo.value.trim(),
-                roleSelect.value.trim(),
-                statusSelect.value.trim()
-            ];
-
-            // if, && y != comprueban si el aprendiz necesita una ficha seleccionada.
-            if (requiresFicha && roleSelect.value.trim() != "") values.push(fichaSelect.value.trim());
-
-            // .reduce() suma los campos completos; .checked consulta el checkbox.
-            // El operador ternario ? : elige 1 cuando está marcado y 0 cuando no lo está.
-            let completed = values.reduce((total, value) => total + (value ? 1 : 0), 0);
-            let confirmed = confirmation.checked ? 1 : 0;
-
-            // Math.round(), Math.min() y Math.max() mantienen el resultado entre 0 y 100.
-            let result = Math.round((completed + confirmed) / (values.length + 1) * 100);
-            result = Math.max(0, Math.min(100, result));
-
-            // if / else y .textContent muestran un mensaje según el avance.
-            if (result <= 35) formProgress.textContent = `Formulario ${result}% completo · faltan datos`;
-            else if (result < 100) formProgress.textContent = `Formulario ${result}% completo · continúa revisando`;
-            else formProgress.textContent = "Formulario 100% completo · listo para guardar";
-            return result;
-        }
-
-        // Se deja calcular disponible para practicarla desde la consola del navegador.
-        window.calcular = calcular;
-
-        function renderCrudHistory() {
-            // .reduce() cuenta las operaciones; .map() y .join() construyen la lista HTML.
-            const totalOperations = crudHistory.reduce((total, item) => total + (item ? 1 : 0), 0);
-            crudHistoryList.innerHTML = crudHistory.map((item) => `
-                <li>
-                    <span>${escapeHtml(item.action)}</span>
-                    <strong>${escapeHtml(item.user)}</strong>
-                    <time>${escapeHtml(item.date)}</time>
-                </li>`).join("") || "<li>Todavía no hay operaciones registradas.</li>";
-            crudHistoryList.setAttribute("aria-label", `${totalOperations} operaciones registradas`);
-        }
-
-        function registerCrudActivity(action, user) {
-            const maximum = Math.max(3, Math.min(10, Number(crudHistoryList.dataset.maxItems) || 6));
-
-            // Math.random() y Math.floor() crean un identificador sencillo para el historial.
-            // .push() agrega la operación al arreglo y new Date() registra la fecha actual.
-            crudHistory.push({
-                id: Math.floor(Math.random() * 1000000),
-                action: String(action || "LEER").trim().toUpperCase(),
-                user: String(user || "Directorio de usuarios").trim(),
-                date: new Date().toLocaleString("es-CO")
-            });
-
-            // .splice() borra las operaciones más antiguas cuando se supera el límite.
-            if (crudHistory.length > maximum) crudHistory.splice(0, crudHistory.length - maximum);
-            renderCrudHistory();
-
-            // setTimeout() retira el resaltado después de un momento.
-            const newest = crudHistoryList.querySelector("li:last-child");
-            newest?.classList.add("recent");
-            setTimeout(() => newest?.classList.remove("recent"), 900);
-        }
-
-        function updateClock() {
-            // new Date() y .toLocaleString() muestran la fecha y hora local.
-            crudClock.textContent = new Date().toLocaleString("es-CO");
-        }
-
-        function playAudioElement() {
-            // .currentTime reinicia el audio y .play() lo reproduce desde el comienzo.
-            reproducirSonidoDinero.currentTime = 0;
-            reproducirSonidoDinero.play().catch(() => {});
-        }
-
-        // async/await y fetch() permiten que el CRUD guarde realmente en el servidor.
+        // Todas las operaciones pasan por la misma API para mantener la tabla y el CSV sincronizados.
         const requestUsers = async (path = "", options = {}) => {
             const response = await fetch(`/api/users${path}`, {
                 credentials: "same-origin",
@@ -151,34 +43,6 @@
                 throw error;
             }
             return data;
-        };
-
-        // window.AudioContext / webkitAudioContext preparan el sonido de confirmación.
-        const prepareUserSavedSound = async () => {
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContextClass) return null;
-            state.audioContext ||= new AudioContextClass();
-            if (state.audioContext.state === "suspended") await state.audioContext.resume();
-            return state.audioContext.state === "running" ? state.audioContext : null;
-        };
-
-        const playUserSavedSound = async () => {
-            const audioContext = await prepareUserSavedSound();
-            if (!audioContext) return;
-            const start = audioContext.currentTime;
-            [659.25, 783.99].forEach((frequency, index) => {
-                // createOscillator(), createGain(), connect(), start() y stop() producen dos notas.
-                const oscillator = audioContext.createOscillator();
-                const gain = audioContext.createGain();
-                oscillator.type = "sine";
-                oscillator.frequency.value = frequency;
-                gain.gain.setValueAtTime(0.0001, start + index * 0.12);
-                gain.gain.exponentialRampToValueAtTime(0.12, start + index * 0.12 + 0.025);
-                gain.gain.exponentialRampToValueAtTime(0.0001, start + index * 0.12 + 0.22);
-                oscillator.connect(gain).connect(audioContext.destination);
-                oscillator.start(start + index * 0.12);
-                oscillator.stop(start + index * 0.12 + 0.23);
-            });
         };
 
         const roleClass = (role) => String(role || "usuario").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -199,7 +63,7 @@
             const labels = { all: "Todos los usuarios", Instructor: "Instructores", Aprendiz: "Aprendices" };
             directoryTitle.textContent = labels[state.filter] || state.filter;
             directorySummary.textContent = `${visible.length} resultado${visible.length === 1 ? "" : "s"} de ${state.users.length} usuarios registrados`;
-            // .innerHTML, .map() y .join() dibujan todos los usuarios de la lectura CRUD.
+            // La tabla se vuelve a dibujar porque los filtros siempre trabajan sobre la copia más reciente del servidor.
             directoryBody.innerHTML = visible.map((user) => `
                 <tr>
                     <td><div class="user-directory-person"><span class="user-directory-avatar">${escapeHtml(initials(user.name))}</span><span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.email || user.username || "Sin correo")}</small></span></div></td>
@@ -241,7 +105,6 @@
             const data = await requestUsers();
             applyPayload(data);
             syncStatus.innerHTML = '<i class="fas fa-circle-check"></i> Datos sincronizados';
-            registerCrudActivity("Leer", "Directorio de usuarios");
         };
 
         const editUser = (user) => {
@@ -260,15 +123,9 @@
                     { name: "ficha", label: user.role === "Aprendiz" ? "Ficha" : "Ficha (opcional)", type: "select", value: user.ficha, required: user.role === "Aprendiz", options: [{ value: "", label: "Sin ficha" }, ...fichaOptions] }
                 ],
                 onSubmit: async (values) => {
-                    const preparedSound = prepareUserSavedSound().catch(() => null);
                     const data = await requestUsers(`/${encodeURIComponent(user.id)}`, { method: "PATCH", body: JSON.stringify(values) });
                     applyPayload(data);
-                    // .find() localiza el usuario actualizado dentro del arreglo recibido.
-                    const updatedUser = data.users.find((item) => item.id === user.id);
-                    registerCrudActivity("Actualizar", updatedUser?.name || user.name);
                     showToast(data.message || "Usuario actualizado correctamente.");
-                    await preparedSound;
-                    playUserSavedSound().catch(() => null);
                 }
             });
         };
@@ -283,7 +140,6 @@
                 onAction: async () => {
                     const data = await requestUsers(`/${encodeURIComponent(user.id)}`, { method: "PATCH", body: JSON.stringify({ status: nextStatus }) });
                     applyPayload(data);
-                    registerCrudActivity("Actualizar", user.name);
                     showToast(data.message);
                 }
             });
@@ -298,12 +154,11 @@
             onAction: async () => {
                 const data = await requestUsers(`/${encodeURIComponent(user.id)}`, { method: "DELETE" });
                 applyPayload(data);
-                registerCrudActivity("Borrar", user.name);
                 showToast(data.message);
             }
         });
 
-        // forEach() recorre cada tarjeta usada para filtrar el directorio.
+        // Los filtros solo cambian la vista; no vuelven a pedir ni modifican datos.
         document.querySelectorAll("[data-user-filter]").forEach((card) => {
             card.addEventListener("click", () => {
                 state.filter = card.dataset.userFilter;
@@ -318,7 +173,7 @@
         });
         directorySearch.addEventListener("input", renderDirectory);
         directoryBody.addEventListener("click", (event) => {
-            // .closest() encuentra el botón aunque se haga clic sobre su icono interior.
+            // La delegación permite que los botones funcionen aunque la tabla se haya dibujado de nuevo.
             const button = event.target.closest("[data-user-action]");
             if (!button) return;
             const user = state.users.find((item) => item.id === button.dataset.userId);
@@ -330,6 +185,7 @@
         roleSelect.addEventListener("change", syncRoleField);
 
         importFile.addEventListener("change", () => {
+            // Se limita el tamaño antes de leer el archivo para evitar cargas accidentales demasiado grandes.
             const file = importFile.files?.[0] || null;
             state.csvFile = file && /\.csv$/i.test(file.name) && file.size <= 450 * 1024 ? file : null;
             importFileName.textContent = file ? `${file.name} · ${Math.max(1, Math.round(file.size / 1024))} KB` : "Ningún archivo seleccionado";
@@ -342,7 +198,6 @@
         importForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             if (!state.csvFile) return;
-            const preparedSound = prepareUserSavedSound().catch(() => null);
             importButton.disabled = true;
             importResult.hidden = false;
             importResult.className = "user-import-result loading";
@@ -353,15 +208,12 @@
                     body: JSON.stringify({ fileName: state.csvFile.name, csv: await state.csvFile.text() })
                 });
                 applyPayload(data);
-                registerCrudActivity("Crear", `${data.importResult?.total || 0} usuarios importados`);
                 importResult.className = "user-import-result success";
                 importResult.innerHTML = `<i class="fas fa-circle-check" aria-hidden="true"></i><span><strong>Importación completada.</strong> ${escapeHtml(data.message)}</span>`;
                 importForm.reset();
                 state.csvFile = null;
                 importFileName.textContent = "Ningún archivo seleccionado";
                 showToast(data.message || "Usuarios importados correctamente.");
-                await preparedSound;
-                playUserSavedSound().catch(() => null);
             } catch (error) {
                 importResult.className = "user-import-result error";
                 importResult.innerHTML = `<i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span><strong>${escapeHtml(error.message)}</strong>${error.details.length ? `<small>${error.details.map(escapeHtml).join("<br>")}</small>` : ""}</span>`;
@@ -372,15 +224,10 @@
 
         form.addEventListener("submit", async (event) => {
             event.preventDefault();
-            // alert() explica por qué todavía no se puede completar la creación.
-            if (!confirmation.checked || calcular() < 100) {
-                alert("Revisa los campos y confirma los datos antes de guardar el usuario.");
-                return;
-            }
             const submit = form.querySelector('[type="submit"]');
-            const preparedSound = prepareUserSavedSound().catch(() => null);
             submit.disabled = true;
             try {
+                // La API vuelve a validar los datos; el navegador solo ayuda a corregirlos antes de enviarlos.
                 const response = await fetch("/api/users", {
                     method: "POST",
                     credentials: "same-origin",
@@ -390,36 +237,16 @@
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok) throw new Error(data.message || "No fue posible crear el usuario.");
                 applyPayload(data);
-                const createdUser = data.users.find((user) => user.document === form.elements.identificacion.value.trim());
-                registerCrudActivity("Crear", createdUser?.name || form.elements.nombre.value.trim().toUpperCase());
                 form.reset();
-                confirmation.checked = false;
                 syncRoleField();
-                calcular();
                 showToast(data.message || "Usuario creado correctamente.");
-                await preparedSound;
-                playUserSavedSound().catch(() => null);
-                playAudioElement();
             } catch (error) {
                 showToast(error.message, "error");
             } finally {
                 submit.disabled = false;
             }
         });
-        // Los eventos input y change vuelven a ejecutar calcular() mientras se escribe.
-        form.addEventListener("input", calcular);
-        form.addEventListener("change", calcular);
         syncRoleField();
-        calcular();
-        updateClock();
-
-        // setInterval() actualiza el reloj; clearInterval() lo detiene al salir de la página.
-        clockInterval = setInterval(updateClock, 1000);
-        window.addEventListener("pagehide", () => {
-            clearInterval(clockInterval);
-            clockInterval = null;
-            delete window.calcular;
-        }, { once: true });
         loadUsers().catch((error) => {
             if (error.status === 403) {
                 window.location.replace("login.html?returnTo=crear_usuario.html");

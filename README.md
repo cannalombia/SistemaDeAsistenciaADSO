@@ -55,12 +55,17 @@ ni lo subas a GitHub. Si necesitas configurar Gmail o Resend, sigue la guía
 ¿No encuentras algún archivo? En [`Estructura.txt`](Estructura.txt) está el mapa
 completo de las carpetas.
 
-## Cómo está organizado por dentro
+## Por qué está organizado así
 
-La interfaz, el servidor, las reglas del negocio y los datos están separados.
-El menú lateral se define una sola vez en `navegacion.js`; el correo tiene su
-propio servicio con cola y reintentos; y las reglas de programas, usuarios y
-estadísticas viven en `servidor/dominio`.
+La primera versión fue creciendo pantalla por pantalla. Para que una corrección
+no obligue a buscar por todo el proyecto, cada tarea principal quedó en un lugar
+reconocible. El menú vive en `navegacion.js`, el CRUD de usuarios en `script.js`
+y el correo en su propio servicio. Las direcciones de la API se agrupan en
+`servidor/rutas` según sean de acceso, usuarios, formación o estado del sistema.
+
+Los archivos JSON y CSV se mantienen porque facilitan la demostración local.
+No pretenden reemplazar una base de datos cuando varias personas trabajen al
+mismo tiempo desde computadores diferentes.
 
 La explicación completa, incluidos los límites que todavía tiene el proyecto,
 está en
@@ -91,7 +96,7 @@ Y si quieres pedirle que compruebe o inicie el servidor manualmente:
 npm.cmd run start:ensure
 ```
 
-## Comprobar que todo funciona
+## Cómo se comprueba un cambio
 
 Después de hacer cambios, ejecuta las pruebas:
 
@@ -99,8 +104,10 @@ Después de hacer cambios, ejecuta las pruebas:
 npm.cmd test
 ```
 
-Si aparece el mensaje `OK`, las páginas principales, el acceso y la API pasaron
-la revisión.
+Si aparece el mensaje `OK`, las páginas principales y los recorridos reales de
+la API pasaron la revisión. Entre ellos están crear, modificar, desactivar,
+importar y eliminar usuarios; no se considera suficiente encontrar una palabra
+o un comando escrito dentro del código.
 
 También puedes ejecutar cada grupo por separado:
 

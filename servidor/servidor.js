@@ -2,7 +2,8 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const rutas = require("./configuracion/rutas");
+const rutasProyecto = require("./configuracion/rutas");
+const { crearEnrutadorApi } = require("./rutas");
 const { normalizeEmail, boundedInteger, maskEmail, readCookies, safeEqual } = require("./modulos/utilidades");
 const { readJsonFile, writeJsonFileAtomic, ensureOperationalFile, parseDelimitedCsv, serializeCsvUsers, loadCsvUsers, loadSqlTable, normalizeSqlText } = require("./modulos/persistencia");
 const { createEmailService } = require("./modulos/correo");
@@ -10,10 +11,10 @@ const { normalizeProgramText: normalizedProgramText, canonicalProgramStatus, dis
 const { canonicalRole, canonicalUserStatus, csvValue, registryRowFromUser } = require("./dominio/usuarios");
 const { localDate, dateKey, addDays, rateFor, statusSummary, resolveDashboardRange } = require("./dominio/estadisticas");
 
-const root = rutas.raizProyecto;
-const dataDirectory = rutas.datos;
-const pagesDirectory = rutas.paginas;
-const publicDirectories = rutas.directoriosPublicos;
+const root = rutasProyecto.raizProyecto;
+const dataDirectory = rutasProyecto.datos;
+const pagesDirectory = rutasProyecto.paginas;
+const publicDirectories = rutasProyecto.directoriosPublicos;
 const mimeTypes = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
@@ -1613,34 +1614,42 @@ function createProjectServer(options = {}) {
         fs.createReadStream(file).pipe(response);
     }
 
+    const atenderApi = crearEnrutadorApi({
+        acceso: {
+            iniciarConContrasena: handlePasswordLogin,
+            solicitarCodigo: handleRequestCode,
+            verificarCodigo: handleVerifyCode,
+            estadoCorreo: handleEmailStatus,
+            historialCorreo: handleEmailHistory,
+            consultarSesion: handleSession,
+            cerrarSesion: handleLogout
+        },
+        usuarios: {
+            consultarAprendiz: handleApprenticeProfile,
+            actualizarAprendiz: handleApprenticeUpdate,
+            listar: handleUsersData,
+            crear: handleUserCreate,
+            importar: handleUserImport,
+            actualizar: handleUserUpdate,
+            eliminar: handleUserDelete
+        },
+        formacion: {
+            listarProgramas: handleProgramsData,
+            crearPrograma: handleProgramCreate,
+            actualizarPrograma: handleProgramUpdate,
+            consultarAsistencia: handleAttendanceData,
+            guardarAsistencia: handleAttendanceSave,
+            consultarEstadisticas: handleStatistics
+        },
+        sistema: { consultarEstado: handleSystemHealth }
+    });
+
     const server = http.createServer(async (request, response) => {
         cleanExpired();
         const requestUrl = new URL(request.url, "http://localhost");
         const pathname = decodeURIComponent(requestUrl.pathname);
         try {
-            if (pathname === "/api/auth/password" && request.method === "POST") return await handlePasswordLogin(request, response);
-            if (pathname === "/api/auth/email/request" && request.method === "POST") return await handleRequestCode(request, response);
-            if (pathname === "/api/auth/email/verify" && request.method === "POST") return await handleVerifyCode(request, response);
-            if (pathname === "/api/auth/email/status" && request.method === "GET") return handleEmailStatus(request, response);
-            if (pathname === "/api/auth/email/history" && request.method === "GET") return handleEmailHistory(request, response);
-            if (pathname === "/api/auth/session" && request.method === "GET") return handleSession(request, response);
-            if (pathname === "/api/auth/logout" && request.method === "POST") return handleLogout(request, response);
-            if (pathname === "/api/health" && request.method === "GET") return handleSystemHealth(request, response);
-            if (pathname === "/api/apprentice/me" && request.method === "GET") return handleApprenticeProfile(request, response);
-            if (pathname === "/api/apprentice/me" && request.method === "PATCH") return await handleApprenticeUpdate(request, response);
-            if (pathname === "/api/users" && request.method === "GET") return handleUsersData(request, response);
-            if (pathname === "/api/users" && request.method === "POST") return await handleUserCreate(request, response);
-            if (pathname === "/api/users/import" && request.method === "POST") return await handleUserImport(request, response);
-            const userRoute = pathname.match(/^\/api\/users\/([^/]+)$/);
-            if (userRoute && request.method === "PATCH") return await handleUserUpdate(request, response, userRoute[1]);
-            if (userRoute && request.method === "DELETE") return await handleUserDelete(request, response, userRoute[1]);
-            if (pathname === "/api/programs" && request.method === "GET") return handleProgramsData(request, response);
-            if (pathname === "/api/programs" && request.method === "POST") return await handleProgramCreate(request, response);
-            const programRoute = pathname.match(/^\/api\/programs\/(\d+)$/);
-            if (programRoute && request.method === "PATCH") return await handleProgramUpdate(request, response, programRoute[1]);
-            if (pathname === "/api/attendance" && request.method === "GET") return handleAttendanceData(request, response, requestUrl);
-            if (pathname === "/api/attendance" && request.method === "POST") return await handleAttendanceSave(request, response);
-            if (pathname === "/api/statistics" && request.method === "GET") return handleStatistics(request, response, requestUrl);
+            if (await atenderApi({ request, response, requestUrl, pathname })) return;
             if (pathname.startsWith("/api/")) return sendJson(response, 404, { ok: false, message: "Ruta de API no encontrada." });
             return serveStatic(request, response, pathname);
         } catch (error) {
