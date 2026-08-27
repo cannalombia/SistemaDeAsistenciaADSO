@@ -1,262 +1,388 @@
-// Gestión del directorio de usuarios e importaciones CSV.
+// CRUD de usuarios: crear, consultar, modificar y eliminar registros.
 (function () {
     "use strict";
 
-    const { escapeHtml, showToast, openDialog } = window.SenaInterfaz;
+    let interfaz = window.SenaInterfaz;
+    let escaparHtml = interfaz.escapeHtml;
+    let mostrarMensaje = interfaz.showToast;
+    let abrirDialogo = interfaz.openDialog;
 
-    function initials(name) {
-        return String(name || "").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+    let formulario = document.getElementById("create-user-form");
+    if (!formulario) return;
+
+    let cuerpoTabla = document.getElementById("user-directory-body");
+    let tituloTabla = document.getElementById("user-directory-title");
+    let resumenTabla = document.getElementById("user-directory-summary");
+    let buscador = document.getElementById("user-directory-search");
+    let campoFicha = document.querySelector('[data-user-field="ficha"]');
+    let etiquetaFicha = document.querySelector("[data-user-ficha-label]");
+    let listaFicha = formulario.elements.ficha;
+    let listaRol = formulario.elements.rol;
+    let estadoSincronizacion = document.querySelector(".user-sync-status");
+    let formularioImportacion = document.getElementById("user-csv-import-form");
+    let archivoCsv = document.getElementById("user-csv-file");
+    let nombreArchivo = document.getElementById("user-csv-file-name");
+    let botonImportar = document.getElementById("user-csv-import-button");
+    let resultadoImportacion = document.getElementById("user-import-result");
+
+    let datos = {
+        usuarios: [],
+        fichas: [],
+        filtro: "all",
+        archivo: null
+    };
+
+    function obtenerIniciales(nombre) {
+        return String(nombre || "")
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map(function (parte) {
+                return parte.charAt(0);
+            })
+            .join("")
+            .toUpperCase();
     }
 
-    function setupCreateUser() {
-        const form = document.getElementById("create-user-form");
-        if (!form) return;
-        const directoryBody = document.getElementById("user-directory-body");
-        const directoryTitle = document.getElementById("user-directory-title");
-        const directorySummary = document.getElementById("user-directory-summary");
-        const directorySearch = document.getElementById("user-directory-search");
-        const fichaField = document.querySelector('[data-user-field="ficha"]');
-        const fichaLabel = document.querySelector("[data-user-ficha-label]");
-        const fichaSelect = form.elements.ficha;
-        const roleSelect = form.elements.rol;
-        const statusSelect = form.elements.estado;
-        const syncStatus = document.querySelector(".user-sync-status");
-        const importForm = document.getElementById("user-csv-import-form");
-        const importFile = document.getElementById("user-csv-file");
-        const importFileName = document.getElementById("user-csv-file-name");
-        const importButton = document.getElementById("user-csv-import-button");
-        const importResult = document.getElementById("user-import-result");
-        const state = { users: [], summary: {}, fichas: [], filter: "all", csvFile: null };
+    function claseDelRol(rol) {
+        switch (rol) {
+            case "Administrador": return "administrador";
+            case "Instructor": return "instructor";
+            case "Aprendiz": return "aprendiz";
+            case "Coordinador": return "coordinador";
+            default: return "usuario";
+        }
+    }
 
-        // Todas las operaciones pasan por la misma API para mantener la tabla y el CSV sincronizados.
-        const requestUsers = async (path = "", options = {}) => {
-            const response = await fetch(`/api/users${path}`, {
-                credentials: "same-origin",
-                headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-                ...options
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                const error = new Error(data.message || "No fue posible completar la operación de usuarios.");
-                error.details = Array.isArray(data.errors) ? data.errors : [];
-                error.status = response.status;
-                throw error;
+    // Esta función es el único punto de comunicación con el CRUD del servidor.
+    async function consultarApi(ruta, opciones) {
+        let configuracion = opciones || {};
+        let peticion = {
+            method: configuracion.method || "GET",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" }
+        };
+
+        if (configuracion.body) peticion.body = configuracion.body;
+
+        let respuesta = await fetch("/api/users" + (ruta || ""), peticion);
+        let contenido = {};
+
+        try {
+            contenido = await respuesta.json();
+        } catch (error) {
+            contenido = {};
+        }
+
+        if (!respuesta.ok) {
+            let errorPeticion = new Error(contenido.message || "No fue posible completar la operación de usuarios.");
+            errorPeticion.details = Array.isArray(contenido.errors) ? contenido.errors : [];
+            errorPeticion.status = respuesta.status;
+            throw errorPeticion;
+        }
+
+        return contenido;
+    }
+
+    function actualizarContadores() {
+        let cantidades = datos.usuarios.reduce(function (acumulado, usuario) {
+            acumulado.total = acumulado.total + 1;
+            if (usuario.role === "Instructor") acumulado.instructors = acumulado.instructors + 1;
+            if (usuario.role === "Aprendiz") acumulado.students = acumulado.students + 1;
+            return acumulado;
+        }, { total: 0, instructors: 0, students: 0 });
+
+        Object.keys(cantidades).forEach(function (nombre) {
+            let elemento = document.querySelector('[data-user-stat="' + nombre + '"]');
+            if (elemento) elemento.textContent = cantidades[nombre];
+        });
+    }
+
+    function dibujarDirectorio() {
+        let texto = buscador.value.trim().toLowerCase();
+        let usuariosVisibles = datos.usuarios.filter(function (usuario) {
+            let cumpleRol = datos.filtro === "all" || usuario.role === datos.filtro;
+            let contenido = (usuario.name + " " + usuario.document + " " + usuario.email + " " + usuario.username).toLowerCase();
+            return cumpleRol && contenido.indexOf(texto) !== -1;
+        });
+
+        let titulos = {
+            all: "Todos los usuarios",
+            Instructor: "Instructores",
+            Aprendiz: "Aprendices"
+        };
+
+        tituloTabla.textContent = titulos[datos.filtro] || datos.filtro;
+        resumenTabla.textContent = usuariosVisibles.length +
+            (usuariosVisibles.length === 1 ? " resultado" : " resultados") +
+            " de " + datos.usuarios.length + " usuarios registrados";
+
+        let filas = usuariosVisibles.map(function (usuario) {
+            let ficha = usuario.ficha
+                ? '<small class="user-ficha-label">Ficha ' + escaparHtml(usuario.ficha) + "</small>"
+                : "";
+            let estadoInactivo = String(usuario.status).toLowerCase() === "inactivo" ? " inactive" : "";
+            let acciones = "";
+
+            if (usuario.protected) {
+                acciones = '<span class="user-protected-account"><i class="fas fa-lock" aria-hidden="true"></i> Protegida</span>';
+            } else {
+                acciones =
+                    '<button type="button" data-user-action="edit" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Modificar ' + escaparHtml(usuario.name) + '" title="Modificar"><i class="fas fa-pen" aria-hidden="true"></i></button>' +
+                    '<button type="button" data-user-action="status" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Cambiar estado de ' + escaparHtml(usuario.name) + '" title="Cambiar estado"><i class="fas ' + (usuario.status === "Activo" ? "fa-user-slash" : "fa-user-check") + '" aria-hidden="true"></i></button>' +
+                    '<button type="button" class="danger" data-user-action="delete" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Eliminar ' + escaparHtml(usuario.name) + '" title="Eliminar"><i class="fas fa-trash" aria-hidden="true"></i></button>';
             }
-            return data;
-        };
 
-        const roleClass = (role) => String(role || "usuario").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-        const updateCounts = () => {
-            for (const [key, value] of Object.entries({ total: state.summary.total, instructors: state.summary.instructors, students: state.summary.students })) {
-                const element = document.querySelector(`[data-user-stat="${key}"]`);
-                if (element) element.textContent = new Intl.NumberFormat("es-CO").format(Number(value) || 0);
+            return '<tr>' +
+                '<td><div class="user-directory-person"><span class="user-directory-avatar">' + obtenerIniciales(usuario.name) + '</span><span><strong>' + escaparHtml(usuario.name) + '</strong><small>' + escaparHtml(usuario.email || usuario.username || "Sin correo") + '</small></span></div></td>' +
+                '<td><strong>' + escaparHtml(usuario.document || "—") + "</strong>" + ficha + "</td>" +
+                '<td><span class="user-role-badge ' + claseDelRol(usuario.role) + '">' + escaparHtml(usuario.role) + "</span></td>" +
+                '<td><span class="user-status-badge' + estadoInactivo + '"><i></i>' + escaparHtml(usuario.status || "Activo") + "</span></td>" +
+                '<td class="user-directory-actions">' + acciones + "</td>" +
+                "</tr>";
+        }).join("");
+
+        cuerpoTabla.innerHTML = filas || '<tr><td colspan="5" class="user-directory-empty">No se encontraron usuarios con este filtro.</td></tr>';
+    }
+
+    function llenarFichas() {
+        let fichaSeleccionada = listaFicha.value;
+        let opciones = ['<option value="">Seleccione una ficha...</option>'];
+
+        datos.fichas.forEach(function (ficha) {
+            opciones.push('<option value="' + escaparHtml(ficha.codigo) + '">' + escaparHtml(ficha.codigo) + " · " + escaparHtml(ficha.programa) + "</option>");
+        });
+
+        listaFicha.innerHTML = opciones.join("");
+        let fichaExiste = datos.fichas.find(function (ficha) {
+            return ficha.codigo === fichaSeleccionada;
+        });
+        if (fichaExiste) listaFicha.value = fichaSeleccionada;
+    }
+
+    function ajustarCampoFicha() {
+        let esAprendiz = listaRol.value === "Aprendiz";
+        listaFicha.required = esAprendiz;
+        campoFicha.classList.toggle("optional", !esAprendiz);
+        etiquetaFicha.textContent = esAprendiz ? "Ficha del aprendiz" : "Ficha (opcional)";
+    }
+
+    function aplicarDatos(respuesta) {
+        datos.usuarios = Array.isArray(respuesta.users) ? respuesta.users : [];
+        datos.fichas = Array.isArray(respuesta.fichas) ? respuesta.fichas : [];
+        actualizarContadores();
+        llenarFichas();
+        dibujarDirectorio();
+    }
+
+    async function cargarUsuarios() {
+        estadoSincronizacion.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Sincronizando';
+        let respuesta = await consultarApi("");
+        aplicarDatos(respuesta);
+        estadoSincronizacion.innerHTML = '<i class="fas fa-circle-check"></i> Actualizado ' + new Date().toLocaleString("es-CO");
+    }
+
+    function editarUsuario(usuario) {
+        let opcionesFicha = datos.fichas.map(function (ficha) {
+            return { value: ficha.codigo, label: ficha.codigo + " · " + ficha.programa };
+        });
+
+        opcionesFicha.unshift({ value: "", label: "Sin ficha" });
+
+        abrirDialogo({
+            title: "Modificar usuario",
+            submitLabel: "Guardar cambios",
+            dialogClass: "user-management-dialog",
+            fields: [
+                { name: "identificacion", label: "Identificación", value: usuario.document, readonly: true },
+                { name: "tipo_documento", label: "Tipo de documento", type: "select", value: usuario.documentType || "Cédula de Ciudadanía", options: ["Cédula de Ciudadanía", "Tarjeta de Identidad", "Cédula de Extranjería", "Pasaporte", "Permiso de protección temporal"] },
+                { name: "nombre", label: "Nombre completo", value: usuario.name, maxlength: 160 },
+                { name: "correo", label: "Correo electrónico", type: "email", value: usuario.email },
+                { name: "rol", label: "Rol", value: usuario.role, readonly: true },
+                { name: "estado", label: "Estado", type: "select", value: usuario.status, options: ["Activo", "Inactivo"] },
+                { name: "ficha", label: usuario.role === "Aprendiz" ? "Ficha" : "Ficha (opcional)", type: "select", value: usuario.ficha, required: usuario.role === "Aprendiz", options: opcionesFicha }
+            ],
+            onSubmit: async function (valores) {
+                let respuesta = await consultarApi("/" + encodeURIComponent(usuario.id), {
+                    method: "PATCH",
+                    body: JSON.stringify(valores)
+                });
+                aplicarDatos(respuesta);
+                mostrarMensaje(respuesta.message || "Usuario actualizado correctamente.");
             }
-        };
+        });
+    }
 
-        const renderDirectory = () => {
-            const query = directorySearch.value.trim().toLocaleLowerCase("es");
-            const visible = state.users.filter((user) => {
-                const matchesRole = state.filter === "all" || user.role === state.filter;
-                const searchable = `${user.name} ${user.document} ${user.email} ${user.username}`.toLocaleLowerCase("es");
-                return matchesRole && searchable.includes(query);
-            });
-            const labels = { all: "Todos los usuarios", Instructor: "Instructores", Aprendiz: "Aprendices" };
-            directoryTitle.textContent = labels[state.filter] || state.filter;
-            directorySummary.textContent = `${visible.length} resultado${visible.length === 1 ? "" : "s"} de ${state.users.length} usuarios registrados`;
-            // La tabla se vuelve a dibujar porque los filtros siempre trabajan sobre la copia más reciente del servidor.
-            directoryBody.innerHTML = visible.map((user) => `
-                <tr>
-                    <td><div class="user-directory-person"><span class="user-directory-avatar">${escapeHtml(initials(user.name))}</span><span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.email || user.username || "Sin correo")}</small></span></div></td>
-                    <td><strong>${escapeHtml(user.document || "—")}</strong>${user.ficha ? `<small class="user-ficha-label">Ficha ${escapeHtml(user.ficha)}</small>` : ""}</td>
-                    <td><span class="user-role-badge ${escapeHtml(roleClass(user.role))}">${escapeHtml(user.role)}</span></td>
-                    <td><span class="user-status-badge ${String(user.status).toLowerCase() === "inactivo" ? "inactive" : ""}"><i></i>${escapeHtml(user.status || "Activo")}</span></td>
-                    <td class="user-directory-actions">${user.protected ? '<span class="user-protected-account"><i class="fas fa-lock" aria-hidden="true"></i> Protegida</span>' : `
-                        <button type="button" data-user-action="edit" data-user-id="${escapeHtml(user.id)}" aria-label="Modificar ${escapeHtml(user.name)}" title="Modificar"><i class="fas fa-pen" aria-hidden="true"></i></button>
-                        <button type="button" data-user-action="status" data-user-id="${escapeHtml(user.id)}" aria-label="${user.status === "Activo" ? "Desactivar" : "Activar"} ${escapeHtml(user.name)}" title="${user.status === "Activo" ? "Desactivar" : "Activar"}"><i class="fas ${user.status === "Activo" ? "fa-user-slash" : "fa-user-check"}" aria-hidden="true"></i></button>
-                        <button type="button" class="danger" data-user-action="delete" data-user-id="${escapeHtml(user.id)}" aria-label="Eliminar ${escapeHtml(user.name)}" title="Eliminar"><i class="fas fa-trash" aria-hidden="true"></i></button>`}</td>
-                </tr>`).join("") || '<tr><td colspan="5" class="user-directory-empty">No se encontraron usuarios con este filtro.</td></tr>';
-        };
+    function cambiarEstado(usuario) {
+        let nuevoEstado = usuario.status === "Activo" ? "Inactivo" : "Activo";
+        let verbo = nuevoEstado === "Activo" ? "activar" : "desactivar";
 
-        const populateFichas = () => {
-            const selected = fichaSelect.value;
-            fichaSelect.innerHTML = '<option value="">Seleccione una ficha...</option>' + state.fichas
-                .map((ficha) => `<option value="${escapeHtml(ficha.codigo)}">${escapeHtml(ficha.codigo)} · ${escapeHtml(ficha.programa)}</option>`).join("");
-            if (state.fichas.some((ficha) => ficha.codigo === selected)) fichaSelect.value = selected;
-        };
+        abrirDialogo({
+            title: nuevoEstado === "Activo" ? "Activar usuario" : "Desactivar usuario",
+            dialogClass: "user-confirm-dialog",
+            content: '<div class="user-confirm-content"><span><i class="fas fa-user-check" aria-hidden="true"></i></span><p>¿Confirmas que deseas <strong>' + verbo + "</strong> a " + escaparHtml(usuario.name) + "?</p></div>",
+            actionLabel: nuevoEstado === "Activo" ? "Activar usuario" : "Desactivar usuario",
+            onAction: async function () {
+                let respuesta = await consultarApi("/" + encodeURIComponent(usuario.id), {
+                    method: "PATCH",
+                    body: JSON.stringify({ status: nuevoEstado })
+                });
+                aplicarDatos(respuesta);
+                mostrarMensaje(respuesta.message);
+            }
+        });
+    }
 
-        const syncRoleField = () => {
-            const apprentice = roleSelect.value === "Aprendiz";
-            fichaSelect.required = apprentice;
-            fichaField.classList.toggle("optional", !apprentice);
-            fichaLabel.textContent = apprentice ? "Ficha del aprendiz" : "Ficha (opcional)";
-        };
-
-        const applyPayload = (data) => {
-            state.users = Array.isArray(data.users) ? data.users : [];
-            state.summary = data.summary || {};
-            state.fichas = Array.isArray(data.fichas) ? data.fichas : [];
-            updateCounts();
-            populateFichas();
-            renderDirectory();
-        };
-
-        const loadUsers = async () => {
-            syncStatus.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Sincronizando';
-            const data = await requestUsers();
-            applyPayload(data);
-            syncStatus.innerHTML = '<i class="fas fa-circle-check"></i> Datos sincronizados';
-        };
-
-        const editUser = (user) => {
-            const fichaOptions = state.fichas.map((ficha) => ({ value: ficha.codigo, label: `${ficha.codigo} · ${ficha.programa}` }));
-            openDialog({
-                title: "Modificar usuario",
-                submitLabel: "Guardar cambios",
-                dialogClass: "user-management-dialog",
-                fields: [
-                    { name: "identificacion", label: "Identificación", value: user.document, readonly: true },
-                    { name: "tipo_documento", label: "Tipo de documento", type: "select", value: user.documentType || "Cédula de Ciudadanía", options: ["Cédula de Ciudadanía", "Tarjeta de Identidad", "Cédula de Extranjería", "Pasaporte", "Permiso de protección temporal"] },
-                    { name: "nombre", label: "Nombre completo", value: user.name, maxlength: 160 },
-                    { name: "correo", label: "Correo electrónico", type: "email", value: user.email },
-                    { name: "rol", label: "Rol", value: user.role, readonly: true },
-                    { name: "estado", label: "Estado", type: "select", value: user.status, options: ["Activo", "Inactivo"] },
-                    { name: "ficha", label: user.role === "Aprendiz" ? "Ficha" : "Ficha (opcional)", type: "select", value: user.ficha, required: user.role === "Aprendiz", options: [{ value: "", label: "Sin ficha" }, ...fichaOptions] }
-                ],
-                onSubmit: async (values) => {
-                    const data = await requestUsers(`/${encodeURIComponent(user.id)}`, { method: "PATCH", body: JSON.stringify(values) });
-                    applyPayload(data);
-                    showToast(data.message || "Usuario actualizado correctamente.");
-                }
-            });
-        };
-
-        const confirmUserStatus = (user) => {
-            const nextStatus = user.status === "Activo" ? "Inactivo" : "Activo";
-            openDialog({
-                title: `${nextStatus === "Activo" ? "Activar" : "Desactivar"} usuario`,
-                dialogClass: "user-confirm-dialog",
-                content: `<div class="user-confirm-content"><span><i class="fas ${nextStatus === "Activo" ? "fa-user-check" : "fa-user-slash"}" aria-hidden="true"></i></span><p>¿Confirmas que deseas <strong>${nextStatus === "Activo" ? "activar" : "desactivar"}</strong> a ${escapeHtml(user.name)}?</p></div>`,
-                actionLabel: nextStatus === "Activo" ? "Activar usuario" : "Desactivar usuario",
-                onAction: async () => {
-                    const data = await requestUsers(`/${encodeURIComponent(user.id)}`, { method: "PATCH", body: JSON.stringify({ status: nextStatus }) });
-                    applyPayload(data);
-                    showToast(data.message);
-                }
-            });
-        };
-
-        const confirmUserDelete = (user) => openDialog({
+    function eliminarUsuario(usuario) {
+        abrirDialogo({
             title: "Eliminar usuario",
             dialogClass: "user-confirm-dialog user-delete-dialog",
-            content: `<div class="user-confirm-content"><span><i class="fas fa-trash" aria-hidden="true"></i></span><p>Se eliminará a <strong>${escapeHtml(user.name)}</strong> del directorio, de usuarios_activos.csv y de su perfil de acceso. Los registros históricos de asistencia se conservarán.</p></div>`,
+            content: '<div class="user-confirm-content"><span><i class="fas fa-trash" aria-hidden="true"></i></span><p>Se eliminará a <strong>' + escaparHtml(usuario.name) + "</strong>. Los registros históricos de asistencia se conservarán.</p></div>",
             actionLabel: "Eliminar definitivamente",
             actionClass: "dialog-danger-action",
-            onAction: async () => {
-                const data = await requestUsers(`/${encodeURIComponent(user.id)}`, { method: "DELETE" });
-                applyPayload(data);
-                showToast(data.message);
+            onAction: async function () {
+                let respuesta = await consultarApi("/" + encodeURIComponent(usuario.id), { method: "DELETE" });
+                aplicarDatos(respuesta);
+                mostrarMensaje(respuesta.message);
             }
-        });
-
-        // Los filtros solo cambian la vista; no vuelven a pedir ni modifican datos.
-        document.querySelectorAll("[data-user-filter]").forEach((card) => {
-            card.addEventListener("click", () => {
-                state.filter = card.dataset.userFilter;
-                document.querySelectorAll("[data-user-filter]").forEach((item) => {
-                    const selected = item === card;
-                    item.classList.toggle("active", selected);
-                    item.setAttribute("aria-pressed", String(selected));
-                });
-                renderDirectory();
-                document.getElementById("user-directory").scrollIntoView({ behavior: "smooth", block: "start" });
-            });
-        });
-        directorySearch.addEventListener("input", renderDirectory);
-        directoryBody.addEventListener("click", (event) => {
-            // La delegación permite que los botones funcionen aunque la tabla se haya dibujado de nuevo.
-            const button = event.target.closest("[data-user-action]");
-            if (!button) return;
-            const user = state.users.find((item) => item.id === button.dataset.userId);
-            if (!user) return;
-            if (button.dataset.userAction === "edit") editUser(user);
-            if (button.dataset.userAction === "status") confirmUserStatus(user);
-            if (button.dataset.userAction === "delete") confirmUserDelete(user);
-        });
-        roleSelect.addEventListener("change", syncRoleField);
-
-        importFile.addEventListener("change", () => {
-            // Se limita el tamaño antes de leer el archivo para evitar cargas accidentales demasiado grandes.
-            const file = importFile.files?.[0] || null;
-            state.csvFile = file && /\.csv$/i.test(file.name) && file.size <= 450 * 1024 ? file : null;
-            importFileName.textContent = file ? `${file.name} · ${Math.max(1, Math.round(file.size / 1024))} KB` : "Ningún archivo seleccionado";
-            importFileName.classList.toggle("invalid", Boolean(file && !state.csvFile));
-            importButton.disabled = !state.csvFile;
-            importResult.hidden = true;
-            if (file && !state.csvFile) showToast("Selecciona un archivo .csv de máximo 450 KB.", "error");
-        });
-
-        importForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            if (!state.csvFile) return;
-            importButton.disabled = true;
-            importResult.hidden = false;
-            importResult.className = "user-import-result loading";
-            importResult.innerHTML = '<i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Validando y guardando usuarios...';
-            try {
-                const data = await requestUsers("/import", {
-                    method: "POST",
-                    body: JSON.stringify({ fileName: state.csvFile.name, csv: await state.csvFile.text() })
-                });
-                applyPayload(data);
-                importResult.className = "user-import-result success";
-                importResult.innerHTML = `<i class="fas fa-circle-check" aria-hidden="true"></i><span><strong>Importación completada.</strong> ${escapeHtml(data.message)}</span>`;
-                importForm.reset();
-                state.csvFile = null;
-                importFileName.textContent = "Ningún archivo seleccionado";
-                showToast(data.message || "Usuarios importados correctamente.");
-            } catch (error) {
-                importResult.className = "user-import-result error";
-                importResult.innerHTML = `<i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span><strong>${escapeHtml(error.message)}</strong>${error.details.length ? `<small>${error.details.map(escapeHtml).join("<br>")}</small>` : ""}</span>`;
-            } finally {
-                importButton.disabled = !state.csvFile;
-            }
-        });
-
-        form.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const submit = form.querySelector('[type="submit"]');
-            submit.disabled = true;
-            try {
-                // La API vuelve a validar los datos; el navegador solo ayuda a corregirlos antes de enviarlos.
-                const response = await fetch("/api/users", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(Object.fromEntries(new FormData(form).entries()))
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(data.message || "No fue posible crear el usuario.");
-                applyPayload(data);
-                form.reset();
-                syncRoleField();
-                showToast(data.message || "Usuario creado correctamente.");
-            } catch (error) {
-                showToast(error.message, "error");
-            } finally {
-                submit.disabled = false;
-            }
-        });
-        syncRoleField();
-        loadUsers().catch((error) => {
-            if (error.status === 403) {
-                window.location.replace("login.html?returnTo=crear_usuario.html");
-                return;
-            }
-            syncStatus.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Error de conexión';
-            directoryBody.innerHTML = `<tr><td colspan="4" class="user-directory-empty">${escapeHtml(error.message)}</td></tr>`;
-            showToast(error.message, "error");
         });
     }
 
-    setupCreateUser();
+    function seleccionarFiltro(tarjeta) {
+        datos.filtro = tarjeta.dataset.userFilter;
+
+        document.querySelectorAll("[data-user-filter]").forEach(function (elemento) {
+            let seleccionada = elemento === tarjeta;
+            elemento.classList.toggle("active", seleccionada);
+            elemento.setAttribute("aria-pressed", String(seleccionada));
+        });
+
+        dibujarDirectorio();
+        document.getElementById("user-directory").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function ejecutarAccion(evento) {
+        let boton = evento.target.closest("[data-user-action]");
+        if (!boton) return;
+
+        let usuario = datos.usuarios.find(function (registro) {
+            return registro.id === boton.dataset.userId;
+        });
+        if (!usuario) return;
+
+        switch (boton.dataset.userAction) {
+            case "edit":
+                editarUsuario(usuario);
+                break;
+            case "status":
+                cambiarEstado(usuario);
+                break;
+            case "delete":
+                eliminarUsuario(usuario);
+                break;
+        }
+    }
+
+    function revisarArchivo() {
+        let archivo = archivoCsv.files && archivoCsv.files[0] ? archivoCsv.files[0] : null;
+        let extensionCorrecta = archivo ? /\.csv$/i.test(archivo.name) : false;
+        let tamanoCorrecto = archivo ? archivo.size <= 450 * 1024 : false;
+
+        datos.archivo = extensionCorrecta && tamanoCorrecto ? archivo : null;
+        nombreArchivo.textContent = archivo
+            ? archivo.name + " · " + Math.max(1, Math.round(archivo.size / 1024)) + " KB"
+            : "Ningún archivo seleccionado";
+        nombreArchivo.classList.toggle("invalid", Boolean(archivo && !datos.archivo));
+        botonImportar.disabled = !datos.archivo;
+        resultadoImportacion.hidden = true;
+
+        if (archivo && !datos.archivo) mostrarMensaje("Selecciona un archivo .csv de máximo 450 KB.", "error");
+    }
+
+    async function importarUsuarios(evento) {
+        evento.preventDefault();
+        if (!datos.archivo) return;
+
+        botonImportar.disabled = true;
+        resultadoImportacion.hidden = false;
+        resultadoImportacion.className = "user-import-result loading";
+        resultadoImportacion.textContent = "Validando y guardando usuarios...";
+
+        try {
+            let respuesta = await consultarApi("/import", {
+                method: "POST",
+                body: JSON.stringify({ fileName: datos.archivo.name, csv: await datos.archivo.text() })
+            });
+            aplicarDatos(respuesta);
+            resultadoImportacion.className = "user-import-result success";
+            resultadoImportacion.innerHTML = '<i class="fas fa-circle-check" aria-hidden="true"></i><span><strong>Importación completada.</strong> ' + escaparHtml(respuesta.message) + "</span>";
+            formularioImportacion.reset();
+            datos.archivo = null;
+            nombreArchivo.textContent = "Ningún archivo seleccionado";
+            mostrarMensaje(respuesta.message || "Usuarios importados correctamente.");
+        } catch (error) {
+            let detalles = error.details && error.details.length
+                ? "<small>" + error.details.map(escaparHtml).join("<br>") + "</small>"
+                : "";
+            resultadoImportacion.className = "user-import-result error";
+            resultadoImportacion.innerHTML = '<i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span><strong>' + escaparHtml(error.message) + "</strong>" + detalles + "</span>";
+        }
+
+        botonImportar.disabled = !datos.archivo;
+    }
+
+    async function crearUsuario(evento) {
+        evento.preventDefault();
+        let botonGuardar = formulario.querySelector('[type="submit"]');
+        botonGuardar.disabled = true;
+
+        let nuevoUsuario = {
+            identificacion: formulario.elements.identificacion.value.trim(),
+            tipo_documento: formulario.elements.tipo_documento.value,
+            nombre: formulario.elements.nombre.value.trim(),
+            correo: formulario.elements.correo.value.trim(),
+            rol: formulario.elements.rol.value,
+            estado: formulario.elements.estado.value,
+            ficha: formulario.elements.ficha.value
+        };
+
+        try {
+            let respuesta = await consultarApi("", {
+                method: "POST",
+                body: JSON.stringify(nuevoUsuario)
+            });
+            aplicarDatos(respuesta);
+            formulario.reset();
+            ajustarCampoFicha();
+            mostrarMensaje(respuesta.message || "Usuario creado correctamente.");
+        } catch (error) {
+            mostrarMensaje(error.message, "error");
+        }
+
+        botonGuardar.disabled = false;
+    }
+
+    document.querySelectorAll("[data-user-filter]").forEach(function (tarjeta) {
+        tarjeta.addEventListener("click", function () {
+            seleccionarFiltro(tarjeta);
+        });
+    });
+    buscador.addEventListener("input", dibujarDirectorio);
+    cuerpoTabla.addEventListener("click", ejecutarAccion);
+    listaRol.addEventListener("change", ajustarCampoFicha);
+    archivoCsv.addEventListener("change", revisarArchivo);
+    formularioImportacion.addEventListener("submit", importarUsuarios);
+    formulario.addEventListener("submit", crearUsuario);
+
+    ajustarCampoFicha();
+    cargarUsuarios().catch(function (error) {
+        if (error.status === 403) {
+            window.location.replace("login.html?returnTo=crear_usuario.html");
+            return;
+        }
+        estadoSincronizacion.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Error de conexión';
+        cuerpoTabla.innerHTML = '<tr><td colspan="5" class="user-directory-empty">' + escaparHtml(error.message) + "</td></tr>";
+        mostrarMensaje(error.message, "error");
+    });
 })();

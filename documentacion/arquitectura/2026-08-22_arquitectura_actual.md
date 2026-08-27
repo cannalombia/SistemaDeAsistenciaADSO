@@ -35,6 +35,18 @@ mismo tiempo podían saturar el proveedor. También se guardan intentos fallidos
 se repiten únicamente los errores temporales. Aun así, el proveedor externo
 puede rechazar una cuenta mal configurada; el código no puede evitar ese límite.
 
+### Acceso y configuración
+
+El navegador no guarda usuarios ni contraseñas. El formulario de ingreso, la
+edición del perfil y el cambio de contraseña consultan al mismo servidor. Antes
+había funciones locales heredadas de la maqueta inicial; se retiraron porque
+mostraban opciones que no modificaban la cuenta utilizada para iniciar sesión.
+
+La cuenta administrativa conserva su nombre, correo y contraseña en el archivo
+local de credenciales. Ese archivo está excluido de Git. Si el administrador
+olvida la clave, `npm.cmd run reset:admin` la reemplaza sin borrar el nombre ni
+el correo que ya había configurado.
+
 ### Servidor
 
 `servidor/servidor.js` conserva el estado de la aplicación y coordina los casos

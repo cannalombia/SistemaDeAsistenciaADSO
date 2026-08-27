@@ -155,12 +155,16 @@ function createProjectServer(options = {}) {
     const adminCredentialsFile = options.adminCredentialsFile || path.join(dataDirectory, "credenciales_administrador.json");
     let adminCredentials = {
         salt: "sena-admin-2026",
-        passwordHash: "46c3d68de34605cabf1087dc0d99ab5a435b29de13894a2f91f7e94326c96165188e6b00b455ef57158b0728a06146c881b5cf14cb25c27e7a5ee9923ab97935"
+        passwordHash: "46c3d68de34605cabf1087dc0d99ab5a435b29de13894a2f91f7e94326c96165188e6b00b455ef57158b0728a06146c881b5cf14cb25c27e7a5ee9923ab97935",
+        name: "Administrador SENA",
+        email: "admin@sena.edu.co"
     };
     if (typeof options.adminPassword === "string") {
         adminCredentials = {
             salt: "sena-admin-test",
-            passwordHash: crypto.scryptSync(options.adminPassword, "sena-admin-test", 64).toString("hex")
+            passwordHash: crypto.scryptSync(options.adminPassword, "sena-admin-test", 64).toString("hex"),
+            name: "Administrador SENA",
+            email: "admin@sena.edu.co"
         };
     } else if (fs.existsSync(adminCredentialsFile)) {
         try {
@@ -168,7 +172,12 @@ function createProjectServer(options = {}) {
             const salt = String(storedCredentials.salt || "");
             const passwordHash = String(storedCredentials.passwordHash || "").toLowerCase();
             if (salt.length < 8 || !/^[a-f0-9]{128}$/.test(passwordHash)) throw new Error("Formato inválido");
-            adminCredentials = { salt, passwordHash };
+            adminCredentials = {
+                salt,
+                passwordHash,
+                name: String(storedCredentials.name || "Administrador SENA").trim(),
+                email: normalizeEmail(storedCredentials.email || "admin@sena.edu.co")
+            };
         } catch (_error) {
             throw new Error("Las credenciales administrativas guardadas no son válidas. Ejecuta npm.cmd run reset:admin.");
         }
@@ -177,8 +186,8 @@ function createProjectServer(options = {}) {
         {
             id: "admin-sena",
             username: "admin",
-            email: "admin@sena.edu.co",
-            name: "Administrador SENA",
+            email: adminCredentials.email,
+            name: adminCredentials.name,
             role: "Administrador",
             salt: adminCredentials.salt,
             passwordHash: adminCredentials.passwordHash
@@ -820,6 +829,107 @@ function createProjectServer(options = {}) {
             return null;
         }
         return session;
+    }
+
+    function adminProfile() {
+        const account = builtInAccounts[0];
+        return {
+            id: account.id,
+            username: account.username,
+            name: account.name,
+            email: account.email,
+            role: account.role,
+            picture: "logo_sena.png",
+            method: "password"
+        };
+    }
+
+    function saveAdminAccount() {
+        // Durante las pruebas las credenciales viven en memoria. La instalación normal sí las conserva.
+        if (!persistentRuntime && !options.adminCredentialsFile) return;
+        const account = builtInAccounts[0];
+        writeJsonFileAtomic(adminCredentialsFile, {
+            salt: account.salt,
+            passwordHash: account.passwordHash,
+            name: account.name,
+            email: account.email,
+            updatedAt: new Date().toISOString()
+        });
+    }
+
+    function refreshAdminSessions() {
+        const profile = adminProfile();
+        for (const session of sessions.values()) {
+            if (session.user?.id === profile.id) session.user = { ...session.user, ...profile };
+        }
+    }
+
+    async function handleAdminProfile(request, response) {
+        const session = requireAdministrator(request, response);
+        if (!session) return;
+        if (session.user.id !== "admin-sena") {
+            return sendJson(response, 403, { ok: false, message: "Solo la cuenta administrativa principal puede modificar este perfil." });
+        }
+
+        if (request.method === "GET") {
+            return sendJson(response, 200, { ok: true, user: adminProfile() });
+        }
+
+        const body = await readJsonBody(request);
+        const name = String(body.name || "").trim().replace(/\s+/g, " ");
+        const email = normalizeEmail(body.email);
+        if (name.length < 3 || name.length > 120) {
+            return sendJson(response, 400, { ok: false, message: "Escribe un nombre válido de 3 a 120 caracteres." });
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return sendJson(response, 400, { ok: false, message: "Escribe un correo electrónico válido." });
+        }
+        if (systemUsers().some((user) => user.id !== "admin-sena" && normalizeEmail(user.email) === email)) {
+            return sendJson(response, 409, { ok: false, message: "Ese correo ya pertenece a otro usuario." });
+        }
+
+        const account = builtInAccounts[0];
+        account.name = name;
+        account.email = email;
+        adminCredentials.name = name;
+        adminCredentials.email = email;
+        saveAdminAccount();
+        refreshAdminSessions();
+        return sendJson(response, 200, { ok: true, user: adminProfile(), message: "Perfil actualizado correctamente." });
+    }
+
+    async function handleAdminPasswordChange(request, response) {
+        const session = requireAdministrator(request, response);
+        if (!session) return;
+        if (session.user.id !== "admin-sena") {
+            return sendJson(response, 403, { ok: false, message: "Solo la cuenta administrativa principal puede cambiar esta contraseña." });
+        }
+
+        const body = await readJsonBody(request);
+        const currentPassword = String(body.currentPassword || "");
+        const newPassword = String(body.newPassword || "");
+        const account = builtInAccounts[0];
+
+        if (!verifyPassword(account, currentPassword)) {
+            return sendJson(response, 401, { ok: false, message: "La contraseña actual no es correcta." });
+        }
+        if (newPassword.length < 10) {
+            return sendJson(response, 400, { ok: false, message: "La nueva contraseña debe tener al menos 10 caracteres." });
+        }
+        if (currentPassword === newPassword) {
+            return sendJson(response, 400, { ok: false, message: "La contraseña nueva debe ser diferente de la actual." });
+        }
+
+        account.salt = crypto.randomBytes(16).toString("hex");
+        account.passwordHash = crypto.scryptSync(newPassword, account.salt, 64).toString("hex");
+        adminCredentials.salt = account.salt;
+        adminCredentials.passwordHash = account.passwordHash;
+        saveAdminAccount();
+        // La sesión que hizo el cambio continúa; las demás sesiones administrativas se cierran.
+        for (const [token, storedSession] of sessions) {
+            if (token !== session.token && storedSession.user?.id === "admin-sena") sessions.delete(token);
+        }
+        return sendJson(response, 200, { ok: true, message: "Contraseña actualizada correctamente." });
     }
 
     function publicProgram(program) {
@@ -1622,6 +1732,9 @@ function createProjectServer(options = {}) {
             estadoCorreo: handleEmailStatus,
             historialCorreo: handleEmailHistory,
             consultarSesion: handleSession,
+            consultarPerfil: handleAdminProfile,
+            actualizarPerfil: handleAdminProfile,
+            cambiarContrasena: handleAdminPasswordChange,
             cerrarSesion: handleLogout
         },
         usuarios: {

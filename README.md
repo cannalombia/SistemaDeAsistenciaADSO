@@ -96,6 +96,16 @@ Y si quieres pedirle que compruebe o inicie el servidor manualmente:
 npm.cmd run start:ensure
 ```
 
+## Perfil y contraseña del administrador
+
+Desde **Configuración** puedes cambiar el nombre, el correo y la contraseña de
+la cuenta administrativa. Estos cambios pertenecen a la misma cuenta con la que
+inicias sesión; no se guardan como una copia separada en el navegador.
+
+Si no recuerdas la contraseña actual, usa `npm.cmd run reset:admin` desde la
+carpeta del proyecto. El comando cambia solamente la contraseña y conserva el
+nombre y el correo configurados.
+
 ## Cómo se comprueba un cambio
 
 Después de hacer cambios, ejecuta las pruebas:

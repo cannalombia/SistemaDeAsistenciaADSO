@@ -291,6 +291,39 @@ async function emailApiTest() {
         check(adminResponse.status === 200 && adminData.user.role === "Administrador", "API contraseña: no autenticó al administrador");
         check((adminResponse.headers.get("set-cookie") || "").includes("HttpOnly"), "API contraseña: la sesión no usa cookie HttpOnly");
 
+        const adminProfileResponse = await fetch(`${baseUrl}/api/auth/profile`, { headers: { Cookie: adminCookie } });
+        const adminProfileData = await adminProfileResponse.json();
+        check(adminProfileResponse.status === 200 && adminProfileData.user.name === "Administrador SENA", "API perfil: no entregó el perfil administrativo");
+
+        const profileUpdateResponse = await fetch(`${baseUrl}/api/auth/profile`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Cookie: adminCookie },
+            body: JSON.stringify({ name: "Administrador de Prueba", email: "admin.prueba@example.com" })
+        });
+        const updatedProfile = await profileUpdateResponse.json();
+        check(profileUpdateResponse.status === 200 && updatedProfile.user.email === "admin.prueba@example.com", "API perfil: no actualizó el nombre y el correo");
+
+        const passwordChangeResponse = await fetch(`${baseUrl}/api/auth/password/change`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Cookie: adminCookie },
+            body: JSON.stringify({ currentPassword: "admin123", newPassword: "NuevaClave123" })
+        });
+        check(passwordChangeResponse.status === 200, "API perfil: no cambió la contraseña administrativa");
+
+        const newPasswordLoginResponse = await fetch(`${baseUrl}/api/auth/password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ identifier: "admin", password: "NuevaClave123" })
+        });
+        check(newPasswordLoginResponse.status === 200, "API perfil: la contraseña nueva no permite iniciar sesión");
+
+        const oldPasswordLoginResponse = await fetch(`${baseUrl}/api/auth/password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ identifier: "admin", password: "admin123" })
+        });
+        check(oldPasswordLoginResponse.status === 401, "API perfil: la contraseña anterior siguió funcionando");
+
         const usersResponse = await fetch(`${baseUrl}/api/users`, { headers: { Cookie: adminCookie } });
         const usersData = await usersResponse.json();
         check(usersResponse.status === 200 && usersData.summary.students === 1 && usersData.fichas[0].codigo === "3349882", "API usuarios: no entregó el directorio y las fichas reales");

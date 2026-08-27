@@ -16,37 +16,12 @@
     const LOGIN_PAGE = "login.html";
     const DEFAULT_PAGE = "estadisticas.html";
     const APPRENTICE_PAGE = "aprendiz.html";
-    const USERS_KEY = "sena-local-users-v1";
-    const SESSION_KEY = "sena-auth-session-v1";
     const isLoginPage = /(^|\/)login\.html$/.test(window.location.pathname);
     const pageFile = window.location.pathname.split("/").pop() || "index.html";
     const currentDestination = `${pageFile}${window.location.search}${window.location.hash}`;
 
-    const DEFAULT_USER = Object.freeze({
-        id: "local-admin-v2",
-        username: "admin",
-        document: "100000001",
-        firstName: "Administrador",
-        lastName: "SENA",
-        name: "Administrador SENA",
-        email: "admin@sena.edu.co",
-        phone: "",
-        role: "Administrador",
-        picture: "logo_sena.png",
-        passwordHash: "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9"
-    });
-
     let activeUser = null;
     let pendingDocument = "";
-
-    function readJson(storage, key, fallback) {
-        try {
-            const value = storage.getItem(key);
-            return value ? JSON.parse(value) : fallback;
-        } catch (_error) {
-            return fallback;
-        }
-    }
 
     function normalize(value) {
         return String(value || "").trim().toLocaleLowerCase("es");
@@ -66,70 +41,6 @@
             picture: user.picture || "logo_sena.png",
             method
         };
-    }
-
-    function getStoredUsers() {
-        const stored = readJson(localStorage, USERS_KEY, []);
-        return Array.isArray(stored) ? stored : [];
-    }
-
-    function getLocalUsers() {
-        const users = new Map([[DEFAULT_USER.id, { ...DEFAULT_USER }]]);
-        getStoredUsers().forEach((user) => users.set(user.id, user));
-        return Array.from(users.values());
-    }
-
-    function saveStoredUser(user) {
-        const stored = getStoredUsers();
-        const index = stored.findIndex((item) => item.id === user.id);
-        if (index >= 0) stored[index] = user;
-        else stored.push(user);
-        localStorage.setItem(USERS_KEY, JSON.stringify(stored));
-    }
-
-    function getLocalSession() {
-        const candidates = [
-            readJson(sessionStorage, SESSION_KEY, null),
-            readJson(localStorage, SESSION_KEY, null)
-        ];
-        const session = candidates.find((item) => item && item.method === "local");
-        if (!session) return null;
-        if (!session.expiresAt || session.expiresAt <= Date.now()) {
-            sessionStorage.removeItem(SESSION_KEY);
-            localStorage.removeItem(SESSION_KEY);
-            return null;
-        }
-        return session;
-    }
-
-    function storeLocalSession(user, remember) {
-        const storage = remember ? localStorage : sessionStorage;
-        const otherStorage = remember ? sessionStorage : localStorage;
-        const duration = remember ? 30 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000;
-        otherStorage.removeItem(SESSION_KEY);
-        storage.setItem(SESSION_KEY, JSON.stringify({
-            method: "local",
-            user: publicUser(user, "local"),
-            expiresAt: Date.now() + duration
-        }));
-    }
-
-    function updateCurrentLocalSession(user) {
-        [sessionStorage, localStorage].forEach((storage) => {
-            const session = readJson(storage, SESSION_KEY, null);
-            if (session && session.method === "local") {
-                session.user = publicUser(user, "local");
-                storage.setItem(SESSION_KEY, JSON.stringify(session));
-            }
-        });
-    }
-
-    async function hashPassword(value) {
-        const bytes = new TextEncoder().encode(String(value));
-        const digest = await crypto.subtle.digest("SHA-256", bytes);
-        return Array.from(new Uint8Array(digest))
-            .map((byte) => byte.toString(16).padStart(2, "0"))
-            .join("");
     }
 
     function safeDestination(value) {
@@ -261,91 +172,24 @@
         return true;
     }
 
-    async function loginWithLocalCredentials(username, password, remember) {
-        const identifier = normalize(username);
-        const user = getLocalUsers().find((item) =>
-            [item.username, item.email, item.document].some((value) => normalize(value) === identifier)
-        );
-        if (!user || user.passwordHash !== await hashPassword(password)) {
-            throw new Error("Usuario o contraseña incorrectos.");
-        }
-        storeLocalSession(user, remember);
-        return publicUser(user, "local");
+    async function updateProfile(changes) {
+        const result = await apiRequest("/api/auth/profile", {
+            method: "PATCH",
+            body: JSON.stringify({ name: changes.name, email: changes.email })
+        });
+        renderUser(result.user);
+        return result;
     }
 
-    async function createLocalUser(data) {
-        const required = ["username", "document", "firstName", "lastName", "email", "role", "password"];
-        if (required.some((field) => !String(data[field] || "").trim())) {
-            throw new Error("Completa todos los campos obligatorios.");
-        }
-        if (String(data.password).length < 8) {
-            throw new Error("La contraseña debe tener al menos 8 caracteres.");
-        }
-        const users = getLocalUsers();
-        if (users.some((user) => normalize(user.email) === normalize(data.email))) {
-            throw new Error("Ya existe un usuario con ese correo.");
-        }
-        if (users.some((user) => normalize(user.document) === normalize(data.document))) {
-            throw new Error("Ya existe un usuario con ese documento.");
-        }
-        if (users.some((user) => normalize(user.username) === normalize(data.username))) {
-            throw new Error("Ese nombre de usuario ya está en uso.");
-        }
-
-        const user = {
-            id: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            username: normalize(data.username),
-            document: String(data.document).trim(),
-            documentType: String(data.documentType || "Cédula de Ciudadanía"),
-            firstName: String(data.firstName).trim(),
-            lastName: String(data.lastName).trim(),
-            name: `${String(data.firstName).trim()} ${String(data.lastName).trim()}`,
-            email: normalize(data.email),
-            phone: String(data.phone || "").trim(),
-            role: String(data.role).trim(),
-            picture: "logo_sena.png",
-            passwordHash: await hashPassword(data.password)
-        };
-        saveStoredUser(user);
-        return publicUser(user, "local");
-    }
-
-    async function updateLocalProfile(changes) {
-        const session = getLocalSession();
-        if (!session) throw new Error("Esta función requiere una cuenta local.");
-        const user = getLocalUsers().find((item) => item.id === session.user.id);
-        if (!user) throw new Error("No se encontró el usuario.");
-        const updated = {
-            ...user,
-            firstName: String(changes.firstName || user.firstName).trim(),
-            lastName: String(changes.lastName || user.lastName).trim(),
-            email: normalize(changes.email || user.email)
-        };
-        updated.name = `${updated.firstName} ${updated.lastName}`.trim();
-        saveStoredUser(updated);
-        updateCurrentLocalSession(updated);
-        renderUser(publicUser(updated, "local"));
-        return publicUser(updated, "local");
-    }
-
-    async function changeLocalPassword(currentPassword, newPassword) {
-        const session = getLocalSession();
-        if (!session) throw new Error("Esta función requiere una cuenta local.");
-        const user = getLocalUsers().find((item) => item.id === session.user.id);
-        if (!user || user.passwordHash !== await hashPassword(currentPassword)) {
-            throw new Error("La contraseña actual no es correcta.");
-        }
-        if (String(newPassword).length < 8) {
-            throw new Error("La nueva contraseña debe tener al menos 8 caracteres.");
-        }
-        user.passwordHash = await hashPassword(newPassword);
-        saveStoredUser(user);
+    async function changePassword(currentPassword, newPassword) {
+        return apiRequest("/api/auth/password/change", {
+            method: "POST",
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
     }
 
     async function logout() {
         setLoginBusy(true);
-        sessionStorage.removeItem(SESSION_KEY);
-        localStorage.removeItem(SESSION_KEY);
         try {
             await apiRequest("/api/auth/logout", { method: "POST", body: "{}" });
         } catch (_error) {
@@ -486,8 +330,6 @@
     async function initialize() {
         enhanceLogoutButtons();
         bindActions();
-        sessionStorage.removeItem(SESSION_KEY);
-        localStorage.removeItem(SESSION_KEY);
 
         if (isLoginPage) showLoginActions();
 
@@ -516,10 +358,8 @@
     }
 
     window.SenaAuth = Object.freeze({
-        createLocalUser,
-        updateLocalProfile,
-        changeLocalPassword,
-        getLocalUsers: () => getLocalUsers().map((user) => publicUser(user, "local")),
+        updateProfile,
+        changePassword,
         getCurrentUser: () => activeUser,
         logout
     });

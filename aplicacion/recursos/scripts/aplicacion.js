@@ -255,16 +255,21 @@
             const user = current();
             if (!user) return showToast("No se encontró una sesión activa.", "error");
             openDialog({ title: "Editar perfil", fields: [
-                { name: "firstName", label: "Nombres", value: user.firstName },
-                { name: "lastName", label: "Apellidos", value: user.lastName },
+                { name: "name", label: "Nombre completo", value: user.name },
                 { name: "email", label: "Correo", type: "email", value: user.email }
-            ], onSubmit: async (values) => { await window.SenaAuth.updateLocalProfile(values); showToast("Perfil actualizado."); } });
+            ], onSubmit: async (values) => {
+                const result = await window.SenaAuth.updateProfile(values);
+                showToast(result.message || "Perfil actualizado.");
+            } });
         });
         document.querySelector('[data-action="change-password"]')?.addEventListener("click", () => openDialog({
             title: "Cambiar contraseña", fields: [
                 { name: "current", label: "Contraseña actual", type: "password" },
                 { name: "newPassword", label: "Nueva contraseña", type: "password" }
-            ], onSubmit: async (values) => { await window.SenaAuth.changeLocalPassword(values.current, values.newPassword); showToast("Contraseña actualizada."); }
+            ], onSubmit: async (values) => {
+                const result = await window.SenaAuth.changePassword(values.current, values.newPassword);
+                showToast(result.message || "Contraseña actualizada.");
+            }
         }));
         document.querySelector('[data-action="toggle-theme"]')?.addEventListener("click", () => {
             document.body.classList.toggle("dark-mode");
@@ -348,9 +353,7 @@
     }
 
     function setupStatistics() {
-        const users = window.SenaAuth?.getLocalUsers() || [];
         const stats = {
-            users: users.length,
             fichas: loadData("fichas").length,
             environments: loadData("environments").length
         };

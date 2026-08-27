@@ -58,11 +58,21 @@ async function main() {
 
     const salt = crypto.randomBytes(24).toString("hex");
     const passwordHash = crypto.scryptSync(password, salt, 64).toString("hex");
+    let previous = {};
+    if (fs.existsSync(credentialsFile)) {
+        try {
+            previous = JSON.parse(fs.readFileSync(credentialsFile, "utf8"));
+        } catch (_error) {
+            previous = {};
+        }
+    }
     fs.mkdirSync(path.dirname(credentialsFile), { recursive: true });
     fs.writeFileSync(credentialsFile, `${JSON.stringify({
         username: "admin",
         salt,
         passwordHash,
+        name: String(previous.name || "Administrador SENA"),
+        email: String(previous.email || "admin@sena.edu.co"),
         updatedAt: new Date().toISOString()
     }, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
 

@@ -6,6 +6,9 @@ function crearRutasAcceso(controladores) {
         ["GET /api/auth/email/status", controladores.estadoCorreo],
         ["GET /api/auth/email/history", controladores.historialCorreo],
         ["GET /api/auth/session", controladores.consultarSesion],
+        ["GET /api/auth/profile", controladores.consultarPerfil],
+        ["PATCH /api/auth/profile", controladores.actualizarPerfil],
+        ["POST /api/auth/password/change", controladores.cambiarContrasena],
         ["POST /api/auth/logout", controladores.cerrarSesion]
     ]);
 
