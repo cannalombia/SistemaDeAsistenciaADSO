@@ -1,0 +1,717 @@
+SISTEMA DE ASISTENCIA SENA
+LOGICA APRENDIDA APLICADA EN EL PROYECTO
+
+============================================================
+1. OBJETIVO
+============================================================
+
+Este archivo resume los conceptos de JavaScript trabajados en clase que ya
+estan aplicados dentro del Sistema de Asistencia SENA, indica en que archivo
+y funcion aparecen, y señala cuales conceptos todavia faltan por integrar.
+
+La idea es aplicar lo aprendido sin cambiar la funcionalidad, seguridad,
+rutas ni comportamiento actual del proyecto.
+
+
+============================================================
+2. FUNCIONES
+============================================================
+
+ESTADO: APLICADO
+
+Se utilizan funciones para separar tareas y evitar que todo el codigo quede
+mezclado.
+
+EJEMPLOS:
+
+usuarios.js
+- contar_usuarios(usuarios)
+- filtrar_usuarios(usuarios, rol, texto)
+- buscar_usuario(usuarios, id)
+
+asistencia.js
+- contar_estados(aprendices)
+- renderSummary()
+- renderPages(totalPages)
+
+programas.js
+- programFilterOptions(select, values, placeholder)
+- programPaginationMarkup(current, total)
+
+estadisticas.js
+- calcular_extremos(valores)
+- obtener_porcentajes_tendencia(tendencia)
+- drawSparklines(data)
+- renderComposition(items)
+
+USO:
+Cada funcion realiza una tarea concreta y puede ser llamada desde otras partes
+del mismo modulo.
+
+
+============================================================
+3. ARRAYS Y ARRAYS DE OBJETOS
+============================================================
+
+ESTADO: APLICADO
+
+Se utilizan principalmente para manejar:
+
+- usuarios
+- aprendices
+- asistencias
+- programas
+- datos de estadisticas
+
+EJEMPLOS:
+
+usuarios.js
+- contar_usuarios(usuarios)
+- filtrar_usuarios(usuarios, rol, texto)
+- buscar_usuario(usuarios, id)
+
+asistencia.js
+- contar_estados(aprendices)
+
+estadisticas.js
+- calcular_extremos(valores)
+- obtener_porcentajes_tendencia(tendencia)
+
+
+============================================================
+4. OBJETOS
+============================================================
+
+ESTADO: APLICADO
+
+Los registros del sistema se trabajan como objetos.
+
+EJEMPLO DE USO:
+
+usuario.role
+usuario.id
+usuario.name
+usuario.email
+
+aprendices[indice].estado
+
+data.summary.apprentices
+data.summary.instructors
+
+Tambien se devuelven objetos desde funciones.
+
+Ejemplo en estadisticas.js:
+
+return { minimo, maximo };
+
+
+============================================================
+5. FOR...OF
+============================================================
+
+ESTADO: APLICADO
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/usuarios.js
+
+FUNCIONES:
+
+contar_usuarios(usuarios)
+- Recorre todos los usuarios.
+- Cuenta total, instructores y aprendices.
+
+filtrar_usuarios(usuarios, rol, texto)
+- Recorre los usuarios para determinar cuales deben mostrarse.
+
+buscar_usuario(usuarios, id)
+- Recorre usuarios hasta encontrar el solicitado.
+
+EJEMPLO DE LOGICA:
+
+for (const usuario of usuarios) {
+    ...
+}
+
+
+============================================================
+6. CONTINUE
+============================================================
+
+ESTADO: APLICADO
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/usuarios.js
+
+FUNCION:
+filtrar_usuarios(usuarios, rol, texto)
+
+USO:
+Se omiten los usuarios que no cumplen el rol o el texto buscado.
+
+Ejemplo:
+
+if (rol !== "all" && usuario.role !== rol) continue;
+
+if (contenido.indexOf(texto) === -1) continue;
+
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/estadisticas.js
+
+FUNCION:
+obtener_porcentajes_tendencia(tendencia)
+
+USO:
+Si un porcentaje es null, se omite y se continua con el siguiente registro.
+
+Ejemplo:
+
+if (tendencia[i].percentage === null) {
+    continue;
+}
+
+
+============================================================
+7. BREAK
+============================================================
+
+ESTADO: APLICADO
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/usuarios.js
+
+FUNCION:
+buscar_usuario(usuarios, id)
+
+USO:
+Cuando encuentra el usuario solicitado, detiene el ciclo porque ya no es
+necesario seguir buscando.
+
+Ejemplo:
+
+if (usuario.id === id) {
+    encontrado = usuario;
+    break;
+}
+
+NOTA:
+En estadisticas.js todavia existe:
+
+const visible = items.slice(0, limit);
+
+Si se quiere reforzar el uso manual de break, se puede crear una funcion
+obtener_fichas_visibles(items, limite) usando for + break y reemplazar slice.
+No es necesario para el funcionamiento porque ya existe un uso real de break
+en usuarios.js.
+
+
+============================================================
+8. FOR CLASICO
+============================================================
+
+ESTADO: APLICADO
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/asistencia.js
+
+FUNCION:
+contar_estados(aprendices)
+
+USO:
+Recorre el array por indice y cuenta presente, tardanza, ausente y justificado.
+
+Ejemplo:
+
+for (let indice = 0; indice < aprendices.length; indice += 1) {
+    const estado = aprendices[indice].estado;
+    ...
+}
+
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/estadisticas.js
+
+FUNCION:
+obtener_porcentajes_tendencia(tendencia)
+
+USO:
+Recorre las tendencias por indice.
+
+Ejemplo:
+
+for (let i = 0; i < tendencia.length; i++) {
+    ...
+}
+
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/programas.js
+
+FUNCION:
+programPaginationMarkup(current, total)
+
+USO:
+Genera los botones de paginacion.
+
+
+============================================================
+9. WHILE
+============================================================
+
+ESTADO: APLICADO
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/estadisticas.js
+
+FUNCION:
+calcular_extremos(valores)
+
+USO:
+Busca el valor minimo y maximo que se utiliza para calcular la escala de las
+graficas.
+
+Ejemplo:
+
+let indice = 0;
+
+while (indice < valores.length) {
+    minimo = Math.min(minimo, valores[indice]);
+    maximo = Math.max(maximo, valores[indice]);
+    indice += 1;
+}
+
+Este es un uso real del while dentro de una funcionalidad del sistema.
+
+
+============================================================
+10. FOREACH
+============================================================
+
+ESTADO: APLICADO
+
+Se utiliza en diferentes modulos.
+
+EJEMPLOS:
+
+usuarios.js
+- Object.keys(cantidades).forEach(...)
+- filtros y eventos del modulo de usuarios.
+
+asistencia.js
+- Object.keys(counts).forEach(...)
+- visible.forEach(...)
+
+programas.js
+- values.forEach(...)
+- state.filtered.forEach(...)
+
+estadisticas.js
+- values.forEach(...)
+- querySelectorAll(...).forEach(...)
+
+USO:
+Ejecuta una accion para todos los elementos cuando no es necesario controlar
+manualmente el indice.
+
+
+============================================================
+11. IF / CONDICIONALES
+============================================================
+
+ESTADO: APLICADO
+
+Aparece en todo el proyecto para:
+
+- validar usuarios
+- filtrar roles
+- contar estados
+- comprobar valores
+- manejar resultados de API
+- determinar estados visuales
+- controlar rangos de fecha
+- mostrar mensajes
+
+EJEMPLOS:
+
+usuarios.js
+if (usuario.role === "Instructor") ...
+
+asistencia.js
+if (counts[estado] !== undefined) ...
+
+estadisticas.js
+if (tendencia[i].percentage === null) ...
+
+
+============================================================
+12. RETURN
+============================================================
+
+ESTADO: APLICADO
+
+Se utiliza para devolver resultados de funciones.
+
+EJEMPLOS:
+
+usuarios.js
+return cantidades;
+return visibles;
+return encontrado;
+
+asistencia.js
+return counts;
+
+estadisticas.js
+return { minimo, maximo };
+return porcentajes;
+
+
+============================================================
+13. DOM
+============================================================
+
+ESTADO: APLICADO
+
+El DOM permite que JavaScript lea y modifique el HTML.
+
+CONCEPTOS USADOS:
+
+- document.getElementById()
+- document.querySelector()
+- document.querySelectorAll()
+- document.createElement()
+- appendChild()
+- textContent
+- innerHTML
+- addEventListener()
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/programas.js
+
+FUNCION:
+programFilterOptions(select, values, placeholder)
+
+USO:
+Crea las opciones de un select manualmente.
+
+Ejemplo:
+
+const opcion = document.createElement("option");
+opcion.textContent = String(value ?? "");
+select.appendChild(opcion);
+
+Este ejemplo demuestra DOM de forma directa.
+
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/asistencia.js
+
+USO:
+Actualiza resumenes y elementos de la pagina usando textContent.
+
+
+ARCHIVO:
+aplicacion/recursos/JS scripts/estadisticas.js
+
+USO:
+Lee filtros, actualiza indicadores y trabaja con elementos del dashboard.
+
+
+============================================================
+14. ADDEVENTLISTENER
+============================================================
+
+ESTADO: APLICADO
+
+Se usa para responder a acciones del usuario.
+
+EJEMPLOS:
+
+usuarios.js
+- click
+- input
+- change
+- submit
+
+asistencia.js
+- change
+- input
+- click
+
+programas.js
+- click
+- input
+- change
+
+estadisticas.js
+- change
+- click
+- resize
+- focus
+- storage
+
+
+============================================================
+15. ASYNC / AWAIT - FETCH - TRY / CATCH
+============================================================
+
+ESTADO: APLICADO
+
+Estos conceptos se utilizan para comunicarse con el servidor sin recargar la
+pagina.
+
+EJEMPLOS:
+
+usuarios.js
+- consultarApi(...)
+- cargarUsuarios()
+- crearUsuario(...)
+
+asistencia.js
+- apiRequest(...)
+- loadSelectedFicha()
+
+programas.js
+- requestProgramApi(...)
+
+estadisticas.js
+- requestDashboard()
+
+Se mantienen porque son necesarios para una aplicacion web real.
+
+
+============================================================
+16. PRUEBAS DE LA LOGICA APRENDIDA
+============================================================
+
+ESTADO: APLICADO
+
+ARCHIVO:
+pruebas/prueba_logica_aprendida.js
+
+Actualmente prueba:
+
+- contar_usuarios()
+- filtrar_usuarios()
+- buscar_usuario()
+- contar_estados()
+- calcular_extremos()
+- programFilterOptions()
+
+Tambien comprueba:
+
+- arrays vacios
+- busquedas sin coincidencia
+- usuarios inactivos
+- valores positivos y negativos
+- listas grandes
+- texto literal en DOM
+- conservacion de seleccion
+
+
+============================================================
+17. CONCEPTOS QUE TODAVIA FALTAN
+============================================================
+
+Luego de revisar los archivos reales del ZIP, estos conceptos NO aparecen en
+el codigo propio del proyecto de forma pedagogica clara:
+
+------------------------------------------------------------
+A. DO...WHILE
+------------------------------------------------------------
+
+ESTADO: FALTA
+
+LUGAR RECOMENDADO:
+aplicacion/recursos/JS scripts/asistencia.js
+
+o
+servidor/dominio/estadisticas.js
+
+USO PROPUESTO:
+Crear una funcion auxiliar que recorra una secuencia al menos una vez y repita
+el proceso mientras se cumpla una condicion valida.
+
+Debe usarse dentro de una tarea real, no mediante prompt().
+
+Una opcion segura seria usarlo en una funcion auxiliar de procesamiento de
+estados de asistencia o de recorrido de paginas, siempre conservando el mismo
+resultado actual.
+
+Debe añadirse una prueba en:
+pruebas/prueba_logica_aprendida.js
+
+
+------------------------------------------------------------
+B. FOR...IN
+------------------------------------------------------------
+
+ESTADO: FALTA COMO EJEMPLO PEDAGOGICO CLARO
+
+LUGAR RECOMENDADO:
+aplicacion/recursos/JS scripts/asistencia.js
+
+FUNCIONALIDAD POSIBLE:
+Recorrer las propiedades del objeto de conteos:
+
+{
+    presente: 0,
+    tardanza: 0,
+    ausente: 0,
+    justificado: 0
+}
+
+Podria usarse para actualizar el resumen de estados.
+
+Actualmente se utiliza:
+Object.keys(counts).forEach(...)
+
+Se podria estudiar reemplazar esa parte por:
+
+for (const estado in counts) {
+    ...
+}
+
+solo si las pruebas confirman que el resultado permanece igual.
+
+
+------------------------------------------------------------
+C. MATRIZ / ARRAY BIDIMENSIONAL
+------------------------------------------------------------
+
+ESTADO: FALTA
+
+LUGAR RECOMENDADO:
+aplicacion/recursos/JS scripts/asistencia.js
+
+o
+servidor/dominio/estadisticas.js
+
+USO PROPUESTO:
+Crear una matriz auxiliar para un resumen de asistencia.
+
+Ejemplo conceptual:
+
+filas    = aprendices o fichas
+columnas = presente, tardanza, ausente, justificado
+
+IMPORTANTE:
+La matriz debe ser solamente una estructura auxiliar para calcular o resumir
+informacion.
+
+NO debe reemplazar datos/asistencia.json ni cambiar la persistencia.
+
+Debe agregarse una prueba especifica.
+
+
+------------------------------------------------------------
+D. ETIQUETAS DE LOOPS
+------------------------------------------------------------
+
+ESTADO: FALTA
+
+LUGAR RECOMENDADO:
+aplicacion/recursos/JS scripts/asistencia.js
+
+o
+una funcion auxiliar de estadisticas.
+
+USO PROPUESTO:
+Recorrer dos niveles de informacion, por ejemplo:
+
+- fichas
+- aprendices de cada ficha
+
+Si se cumple una condicion que haga innecesario revisar el resto del grupo,
+se puede utilizar:
+
+continue etiqueta_fichas;
+
+o
+break etiqueta_fichas;
+
+Debe tener una razon funcional y una prueba.
+
+
+============================================================
+18. SIGUIENTE ORDEN RECOMENDADO
+============================================================
+
+1. Terminar estadisticas.js
+   - Opcional: obtener_fichas_visibles() con for + break.
+
+2. Trabajar asistencia.js
+   - Aplicar for...in al resumen de estados si conserva exactamente el mismo
+     comportamiento.
+
+3. Integrar do...while en una funcion real y comprobable.
+
+4. Integrar una matriz auxiliar para resumen de asistencia.
+
+5. Integrar una etiqueta de loop en un recorrido anidado real.
+
+6. Agregar pruebas de cada concepto en:
+   pruebas/prueba_logica_aprendida.js
+
+7. Ejecutar:
+   npm.cmd test
+
+8. Probar manualmente:
+   - login
+   - usuarios
+   - asistencia
+   - programas
+   - estadisticas
+   - reportes
+
+
+============================================================
+19. RESUMEN RAPIDO
+============================================================
+
+YA APLICADO:
+
+[OK] funciones
+[OK] const / let
+[OK] arrays
+[OK] objetos
+[OK] for clasico
+[OK] for...of
+[OK] forEach
+[OK] while
+[OK] break
+[OK] continue
+[OK] if
+[OK] return
+[OK] DOM
+[OK] createElement
+[OK] appendChild
+[OK] textContent
+[OK] addEventListener
+[OK] async / await
+[OK] fetch
+[OK] try / catch
+[OK] pruebas con assert
+
+FALTA INTEGRAR:
+
+[ ] do...while
+[ ] for...in como ejemplo pedagogico claro
+[ ] matriz / array bidimensional
+[ ] etiquetas de loops
+
+
+============================================================
+20. REGLA PARA LOS CAMBIOS QUE FALTAN
+============================================================
+
+Todo concepto nuevo debe cumplir estas condiciones:
+
+1. Debe formar parte de una funcionalidad real.
+2. No debe romper codigo existente.
+3. No debe cambiar seguridad.
+4. No debe cambiar rutas ni APIs.
+5. No debe cambiar los datos persistidos.
+6. Debe tener una prueba.
+7. Debe poder explicarse facilmente al instructor.
+

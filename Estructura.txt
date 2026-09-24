@@ -1,0 +1,86 @@
+SISTEMA DE ASISTENCIA SENA - MAPA DEL PROYECTO
+Actualizado: 2026-09-23
+
+
+PARA EMPEZAR
+
+- ABRIR_PROYECTO.cmd inicia el servidor y abre la pantalla de ingreso.
+- index.html muestra una entrada sencilla para abrir el proyecto.
+- README.md explica la instalación, el correo y las pruebas.
+
+
+CARPETAS PRINCIPALES
+
+aplicacion/
+  paginas/                 Pantallas HTML que se abren en el navegador.
+  recursos/
+    estilos/               Diseño visual de las pantallas.
+    imagenes/              Logo e imágenes utilizadas por la interfaz.
+    scripts/               Comportamiento de cada pantalla.
+
+base_datos/
+  estructura_sistema_asistencia.sql
+                           Estructura SQL de referencia.
+
+datos/
+  ejemplos/                Información anónima para una instalación nueva.
+  importaciones/           Archivos operativos locales; no se publican.
+
+documentacion/
+  arquitectura/            Decisiones técnicas y forma de trabajo.
+  diseno/                  Referencias visuales del proyecto.
+  guias/                   Ayuda para configurar servicios como el correo.
+
+herramientas/
+  automatizacion/          Inicio, vigilancia y recuperación del servidor.
+
+pruebas/                   Recorridos automáticos del sistema.
+
+servidor/
+  configuracion/           Rutas físicas y opciones del proyecto.
+  dominio/                 Reglas de usuarios, programas y estadísticas.
+  modulos/                 Correo, persistencia y utilidades compartidas.
+  rutas/                   Acceso, usuarios, formación y estado del sistema.
+  servidor.js              Une los módulos y mantiene el servidor activo.
+
+
+ARCHIVOS QUE SE USAN CON MÁS FRECUENCIA
+
+- aplicacion/paginas/login.html
+  Pantalla de acceso para personal y aprendices.
+
+- aplicacion/recursos/scripts/script.js
+  Gestión real de usuarios: consulta, creación, edición, estado y eliminación.
+
+- servidor/restablecer_administrador.js
+  Permite crear una contraseña administrativa nueva desde una terminal.
+
+- pruebas/prueba_proyecto.js
+  Comprueba acceso, correo, programas y operaciones reales de usuarios.
+
+
+COMANDOS
+
+- Iniciar el proyecto:
+  npm.cmd start
+
+- Comprobar el servidor:
+  npm.cmd run status
+
+- Ejecutar todas las pruebas:
+  npm.cmd test
+
+- Cambiar la clave administrativa:
+  npm.cmd run reset:admin
+
+
+[ CERRAR NODE.JS ]
+
+tasklist | findstr node
+taskkill /IM node.exe /F
+taskkill /IM node_repl.exe /F
+
+# Verificar
+tasklist | findstr node
+
+# Si no aparece ningún proceso, Node.js quedó cerrado.
