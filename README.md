@@ -14,29 +14,36 @@ cuáles archivos usa el sistema. El código está separado en `aplicacion/`
 Los archivos de referencia se conservan en documentación, importaciones
 originales y respaldos, separados de los datos activos.
 
+## Estado de cierre
+
+MySQL es la persistencia operacional definitiva y la configuración activa usa
+`DATA_SOURCE=mysql`. Las migraciones, el corte, la activación, los reinicios y
+la validación posterior quedaron aprobados sin diferencias. CSV y JSON se
+conservan únicamente como respaldo legacy; no son la fuente activa.
+
+Las credenciales integradas fueron retiradas del código. Los hashes, salts,
+claves de base de datos y proveedores permanecen en `.env` o en archivos
+locales ignorados por Git. Git quedó limpio en el commit estable `3f5e5b9` y se
+generó el paquete limpio `BLUE_MAGIC_V5_PAQUETE_LIMPIO_2026-10-01.zip`, sin
+secretos, datos operativos ni dependencias instaladas.
+
 ## ¿Quieres abrirlo?
 
 Para abrirlo desde datos móviles sin instalar nada, consulta la
 [guía de acceso público con SSH y localhost.run](documentacion/guias/acceso_publico_ssh.md).
 
-### Base principal de usuarios
+### Persistencia principal
 
-La aplicación lee y actualiza `usuarios_listo_para_importar.csv`, en la raíz
-del proyecto. Puedes agregar filas directamente en ese archivo, guardarlo como
-CSV UTF-8 y actualizar la pantalla **Crear Usuario**: no necesitas importarlo
-ni reiniciar el servidor. Conserva las siete columnas:
-`identificacion;tipo_documento;nombre;correo;rol;estado;ficha`.
+La aplicación consulta y actualiza MySQL. La cuenta de ejecución usa permisos
+mínimos y la cuenta de migraciones se reserva para cambios de esquema. El estado
+se comprueba en `/api/health`: debe mostrar `database.source=mysql` y
+`database.ready=true`.
 
-Crear, editar, importar, activar, desactivar o eliminar desde la app guarda los
-cambios en ese mismo CSV. Para impedir el acceso conservando el registro, cambia
-`estado` a `inactivo`. Los cambios de identidad, rol o estado cierran las sesiones
-afectadas. La cuenta principal de administración permanece protegida.
-
-Si hay documentos o correos duplicados, columnas incorrectas o datos inválidos,
-la app muestra un error y no sobrescribe el archivo: corrígelo y vuelve a guardar.
-Cierra el archivo en Excel antes de guardar desde la app, para evitar bloqueos.
-No edites la misma base simultáneamente desde Excel y la app.
-El antiguo `datos/importaciones/usuarios_activos.csv` ya no es la base activa.
+`usuarios_listo_para_importar.csv` y los JSON de `datos/` son archivos legacy
+privados conservados para respaldo y recuperación controlada. No los edites
+esperando cambiar la aplicación activa y no los incluyas en entregas públicas.
+La guía de cierre y rollback está en
+[`documentacion/guias/cierre_tecnico_mysql.md`](documentacion/guias/cierre_tecnico_mysql.md).
 
 La forma más sencilla en Windows es hacer doble clic en
 [`ABRIR_PROYECTO.cmd`](ABRIR_PROYECTO.cmd). Este acceso comprueba el servidor y
@@ -69,8 +76,9 @@ Espera a que aparezca el mensaje de confirmación y vuelve a abrir el enlace.
 
 ## Antes de instalarlo
 
-Necesitas un computador con Windows 10 u 11, Node.js 18 o una versión más
-reciente y npm. Normalmente npm ya viene incluido cuando instalas Node.js.
+Necesitas Windows 10 u 11, Node.js 18 o posterior, npm y MySQL 8.4 LTS. La base
+principal, la base de pruebas y las cuentas de aplicación y migración deben
+crearse antes del primer inicio.
 
 Para preparar el proyecto por primera vez, usa estos comandos:
 
@@ -80,8 +88,9 @@ Copy-Item .env.example .env
 npm.cmd start
 ```
 
-El archivo `.env` guarda la configuración privada del correo. No lo compartas
-ni lo subas a GitHub. Si necesitas configurar Gmail o Resend, sigue la guía
+Completa en `.env` las variables `DB_*`, las credenciales locales de acceso y la
+configuración del correo. `.env` está ignorado: no lo compartas ni lo subas a
+GitHub. Para Gmail o Resend, sigue la guía
 [`documentacion/guias/2026-08-21_configurar_correo.md`](documentacion/guias/2026-08-21_configurar_correo.md).
 
 ¿No encuentras algún archivo? En [`Estructura.txt`](Estructura.txt) está el mapa
@@ -95,9 +104,9 @@ reconocible. El menú vive en `navegacion.js`, el CRUD de usuarios en `usuarios.
 y el correo en su propio servicio. Las direcciones de la API se agrupan en
 `servidor/rutas` según sean de acceso, usuarios, formación o estado del sistema.
 
-Los archivos JSON y CSV se mantienen porque facilitan la demostración local.
-No pretenden reemplazar una base de datos cuando varias personas trabajen al
-mismo tiempo desde computadores diferentes.
+MySQL concentra la persistencia transaccional. Los archivos JSON y CSV se
+mantienen como respaldo legacy y muestras de instalación, separados de la
+operación activa.
 
 La explicación completa, incluidos los límites que todavía tiene el proyecto,
 está en
@@ -168,9 +177,9 @@ mientras está visible y no se están editando los filtros.
 Pulsa **Generar y guardar** para conservar un informe en el historial. Desde
 **Reportes guardados** puedes buscarlo, abrir su detalle y descargar el PDF.
 Cada informe conserva los datos originales de su corte, aunque después se
-modifique la asistencia. El historial se guarda en
-`datos/reportes_estadisticas.json` y permanece disponible al reiniciar el
-servidor. Incluye ese archivo en las copias de seguridad privadas.
+modifique la asistencia. El historial se guarda en MySQL y permanece disponible
+al reiniciar el servidor. Inclúyelo en los respaldos privados generados desde
+la aplicación.
 
 En **Asistencia**, guarda primero los cambios y pulsa **Exportar PDF**. Se
 descarga el informe de la ficha, fecha y jornada seleccionadas, con todos los

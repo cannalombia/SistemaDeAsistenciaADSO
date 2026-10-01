@@ -2,11 +2,19 @@
 
 MySQL solo se considera fuente definitiva cuando `app_settings.source_definitive` vale `mysql`. El servidor comprueba esa marca antes de abrir el puerto, por lo que una importación incompleta nunca deja el sistema arrancado parcialmente.
 
+## Estado aprobado — 2026-10-01
+
+El corte está cerrado: migraciones aplicadas, comparación sin diferencias,
+activación completada y `DATA_SOURCE=mysql`. `/api/health` confirmó
+`database.source=mysql` y `ready=true`; los datos permanecieron después del
+reinicio y la validación posterior fue aprobada. No repitas el corte salvo una
+razón técnica concreta.
+
 ## Preparación
 
 1. Crea una base real y otra de pruebas, ambas con `utf8mb4`/`utf8mb4_unicode_ci`.
 2. Crea el usuario exclusivo y la cuenta separada de migraciones siguiendo `base_datos/crear_usuario_aplicacion.sql.example`. Node usa únicamente la cuenta con permisos DML mínimos; no uses `root`.
-3. Copia `.env.example` a `.env`, completa las variables `DB_*` y conserva temporalmente `DATA_SOURCE=legacy`.
+3. Copia `.env.example` a `.env` y completa las variables `DB_*`. Solo durante un corte nuevo desde archivos legacy se cambia temporalmente a `DATA_SOURCE=legacy`.
 4. Ejecuta `npm run db:migrate`.
 
 Las migraciones aplicadas se registran con versión y SHA-256 en `schema_migrations`. Si se altera una migración ya aplicada, el proceso falla de forma explícita.

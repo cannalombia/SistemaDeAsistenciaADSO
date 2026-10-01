@@ -1,13 +1,12 @@
 # Cómo está armado el proyecto
 
-El sistema funciona como una aplicación local. El navegador muestra las
-pantallas y un servidor de Node.js se encarga del acceso, los datos y el correo.
-Se eligió este formato porque el proyecto se puede demostrar en un computador
-sin instalar una base de datos adicional.
+El sistema funciona como una aplicación Node.js con interfaz web y MySQL 8.4
+LTS como persistencia operacional definitiva. El navegador muestra las
+pantallas y el servidor se encarga del acceso, los datos y el correo.
 
 ## Qué ocurre al abrir una pantalla
 
-1. El navegador carga un archivo de `aplicacion/paginas`.
+1. El navegador carga un archivo de `aplicacion/paginas HTML`.
 2. `autenticacion.js` consulta la sesión antes de mostrar información privada.
 3. `navegacion.js` construye el menú que corresponde al rol.
 4. El script de la pantalla solicita datos a la API.
@@ -21,12 +20,13 @@ diez páginas distintas. La gestión de usuarios también tiene un archivo propi
 
 ## Decisiones que se tomaron
 
-### Datos locales
+### Persistencia
 
-JSON y CSV resultaron suficientes para una demostración controlada y son fáciles
-de revisar durante las clases. La desventaja es clara: no sirven para varias
-máquinas escribiendo al mismo tiempo. Si el sistema se publica para uso real,
-la primera migración debería ser hacia una base de datos transaccional.
+MySQL es la fuente activa cuando `DATA_SOURCE=mysql` y la marca
+`app_settings.source_definitive` confirma el corte. Las migraciones y la carga
+legacy se ejecutan con una cuenta separada; la aplicación usa permisos mínimos.
+CSV y JSON permanecen como respaldo legacy y no intervienen en la persistencia
+operacional.
 
 ### Correo
 
@@ -47,10 +47,14 @@ local de credenciales. Ese archivo está excluido de Git. Si el administrador
 olvida la clave, `npm.cmd run reset:admin` la reemplaza sin borrar el nombre ni
 el correo que ya había configurado.
 
+No existen hashes ni salts reales integrados en el código. La cuenta de
+instructor y cualquier bootstrap administrativo obtienen su material desde
+variables locales ignoradas. `.env.example` contiene solo nombres y plantillas.
+
 ### Servidor
 
-`servidor/servidor.js` conserva el estado de la aplicación y coordina los casos
-de uso. La decisión de qué controlador atiende cada dirección ya está separada
+`servidor/servidor.js` coordina los casos de uso y carga el estado mediante el
+repositorio MySQL. La decisión de qué controlador atiende cada dirección está separada
 en `servidor/rutas`: `acceso.js`, `usuarios.js`, `formacion.js` y `sistema.js`.
 Así se puede localizar una ruta sin recorrer el archivo completo.
 
@@ -61,8 +65,8 @@ Así se puede localizar una ruta sin recorrer el archivo completo.
 - Fichas, horarios y ambientes aún comparten parte de `aplicacion.js`.
 - Las pruebas recorren la API y las páginas principales, pero no sustituyen una
   revisión visual en distintos tamaños de pantalla.
-- El funcionamiento público necesitaría alojamiento para Node.js, una base de
-  datos y un proveedor de correo preparado para producción.
+- El funcionamiento público necesitaría alojamiento para Node.js, acceso seguro
+  a MySQL y un proveedor de correo preparado para producción.
 
 Estas limitaciones se dejan escritas porque también forman parte del proyecto.
 Ocultarlas haría más difícil saber cuál es el siguiente cambio razonable.

@@ -42,8 +42,8 @@ identificados; no es necesario alterar la asistencia real del grupo.
 | --- | --- | --- |
 | `aplicacion/` | Pantallas, estilos, imágenes y JavaScript del navegador. | Sí. |
 | `servidor/` | API, autenticación, reglas, correo y PDF. | Sí. |
-| `base_datos/` | SQL de referencia y datos académicos iniciales que lee el servidor. | Sí. |
-| `datos/` | Usuarios, asistencia, informes, configuración operativa y ejemplos. | Sí. |
+| `base_datos/` | SQL de referencia y migraciones versionadas de MySQL. | Sí, para instalación y cambios de esquema. |
+| `datos/` | Ejemplos y archivos legacy/locales excluidos de la entrega pública. | No como persistencia operacional. |
 | `node_modules/` | Dependencias instaladas por npm. | Sí; se recrea con `npm.cmd ci`. |
 | `herramientas/` | Inicio automático y recuperación del proceso en Windows. | Se usa al abrir mediante el acceso Windows. |
 | `pruebas/` | Comprobaciones automáticas. | Para validar, no para servir las páginas. |
@@ -55,7 +55,7 @@ versiones. Ambos son necesarios. El directorio `.vscode` conserva la opción F5;
 `.git` mantiene el historial. No son archivos sobrantes.
 
 Hay dos archivos `index.html` con propósitos distintos: el de la raíz permite
-abrir el proyecto desde el explorador; el de `aplicacion/paginas/` mantiene la
+abrir el proyecto desde el explorador; el de `aplicacion/paginas HTML/` mantiene la
 entrada web y envía al panel correspondiente a la sesión. Ya no contiene una
 segunda pantalla de estadísticas.
 
@@ -75,13 +75,13 @@ la ejecución termina con `OK` si esas solicitudes se rechazan correctamente.
 
 ## Alcance actual
 
-La aplicación guarda la información operativa del servidor en JSON y CSV; no
-requiere instalar MySQL para esta demostración. Fichas, horarios y ambientes
-conservan funcionalidades locales del navegador en `aplicacion.js`, inicializadas
-por `datos_demostracion.js`. Este archivo todavía es utilizado y no debe borrarse.
-Ese almacenamiento local no debe presentarse como una base de datos centralizada.
+La aplicación guarda la información operativa en MySQL y requiere una instancia
+configurada para iniciar. `DATA_SOURCE=mysql` es el modo definitivo. Los CSV y
+JSON se conservan como respaldo legacy y las muestras de `datos/ejemplos/`
+permiten documentar formatos sin publicar datos reales.
 
-La configuración privada de correo vive en `.env`. Las credenciales, los datos
+La configuración privada de MySQL, correo y cuentas integradas vive en `.env` o
+archivos locales ignorados. Las credenciales, los datos
 personales, informes y respaldos operativos no forman parte de una entrega pública
 del código. En una copia nueva se proporcionan los archivos de `datos/ejemplos/`.
 Una instalación en otro computador necesita sus propias dependencias y configuración.

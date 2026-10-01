@@ -1,5 +1,5 @@
 SISTEMA DE ASISTENCIA SENA - MAPA DEL PROYECTO
-Actualizado: 2026-09-23
+Actualizado: 2026-10-01
 
 
 PARA EMPEZAR
@@ -12,19 +12,20 @@ PARA EMPEZAR
 CARPETAS PRINCIPALES
 
 aplicacion/
-  paginas/                 Pantallas HTML que se abren en el navegador.
+  paginas HTML/            Pantallas HTML que se abren en el navegador.
   recursos/
-    estilos/               Diseño visual de las pantallas.
+    estilos CCS/           Diseño visual de las pantallas.
     imagenes/              Logo e imágenes utilizadas por la interfaz.
-    scripts/               Comportamiento de cada pantalla.
+    JS scripts/            Comportamiento de cada pantalla.
 
 base_datos/
   estructura_sistema_asistencia.sql
                            Estructura SQL de referencia.
+  migraciones/             Migraciones versionadas aplicadas a MySQL.
 
 datos/
   ejemplos/                Información anónima para una instalación nueva.
-  importaciones/           Archivos operativos locales; no se publican.
+  importaciones/           Archivos legacy locales; no se publican.
 
 documentacion/
   arquitectura/            Decisiones técnicas y forma de trabajo.
@@ -33,10 +34,12 @@ documentacion/
 
 herramientas/
   automatizacion/          Inicio, vigilancia y recuperación del servidor.
+  base_datos/              Migración, validación, corte y rollback de MySQL.
 
 pruebas/                   Recorridos automáticos del sistema.
 
 servidor/
+  base_datos/              Conexión, migraciones y repositorio MySQL.
   configuracion/           Rutas físicas y opciones del proyecto.
   dominio/                 Reglas de usuarios, programas y estadísticas.
   modulos/                 Correo, persistencia y utilidades compartidas.
@@ -46,10 +49,10 @@ servidor/
 
 ARCHIVOS QUE SE USAN CON MÁS FRECUENCIA
 
-- aplicacion/paginas/login.html
+- aplicacion/paginas HTML/login.html
   Pantalla de acceso para personal y aprendices.
 
-- aplicacion/recursos/scripts/script.js
+- aplicacion/recursos/JS scripts/usuarios.js
   Gestión real de usuarios: consulta, creación, edición, estado y eliminación.
 
 - servidor/restablecer_administrador.js
