@@ -4,7 +4,39 @@ Este proyecto sirve para llevar el control de usuarios, programas, fichas,
 horarios, ambientes y asistencia. También permite que los aprendices ingresen
 con un código enviado a su correo.
 
+## Presentación y estructura
+
+Para explicar el proyecto al instructor, consulta la
+[guía de presentación](documentacion/guias/presentacion_proyecto.md).
+El [mapa de carpetas](Estructura.txt) indica qué contiene cada directorio y
+cuáles archivos usa el sistema. El código está separado en `aplicacion/`
+(interfaz) y `servidor/` (API y reglas); `pruebas/` contiene las verificaciones.
+Los archivos de referencia se conservan en documentación, importaciones
+originales y respaldos, separados de los datos activos.
+
 ## ¿Quieres abrirlo?
+
+Para abrirlo desde datos móviles sin instalar nada, consulta la
+[guía de acceso público con SSH y localhost.run](documentacion/guias/acceso_publico_ssh.md).
+
+### Base principal de usuarios
+
+La aplicación lee y actualiza `usuarios_listo_para_importar.csv`, en la raíz
+del proyecto. Puedes agregar filas directamente en ese archivo, guardarlo como
+CSV UTF-8 y actualizar la pantalla **Crear Usuario**: no necesitas importarlo
+ni reiniciar el servidor. Conserva las siete columnas:
+`identificacion;tipo_documento;nombre;correo;rol;estado;ficha`.
+
+Crear, editar, importar, activar, desactivar o eliminar desde la app guarda los
+cambios en ese mismo CSV. Para impedir el acceso conservando el registro, cambia
+`estado` a `inactivo`. Los cambios de identidad, rol o estado cierran las sesiones
+afectadas. La cuenta principal de administración permanece protegida.
+
+Si hay documentos o correos duplicados, columnas incorrectas o datos inválidos,
+la app muestra un error y no sobrescribe el archivo: corrígelo y vuelve a guardar.
+Cierra el archivo en Excel antes de guardar desde la app, para evitar bloqueos.
+No edites la misma base simultáneamente desde Excel y la app.
+El antiguo `datos/importaciones/usuarios_activos.csv` ya no es la base activa.
 
 La forma más sencilla en Windows es hacer doble clic en
 [`ABRIR_PROYECTO.cmd`](ABRIR_PROYECTO.cmd). Este acceso comprueba el servidor y
@@ -59,7 +91,7 @@ completo de las carpetas.
 
 La primera versión fue creciendo pantalla por pantalla. Para que una corrección
 no obligue a buscar por todo el proyecto, cada tarea principal quedó en un lugar
-reconocible. El menú vive en `navegacion.js`, el CRUD de usuarios en `script.js`
+reconocible. El menú vive en `navegacion.js`, el CRUD de usuarios en `usuarios.js`
 y el correo en su propio servicio. Las direcciones de la API se agrupan en
 `servidor/rutas` según sean de acceso, usuarios, formación o estado del sistema.
 
@@ -125,6 +157,35 @@ También puedes ejecutar cada grupo por separado:
 npm.cmd run test:unit
 npm.cmd run test:integration
 ```
+
+## Estadísticas e informes de asistencia
+
+En **Estadísticas**, selecciona una ficha y las fechas inicial y final. Las
+gráficas y el detalle por aprendiz se actualizan automáticamente con la
+asistencia guardada. El panel vuelve a consultar los datos cada 30 segundos
+mientras está visible y no se están editando los filtros.
+
+Pulsa **Generar y guardar** para conservar un informe en el historial. Desde
+**Reportes guardados** puedes buscarlo, abrir su detalle y descargar el PDF.
+Cada informe conserva los datos originales de su corte, aunque después se
+modifique la asistencia. El historial se guarda en
+`datos/reportes_estadisticas.json` y permanece disponible al reiniciar el
+servidor. Incluye ese archivo en las copias de seguridad privadas.
+
+En **Asistencia**, guarda primero los cambios y pulsa **Exportar PDF**. Se
+descarga el informe de la ficha, fecha y jornada seleccionadas, con todos los
+aprendices registrados, independientemente de la búsqueda o página visible.
+También queda archivado en Estadísticas. Los instructores, administradores y
+coordinadores pueden consultar y descargar estos informes.
+
+Los porcentajes usan presentes / registros guardados. Tardanzas, ausencias y
+justificaciones se desglosan por separado; los días sin registro no cuentan
+como ausencias. Los rangos sin datos no generan informes vacíos.
+
+La biblioteca PDF está incluida localmente en `servidor/vendor`, con su
+licencia MIT. No necesita una conexión externa para generar los documentos.
+La prueba `npm.cmd run test:reports` usa datos aislados y comprueba filtros,
+permisos, persistencia, cortes históricos y PDFs de varias páginas.
 
 ## Sobre los datos privados
 

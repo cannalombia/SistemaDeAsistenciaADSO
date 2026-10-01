@@ -2,7 +2,10 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const QRCode = require("qrcode");
+const os = require("os");
 const rutasProyecto = require("./configuracion/rutas");
+const { SCALE, fichaPlan, weeklyPlan } = require("./configuracion/escala_formacion");
 const { crearEnrutadorApi } = require("./rutas");
 const { normalizeEmail, boundedInteger, maskEmail, readCookies, safeEqual } = require("./modulos/utilidades");
 const { readJsonFile, writeJsonFileAtomic, ensureOperationalFile, parseDelimitedCsv, serializeCsvUsers, loadCsvUsers, loadSqlTable, normalizeSqlText } = require("./modulos/persistencia");
@@ -10,6 +13,15 @@ const { createEmailService } = require("./modulos/correo");
 const { normalizeProgramText: normalizedProgramText, canonicalProgramStatus, displayProgramLevel, validateProgramInput } = require("./dominio/programas");
 const { canonicalRole, canonicalUserStatus, csvValue, registryRowFromUser } = require("./dominio/usuarios");
 const { localDate, dateKey, addDays, rateFor, statusSummary, resolveDashboardRange } = require("./dominio/estadisticas");
+const { createReportPdf } = require("./modulos/reporte_pdf");
+const { readSqlFile, parseUsersSql, createDump } = require("./modulos/sqlfile");
+const { createBackup, readBackupFile } = require("./modulos/respaldo");
+const { writeFilesAtomically } = require("./modulos/transaccion_archivos");
+const { validateDatabaseEnv } = require("./base_datos/configuracion");
+const { createDatabasePool, checkDatabase } = require("./base_datos/conexion");
+const { assertMigrationsCurrent } = require("./base_datos/migraciones");
+const { createMysqlRepository } = require("./base_datos/repositorio");
+const { readExcuseSubmission } = require("./modulos/excusas");
 
 const root = rutasProyecto.raizProyecto;
 const dataDirectory = rutasProyecto.datos;
@@ -50,7 +62,7 @@ function sendJson(response, status, value, headers = {}) {
     response.end(JSON.stringify(value));
 }
 
-async function readJsonBody(request, maxBytes = 128 * 1024) {
+async function readRequestJsonBody(request, maxBytes = 128 * 1024) {
     return new Promise((resolve, reject) => {
         const chunks = [];
         let size = 0;
@@ -90,6 +102,15 @@ function loadOrCreateOtpSecret(options) {
 }
 
 function createProjectServer(options = {}) {
+    const repository = options.repository || null;
+    const publicUrl = String(options.publicUrl ?? process.env.PUBLIC_URL ?? "").trim();
+    if (publicUrl) {
+        let parsed;
+        try { parsed = new URL(publicUrl); } catch (_) { /* Validated below. */ }
+        if (!parsed || !["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) {
+            throw new Error("PUBLIC_URL debe ser un origen HTTP(S), por ejemplo https://tu-dominio.localhost.run, sin rutas ni parámetros.");
+        }
+    }
     const config = {
         resendApiKey: options.resendApiKey ?? process.env.RESEND_API_KEY ?? "",
         emailFrom: options.emailFrom ?? process.env.EMAIL_FROM ?? "",
@@ -112,6 +133,7 @@ function createProjectServer(options = {}) {
     };
     const codes = new Map();
     const sessions = new Map();
+    const attendanceTokens = new Map();
     const hourlyRequests = new Map();
     const pendingCodeRequests = new Set();
     const persistentRuntime = !options.apprentices && !options.emailSender;
@@ -153,12 +175,16 @@ function createProjectServer(options = {}) {
     const selectedEmailProvider = emailService.provider;
     const resendTestMode = emailService.testMode;
     const adminCredentialsFile = options.adminCredentialsFile || path.join(dataDirectory, "credenciales_administrador.json");
-    let adminCredentials = {
-        salt: "sena-admin-2026",
-        passwordHash: "46c3d68de34605cabf1087dc0d99ab5a435b29de13894a2f91f7e94326c96165188e6b00b455ef57158b0728a06146c881b5cf14cb25c27e7a5ee9923ab97935",
-        name: "Administrador SENA",
-        email: "admin@sena.edu.co"
+    const credentialsFromEnvironment = (prefix) => {
+        const salt = String(process.env[`${prefix}_AUTH_SALT`] || "").trim();
+        const passwordHash = String(process.env[`${prefix}_AUTH_PASSWORD_HASH`] || "").trim().toLowerCase();
+        if (!salt && !passwordHash) return null;
+        if (salt.length < 8 || !/^[a-f0-9]{128}$/.test(passwordHash)) {
+            throw new Error(`Las variables ${prefix}_AUTH_SALT y ${prefix}_AUTH_PASSWORD_HASH no son válidas.`);
+        }
+        return { salt, passwordHash };
     };
+    let adminCredentials = null;
     if (typeof options.adminPassword === "string") {
         adminCredentials = {
             salt: "sena-admin-test",
@@ -181,6 +207,27 @@ function createProjectServer(options = {}) {
         } catch (_error) {
             throw new Error("Las credenciales administrativas guardadas no son válidas. Ejecuta npm.cmd run reset:admin.");
         }
+    } else {
+        const environmentCredentials = credentialsFromEnvironment("ADMIN");
+        if (!environmentCredentials) {
+            throw new Error("Faltan credenciales administrativas. Ejecuta npm.cmd run reset:admin o configura ADMIN_AUTH_SALT y ADMIN_AUTH_PASSWORD_HASH.");
+        }
+        adminCredentials = {
+            ...environmentCredentials,
+            name: String(process.env.ADMIN_AUTH_NAME || "Administrador SENA").trim(),
+            email: normalizeEmail(process.env.ADMIN_AUTH_EMAIL || "admin@sena.edu.co")
+        };
+    }
+    let instructorCredentials = credentialsFromEnvironment("INSTRUCTOR");
+    if (typeof options.instructorPassword === "string") {
+        const salt = "sena-instructor-test";
+        instructorCredentials = {
+            salt,
+            passwordHash: crypto.scryptSync(options.instructorPassword, salt, 64).toString("hex")
+        };
+    }
+    if (!instructorCredentials && (persistentRuntime || options.repository)) {
+        throw new Error("Faltan credenciales del instructor. Configura INSTRUCTOR_AUTH_SALT e INSTRUCTOR_AUTH_PASSWORD_HASH.");
     }
     const builtInAccounts = [
         {
@@ -191,17 +238,17 @@ function createProjectServer(options = {}) {
             role: "Administrador",
             salt: adminCredentials.salt,
             passwordHash: adminCredentials.passwordHash
-        },
-        {
-            id: "instructor-sena",
-            username: "instructor",
-            email: "instructor@sena.edu.co",
-            name: "Instructor SENA",
-            role: "Instructor",
-            salt: "sena-instructor-2026",
-            passwordHash: "e93849e9e070c7f1f221ea858e852f2c9f168b330e370904f4c78672c4dfcfcd301a11a1c4a05e487404a8c21ac0b61172d76d3d404bf843e39b9a447a957d75"
         }
     ];
+    if (instructorCredentials) builtInAccounts.push({
+            id: "instructor-sena",
+            username: "instructor",
+            email: normalizeEmail(process.env.INSTRUCTOR_AUTH_EMAIL || "instructor@sena.edu.co"),
+            name: String(process.env.INSTRUCTOR_AUTH_NAME || "Instructor SENA").trim(),
+            role: "Instructor",
+            salt: instructorCredentials.salt,
+            passwordHash: instructorCredentials.passwordHash
+        });
     const managedUsersFile = path.join(dataDirectory, "usuarios_gestionados.json");
     if (persistentRuntime) ensureOperationalFile(
         managedUsersFile,
@@ -223,15 +270,19 @@ function createProjectServer(options = {}) {
     const storedApprentices = options.apprentices
         ? JSON.parse(JSON.stringify(options.apprentices))
         : JSON.parse(fs.readFileSync(apprenticesFile, "utf8"));
-    const usersCsvFile = options.usersCsvFile || path.join(dataDirectory, "importaciones", "usuarios_activos.csv");
+    const usersCsvFile = options.usersCsvFile || rutasProyecto.usuariosCsv;
+    const csvFileBacked = !options.csvUsers && (!options.apprentices || Boolean(options.usersCsvFile));
     if (persistentRuntime) ensureOperationalFile(
         usersCsvFile,
-        path.join(dataDirectory, "ejemplos", "usuarios_activos.ejemplo.csv"),
+        fs.existsSync(path.join(dataDirectory, "importaciones", "usuarios_activos.csv"))
+            ? path.join(dataDirectory, "importaciones", "usuarios_activos.csv")
+            : path.join(dataDirectory, "ejemplos", "usuarios_activos.ejemplo.csv"),
         "identificacion;tipo_documento;nombre;correo;rol;estado;ficha\n"
     );
+    let csvSource = csvFileBacked ? readUsersCsvSource() : null;
     let csvUsers = options.csvUsers
         ? JSON.parse(JSON.stringify(options.csvUsers))
-        : (options.apprentices && !options.usersCsvFile ? [] : loadCsvUsers(usersCsvFile));
+        : (csvFileBacked ? validateUsersCsvSource(csvSource) : []);
     const csvApprentices = csvUsers.filter((user) =>
         String(user.rol || "").trim().toLowerCase() === "aprendiz"
         && /^\d+$/.test(String(user.identificacion || "").trim())
@@ -300,6 +351,23 @@ function createProjectServer(options = {}) {
         horarios: loadSqlTable("horarios", ["id", "dia", "horaInicio", "horaFin", "fichaId", "ambienteId", "instructorId"]),
         programas: loadSqlTable("programas", ["id", "nombre", "nivel", "duracion", "estado"])
     };
+    const trainingFile = options.trainingFile === null ? null : (options.trainingFile || (persistentRuntime ? path.join(dataDirectory, "formacion.json") : null));
+    const storedTraining = readJsonFile(trainingFile, null);
+    const trainingState = options.trainingState
+        ? JSON.parse(JSON.stringify(options.trainingState))
+        : (storedTraining && Array.isArray(storedTraining.fichas) && Array.isArray(storedTraining.horarios) && Array.isArray(storedTraining.ambientes)
+            ? storedTraining
+            : { fichas: sqlData.fichas || [], horarios: sqlData.horarios || [], ambientes: sqlData.ambientes || [] });
+    sqlData.fichas = trainingState.fichas;
+    sqlData.horarios = trainingState.horarios;
+    sqlData.ambientes = trainingState.ambientes;
+    if (!Array.isArray(trainingState.attendanceClosures)) trainingState.attendanceClosures = [];
+    if (trainingFile && !storedTraining) writeJsonFileAtomic(trainingFile, trainingState);
+    const auditFile = options.auditFile === null ? null : (options.auditFile || (persistentRuntime ? path.join(dataDirectory, "auditoria.json") : null));
+    const auditRecords = options.auditRecords || readJsonFile(auditFile, []);
+    const excusesFile = options.excusesFile === null ? null : (options.excusesFile || (persistentRuntime ? path.join(dataDirectory, "excusas.json") : null));
+    if (persistentRuntime) ensureOperationalFile(excusesFile, path.join(dataDirectory, "ejemplos", "excusas.ejemplo.json"), "[]\n");
+    const excuses = options.excuses ? JSON.parse(JSON.stringify(options.excuses)) : readJsonFile(excusesFile, []);
     const programsFile = path.join(dataDirectory, "programas.json");
     const programRecords = options.programs
         ? JSON.parse(JSON.stringify(options.programs))
@@ -307,6 +375,69 @@ function createProjectServer(options = {}) {
             ? JSON.parse(fs.readFileSync(programsFile, "utf8"))
             : JSON.parse(JSON.stringify(sqlData.programas || [])));
     sqlData.programas = programRecords;
+    refreshUsersFromCsv(true);
+
+    function readUsersCsvSource() {
+        try {
+            return fs.readFileSync(usersCsvFile, "utf8");
+        } catch (_) {
+            throw Object.assign(new Error(`No se pudo leer la base principal ${path.basename(usersCsvFile)}. Comprueba que existe y está disponible.`), { status: 503 });
+        }
+    }
+
+    function validateUsersCsvSource(source) {
+        const required = ["identificacion", "tipo_documento", "nombre", "correo", "rol", "estado", "ficha"];
+        const header = source.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0];
+        const columns = header.split(header.includes(";") ? ";" : ",").map(value => value.trim().replace(/^"|"$/g, "").toLowerCase());
+        const fail = message => { throw Object.assign(new Error(`Base principal ${path.basename(usersCsvFile)}: ${message}`), { status: 503 }); };
+        if (required.some(key => !columns.includes(key)) || columns.length !== required.length) fail(`conserva las columnas ${required.join("; ")}.`);
+        const rows = parseDelimitedCsv(source);
+        const documents = new Set();
+        const emails = new Set();
+        return rows.map((row, index) => {
+            let user;
+            try { user = normalizeImportedUser(row, index + 2); } catch (error) { fail(error.message); }
+            if (documents.has(user.document) || emails.has(user.email)) fail(`documento o correo repetido en la fila ${index + 2}.`);
+            documents.add(user.document);
+            emails.add(user.email);
+            return registryRowFromUser(user);
+        });
+    }
+
+    function refreshUsersFromCsv(force = false) {
+        if (!csvFileBacked) return;
+        const source = readUsersCsvSource();
+        if (!force && source === csvSource) return;
+        const rows = validateUsersCsvSource(source);
+        // Validate the entire file before replacing any in-memory data.
+        for (const previous of csvUsers) {
+            const next = rows.find(row => row.identificacion === previous.identificacion);
+            if (!next || JSON.stringify(next) !== JSON.stringify(previous)) {
+                invalidateUserSessions({ document: previous.identificacion, email: previous.correo });
+                codes.delete(previous.identificacion);
+            }
+        }
+        csvUsers = rows;
+        csvSource = source;
+        for (const row of csvUsers) {
+            const user = { document: row.identificacion, documentType: row.tipo_documento, name: row.nombre, email: row.correo,
+                role: canonicalRole(row.rol), status: canonicalUserStatus(row.estado), ficha: row.ficha };
+            if (user.role === "Aprendiz") syncApprenticeProfile(user);
+            const account = managedUsers.find(item => item.document === user.document);
+            if (account) Object.assign(account, user);
+        }
+    }
+
+    async function readJsonBody(request, maxBytes) {
+        const sessionBeforeUpload = currentSession(request);
+        const body = await readRequestJsonBody(request, maxBytes);
+        // A CSV may have been saved while the request body was being uploaded.
+        refreshUsersFromCsv();
+        if (sessionBeforeUpload && !currentSession(request)) {
+            throw Object.assign(new Error("Tu usuario cambió en la base principal. Inicia sesión nuevamente."), { status: 403 });
+        }
+        return body;
+    }
 
     function persistApprentices() {
         if (options.apprentices) return;
@@ -330,10 +461,21 @@ function createProjectServer(options = {}) {
     }
 
     function persistCsvUsers() {
-        if (options.csvUsers || (options.apprentices && !options.usersCsvFile)) return;
+        if (!csvFileBacked) return;
+        if (readUsersCsvSource() !== csvSource) {
+            refreshUsersFromCsv();
+            throw Object.assign(new Error("La base principal cambió durante la operación. Revisa los datos y vuelve a guardar."), { status: 409 });
+        }
         const temporary = `${usersCsvFile}.tmp`;
-        fs.writeFileSync(temporary, serializeCsvUsers(csvUsers), "utf8");
-        fs.renameSync(temporary, usersCsvFile);
+        const source = serializeCsvUsers(csvUsers);
+        try {
+            fs.writeFileSync(temporary, source, "utf8");
+            fs.renameSync(temporary, usersCsvFile);
+            csvSource = source;
+        } catch (_) {
+            refreshUsersFromCsv(true);
+            throw Object.assign(new Error(`No se pudo guardar ${path.basename(usersCsvFile)}. Cierra el archivo en Excel y vuelve a intentarlo.`), { status: 503 });
+        }
     }
 
     function persistPrograms() {
@@ -341,6 +483,45 @@ function createProjectServer(options = {}) {
         const temporary = `${programsFile}.tmp`;
         fs.writeFileSync(temporary, `${JSON.stringify(programRecords, null, 2)}\n`, "utf8");
         fs.renameSync(temporary, programsFile);
+    }
+
+    function persistTraining() {
+        if (options.trainingState || (options.sqlData && !options.trainingFile) || !trainingFile) return;
+        writeJsonFileAtomic(trainingFile, trainingState);
+    }
+
+    function persistExcuses() {
+        if (options.excuses || !excusesFile) return;
+        writeJsonFileAtomic(excusesFile, excuses);
+    }
+
+    function createAuditEntry(session, action, entity, entityId, before, after, details = {}) {
+        return {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            actor: {
+                id: session?.user?.id || "system",
+                name: session?.user?.name || "Sistema",
+                email: session?.user?.email || "",
+                role: session?.user?.role || "Sistema"
+            },
+            action, entity, entityId: String(entityId || ""),
+            before: before == null ? null : JSON.parse(JSON.stringify(before)),
+            after: after == null ? null : JSON.parse(JSON.stringify(after)),
+            details
+        };
+    }
+
+    function appendAuditEntry(entry) {
+        auditRecords.push(entry);
+        if (auditRecords.length > 5000) auditRecords.splice(0, auditRecords.length - 5000);
+    }
+
+    function audit(session, action, entity, entityId, before, after, details = {}) {
+        const entry = createAuditEntry(session, action, entity, entityId, before, after, details);
+        appendAuditEntry(entry);
+        writeJsonFileAtomic(auditFile, auditRecords);
+        return entry;
     }
 
     function persistAuthState() {
@@ -469,6 +650,7 @@ function createProjectServer(options = {}) {
 
     function cleanExpired() {
         const now = Date.now();
+        for (const [token, item] of attendanceTokens) if (item.expiresAt <= now) attendanceTokens.delete(token);
         let authStateChanged = false;
         for (const [document, item] of codes) {
             if (item.expiresAt <= now) {
@@ -494,11 +676,15 @@ function createProjectServer(options = {}) {
         if (!account || !verifyPassword(account, body.password)) {
             return sendJson(response, 401, { ok: false, message: "Usuario, correo o contraseña incorrectos." });
         }
+        if (csvFileBacked && !userIsProtected(account) && !csvUsers.some(row => row.identificacion === account.document)) {
+            return sendJson(response, 403, { ok: false, message: "La cuenta ya no está en la base principal." });
+        }
         if ((canonicalUserStatus(account.status) || "Activo") !== "Activo") {
             return sendJson(response, 403, { ok: false, message: "Esta cuenta se encuentra desactivada." });
         }
         return createSession(response, {
             id: account.id,
+            document: account.document || "",
             username: account.username,
             name: account.name,
             email: account.email,
@@ -637,14 +823,53 @@ function createProjectServer(options = {}) {
         });
     }
 
-    function handleSystemHealth(_request, response) {
+    function notificationPayload() {
+        const notifications = [];
+        const committee = academicCommitteeCases();
+        if (committee.length) notifications.push({ id: "academic", type: "danger", icon: "fa-user-shield", title: "Casos para Comité Académico", message: `${committee.length} aprendiz${committee.length === 1 ? "" : "es"} supera${committee.length === 1 ? "" : "n"} las cuatro fallas sin justificar.`, href: "estadisticas.html" });
+        const inactive = csvUsers.filter(item => canonicalUserStatus(item.estado) === "Inactivo").length;
+        if (inactive) notifications.push({ id: "inactive-users", type: "warning", icon: "fa-user-clock", title: "Usuarios inactivos", message: `${inactive} usuario${inactive === 1 ? " está" : "s están"} pendiente${inactive === 1 ? "" : "s"} de revisión.`, href: "crear_usuario.html" });
+        const failures = emailHistory.slice(-20).filter(item => item.status === "failed").length;
+        if (failures) notifications.push({ id: "email", type: "danger", icon: "fa-envelope-circle-xmark", title: "Fallos recientes de correo", message: `${failures} envío${failures === 1 ? " falló" : "s fallaron"} entre los últimos 20 intentos.`, href: "ajustes.html" });
+        const withoutInstructor = sqlData.fichas.filter(item => String(item.estado).toLowerCase() !== "inactiva" && (item.instructorId === null || item.instructorId === undefined || String(item.instructorId).trim() === "")).length;
+        if (withoutInstructor) notifications.push({ id: "fichas", type: "warning", icon: "fa-folder-open", title: "Fichas sin instructor", message: `${withoutInstructor} ficha${withoutInstructor === 1 ? " activa no tiene" : "s activas no tienen"} instructor asignado.`, href: "fichas.html" });
+        const weekday = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][new Date().getDay()];
+        const today = dateKey(new Date());
+        const pending = sqlData.horarios.filter(schedule => String(schedule.estado || "Activo") === "Activo" && normalizeSqlText(schedule.dia) === weekday).filter(schedule => {
+            const ficha = sqlData.fichas.find(item => String(item.id) === String(schedule.fichaId));
+            return ficha && !attendanceRecords.some(item => item.fecha === today && item.ficha === String(ficha.numero) && item.jornada === normalizeSqlText(ficha.jornada));
+        }).length;
+        if (pending) notifications.push({ id: "attendance", type: "info", icon: "fa-calendar-check", title: "Jornadas pendientes", message: `${pending} horario${pending === 1 ? " de hoy todavía no tiene" : "s de hoy todavía no tienen"} asistencia guardada.`, href: "asistencia.html" });
+        return { notifications, count: notifications.length, generatedAt: new Date().toISOString() };
+    }
+
+    function handleNotifications(request, response) {
+        if (!requireStaff(request, response)) return;
+        return sendJson(response, 200, { ok: true, ...notificationPayload() });
+    }
+
+    function handleAudit(request, response, requestUrl) {
+        if (!requireAdministrator(request, response)) return;
+        const limit = boundedInteger(requestUrl.searchParams.get("limit"), 100, 1, 500);
+        const entity = cleanText(requestUrl.searchParams.get("entity"), 40);
+        const selected = (entity ? auditRecords.filter(item => item.entity === entity) : auditRecords).slice(-limit).reverse();
+        return sendJson(response, 200, { ok: true, total: auditRecords.length, entries: selected });
+    }
+
+    async function handleSystemHealth(_request, response) {
         const emailHealth = emailService.getHealth();
+        let database = { source: repository ? "mysql" : "legacy", ready: true };
+        if (repository) {
+            try { database = { source: "mysql", ...(await checkDatabase(repository.pool)) }; }
+            catch (error) { return sendJson(response, 503, { ok: false, service: "sistema-asistencia-sena", status: "unavailable", database: { source: "mysql", ready: false, error: error.message } }); }
+        }
         return sendJson(response, 200, {
             ok: true,
             service: "sistema-asistencia-sena",
             status: "ready",
             startedAt: serverStartedAt,
             uptimeSeconds: Math.floor(process.uptime()),
+            database,
             email: {
                 provider: selectedEmailProvider,
                 configured: emailHealth.configured,
@@ -719,6 +944,12 @@ function createProjectServer(options = {}) {
         return [...byCode.values()].sort((left, right) => left.codigo.localeCompare(right.codigo, "es", { numeric: true }));
     }
 
+    const attendanceClosureKey = (ficha, fecha, jornada) => `${fecha}:${jornada}:${ficha}`;
+    function findAttendanceClosure(ficha, fecha, jornada) {
+        const key = attendanceClosureKey(ficha, fecha, jornada);
+        return trainingState.attendanceClosures.find((item) => item.key === key) || null;
+    }
+
     function handleAttendanceData(request, response, requestUrl) {
         const session = requireStaff(request, response);
         if (!session) return;
@@ -759,8 +990,55 @@ function createProjectServer(options = {}) {
             usuario: session.user,
             fichas,
             aprendices: selected,
-            ultima_actualizacion: lastUpdated
+            ultima_actualizacion: lastUpdated,
+            cierre: findAttendanceClosure(ficha, fecha, jornada)
         });
+    }
+
+    async function handleAttendanceQr(request, response) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        const body = await readJsonBody(request);
+        const ficha = String(body.ficha || "");
+        const jornada = String(body.jornada || "");
+        if (!attendanceFichas().some((item) => item.codigo === ficha) || !["Mañana", "Tarde", "Noche"].includes(jornada)) {
+            return sendJson(response, 400, { ok: false, message: "Selecciona una ficha y una jornada válidas." });
+        }
+        const token = crypto.randomBytes(32).toString("hex");
+        const now = Date.now();
+        const expiresAt = now + 60000;
+        const base_url = publicUrl ||
+                        `${config.secureCookie ? "https" : "http"}://${request.headers.host}`;
+
+        const url = new URL("/asistencia_qr.html", base_url);
+        url.searchParams.set("token", token);
+        const image = await QRCode.toDataURL(url.href, { width: 320, margin: 4, errorCorrectionLevel: "M" });
+        // One active QR per staff session; rotation revokes the previous image.
+        for (const [key, item] of attendanceTokens) if (item.owner === session.token) attendanceTokens.delete(key);
+        attendanceTokens.set(token, { ficha, jornada, fecha: dateKey(new Date(now)), expiresAt, owner: session.token });
+        return sendJson(response, 201, { ok: true, image, url: url.href, expiresAt, remainingMs: Math.max(0, expiresAt - Date.now()) });
+    }
+
+    async function handleAttendanceQrRegister(request, response) {
+        const body = await readJsonBody(request);
+        const session = requireApprentice(request, response);
+        if (!session) return;
+        const entry = attendanceTokens.get(String(body.token || ""));
+        if (!entry || entry.expiresAt <= Date.now() || entry.fecha !== dateKey(new Date())) {
+            return sendJson(response, 410, { ok: false, message: "QR inexistente o vencido. Escanea el QR actual." });
+        }
+        const apprentice = apprentices.find((item) => item.id === session.user.id);
+        if (!apprentice || (canonicalUserStatus(apprentice.status) || "Activo") !== "Activo" || !apprenticeIsEnabled(apprentice) || String(apprentice.program?.ficha || apprentice.program?.code || "") !== entry.ficha) {
+            return sendJson(response, 403, { ok: false, message: "No perteneces a esta ficha o tu cuenta está inactiva." });
+        }
+        if (attendanceRecords.some((item) => item.identificacion === apprentice.document && item.ficha === entry.ficha && item.fecha === entry.fecha && item.jornada === entry.jornada)) {
+            return sendJson(response, 409, { ok: false, message: "Ya tienes asistencia registrada para esta fecha y jornada." });
+        }
+        const record = { identificacion: apprentice.document, nombre: apprentice.name, ficha: entry.ficha, fecha: entry.fecha, jornada: entry.jornada, estado: "presente", observacion: "Registro por QR", hora_registro: new Date().toISOString(), registrado_por: session.user.email || session.user.id };
+        attendanceRecords.push(record);
+        try { persistAttendance(); } catch (error) { attendanceRecords.pop(); throw error; }
+        audit(session, "register_qr", "asistencia", `${record.fecha}:${record.jornada}:${record.ficha}:${record.identificacion}`, null, record);
+        return sendJson(response, 201, { ok: true, message: "Asistencia registrada correctamente.", registro: record });
     }
 
     async function handleAttendanceSave(request, response) {
@@ -778,6 +1056,8 @@ function createProjectServer(options = {}) {
         if (!Array.isArray(body.aprendices) || !body.aprendices.length) {
             return sendJson(response, 400, { ok: false, message: "No hay aprendices para guardar." });
         }
+        const closure = findAttendanceClosure(ficha, fecha, jornada);
+        if (closure) return sendJson(response, 423, { ok: false, message: `La jornada está cerrada desde ${closure.closedAt}. Solo un administrador puede reabrirla.` });
         const allowed = new Map(apprentices
             .filter((item) => apprenticeIsEnabled(item) && String(item.program?.ficha || item.program?.code || "") === ficha)
             .map((item) => [item.document, item]));
@@ -807,18 +1087,144 @@ function createProjectServer(options = {}) {
         if (received.size !== allowed.size) {
             return sendJson(response, 400, { ok: false, message: "Debes guardar la asistencia de todos los aprendices de la ficha." });
         }
+        const previousRecords = attendanceRecords.filter(item => item.ficha === ficha && item.fecha === fecha && item.jornada === jornada);
+        const comparable = (items) => items.map((item) => ({ identificacion: item.identificacion, estado: item.estado, observacion: item.observacion || "" })).sort((a, b) => a.identificacion.localeCompare(b.identificacion));
+        const changed = JSON.stringify(comparable(previousRecords)) !== JSON.stringify(comparable(records));
+        if (previousRecords.length && !changed) return sendJson(response, 200, { ok: true, guardados: previousRecords.length, ultima_actualizacion: previousRecords.map((item) => item.hora_registro).sort().at(-1), message: "No había cambios por corregir." });
+        const correctionReason = String(body.correctionReason || "").trim();
+        if (previousRecords.length && correctionReason.length < 10) {
+            return sendJson(response, 400, { ok: false, message: "Indica un motivo de corrección de al menos 10 caracteres." });
+        }
+        if (previousRecords.length) for (const record of records) record.correction = { reason: correctionReason.slice(0, 300), correctedAt: now, correctedBy: session.user.email || session.user.id };
         for (let index = attendanceRecords.length - 1; index >= 0; index -= 1) {
             const item = attendanceRecords[index];
             if (item.ficha === ficha && item.fecha === fecha && item.jornada === jornada) attendanceRecords.splice(index, 1);
         }
         attendanceRecords.push(...records);
         persistAttendance();
+        audit(session, previousRecords.length ? "correct" : "create", "asistencia_jornada", attendanceClosureKey(ficha, fecha, jornada), previousRecords, records, { total: records.length, correctionReason: previousRecords.length ? correctionReason : null });
         return sendJson(response, 200, {
             ok: true,
             guardados: records.length,
             ultima_actualizacion: now,
-            message: `Asistencia guardada para ${records.length} aprendices.`
+            message: previousRecords.length ? `Asistencia corregida para ${records.length} aprendices; el cambio quedó auditado.` : `Asistencia guardada para ${records.length} aprendices.`
         });
+    }
+
+    async function handleAttendanceClose(request, response) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        const body = await readJsonBody(request);
+        const ficha = String(body.ficha || "").trim(), fecha = String(body.fecha || "").trim(), jornada = String(body.jornada || "").trim();
+        const reason = String(body.reason || "").trim();
+        if (reason.length < 10) return sendJson(response, 400, { ok: false, message: "Indica un motivo de cierre de al menos 10 caracteres." });
+        const key = attendanceClosureKey(ficha, fecha, jornada);
+        if (findAttendanceClosure(ficha, fecha, jornada)) return sendJson(response, 409, { ok: false, message: "La jornada ya está cerrada." });
+        const records = attendanceRecords.filter((item) => item.ficha === ficha && item.fecha === fecha && item.jornada === jornada);
+        if (!records.length) return sendJson(response, 409, { ok: false, message: "Guarda la asistencia antes de cerrar la jornada." });
+        const closure = { key, ficha, fecha, jornada, reason: reason.slice(0, 300), closedAt: new Date().toISOString(), closedBy: session.user.email || session.user.id };
+        trainingState.attendanceClosures.push(closure);
+        persistTraining();
+        audit(session, "close", "asistencia_jornada", key, null, closure, { total: records.length });
+        return sendJson(response, 200, { ok: true, cierre: closure, message: "Jornada cerrada. Ya no admite correcciones ordinarias." });
+    }
+
+    async function handleAttendanceReopen(request, response) {
+        const session = requireAdministrator(request, response);
+        if (!session) return;
+        const body = await readJsonBody(request);
+        const ficha = String(body.ficha || "").trim(), fecha = String(body.fecha || "").trim(), jornada = String(body.jornada || "").trim();
+        const reason = String(body.reason || "").trim();
+        if (reason.length < 10) return sendJson(response, 400, { ok: false, message: "Indica un motivo de reapertura de al menos 10 caracteres." });
+        const index = trainingState.attendanceClosures.findIndex((item) => item.key === attendanceClosureKey(ficha, fecha, jornada));
+        if (index < 0) return sendJson(response, 404, { ok: false, message: "La jornada no está cerrada." });
+        const [closure] = trainingState.attendanceClosures.splice(index, 1);
+        persistTraining();
+        audit(session, "reopen", "asistencia_jornada", closure.key, closure, null, { reason: reason.slice(0, 300) });
+        return sendJson(response, 200, { ok: true, message: "Jornada reabierta. La próxima modificación exigirá motivo de corrección." });
+    }
+
+    function publicExcuse(item) {
+        const { dataBase64: _data, ...support } = item.support || {};
+        return { ...item, support };
+    }
+
+    function handleExcusesList(request, response, requestUrl) {
+        const session = currentSession(request);
+        if (!session) return sendJson(response, 403, { ok: false, message: "Debes iniciar sesión para consultar excusas." });
+        const role = String(session.user.role || "").toLowerCase();
+        const status = String(requestUrl.searchParams.get("status") || "").toLowerCase();
+        let selected = role === "aprendiz" ? excuses.filter((item) => item.document === session.user.document) : excuses;
+        if (!["aprendiz", "administrador", "coordinador", "instructor"].includes(role)) return sendJson(response, 403, { ok: false, message: "No tienes permiso para consultar excusas." });
+        if (status) selected = selected.filter((item) => item.status === status);
+        return sendJson(response, 200, { ok: true, excuses: selected.map(publicExcuse).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)) });
+    }
+
+    async function handleExcuseCreate(request, response) {
+        const session = requireApprentice(request, response);
+        if (!session) return;
+        const submission = await readExcuseSubmission(request);
+        const apprentice = apprentices.find((item) => item.id === session.user.id || item.document === session.user.document);
+        const ficha = String(submission.ficha || apprentice?.program?.ficha || "").trim();
+        const date = String(submission.fecha || "").trim();
+        const reason = String(submission.motivo || "").trim();
+        if (!apprentice || ficha !== String(apprentice.program?.ficha || apprentice.program?.code || "")) return sendJson(response, 400, { ok: false, message: "La ficha de la excusa no corresponde al aprendiz." });
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > dateKey(new Date())) return sendJson(response, 400, { ok: false, message: "Selecciona una fecha de ausencia válida, no futura." });
+        if (reason.length < 10) return sendJson(response, 400, { ok: false, message: "Describe el motivo de la excusa con al menos 10 caracteres." });
+        const absence = attendanceRecords.find((item) => item.identificacion === apprentice.document && item.ficha === ficha && item.fecha === date && item.estado === "ausente");
+        if (!absence) return sendJson(response, 409, { ok: false, message: "No existe una ausencia pendiente para esa fecha y ficha." });
+        if (excuses.some((item) => item.document === apprentice.document && item.ficha === ficha && item.date === date && ["pending", "approved"].includes(item.status))) return sendJson(response, 409, { ok: false, message: "Ya existe una excusa pendiente o aprobada para esa ausencia." });
+        const excuse = {
+            id: crypto.randomUUID(), document: apprentice.document, apprenticeName: apprentice.name, ficha, date,
+            journey: absence.jornada, reason: reason.slice(0, 500), status: "pending", submittedAt: new Date().toISOString(),
+            support: submission.support, reviewedAt: null, reviewedBy: null, reviewComment: ""
+        };
+        excuses.push(excuse);
+        persistExcuses();
+        audit(session, "submit", "excusa", excuse.id, null, publicExcuse(excuse), { attendance: attendanceClosureKey(ficha, date, absence.jornada) });
+        return sendJson(response, 201, { ok: true, excuse: publicExcuse(excuse), message: "Excusa enviada. Un instructor debe revisarla." });
+    }
+
+    async function handleExcuseReview(request, response, id) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        const body = await readJsonBody(request);
+        const decision = String(body.decision || "").toLowerCase();
+        const comment = String(body.comment || "").trim();
+        if (!new Set(["approved", "rejected"]).has(decision) || comment.length < 5) return sendJson(response, 400, { ok: false, message: "Selecciona aprobar o rechazar e indica un comentario de al menos 5 caracteres." });
+        const excuse = excuses.find((item) => item.id === id);
+        if (!excuse) return sendJson(response, 404, { ok: false, message: "Excusa no encontrada." });
+        if (excuse.status !== "pending") return sendJson(response, 409, { ok: false, message: "La excusa ya fue revisada." });
+        const before = publicExcuse(excuse);
+        if (decision === "approved") {
+            const attendance = attendanceRecords.find((item) => item.identificacion === excuse.document && item.ficha === excuse.ficha && item.fecha === excuse.date && item.jornada === excuse.journey && item.estado === "ausente");
+            if (!attendance) return sendJson(response, 409, { ok: false, message: "La ausencia original ya no está disponible para justificar." });
+            const previousAttendance = JSON.parse(JSON.stringify(attendance));
+            attendance.estado = "justificado";
+            attendance.observacion = `Excusa aprobada: ${comment}`.slice(0, 200);
+            attendance.hora_registro = new Date().toISOString();
+            attendance.registrado_por = session.user.email || session.user.id;
+            attendance.correction = { reason: `Aprobación de excusa ${excuse.id}`, correctedAt: attendance.hora_registro, correctedBy: attendance.registrado_por };
+            persistAttendance();
+            audit(session, "justify", "asistencia", `${excuse.date}:${excuse.journey}:${excuse.ficha}:${excuse.document}`, previousAttendance, attendance, { excuseId: excuse.id });
+        }
+        excuse.status = decision;
+        excuse.reviewedAt = new Date().toISOString();
+        excuse.reviewedBy = session.user.email || session.user.id;
+        excuse.reviewComment = comment.slice(0, 500);
+        persistExcuses();
+        audit(session, decision === "approved" ? "approve" : "reject", "excusa", excuse.id, before, publicExcuse(excuse));
+        return sendJson(response, 200, { ok: true, excuse: publicExcuse(excuse), message: decision === "approved" ? "Excusa aprobada y ausencia marcada como justificada." : "Excusa rechazada." });
+    }
+
+    function handleExcuseSupport(request, response, id) {
+        const session = currentSession(request);
+        const excuse = excuses.find((item) => item.id === id);
+        if (!session || !excuse) return sendJson(response, 404, { ok: false, message: "Soporte no encontrado." });
+        if (String(session.user.role).toLowerCase() === "aprendiz" && excuse.document !== session.user.document) return sendJson(response, 403, { ok: false, message: "No puedes consultar este soporte." });
+        const buffer = Buffer.from(excuse.support.dataBase64, "base64");
+        response.writeHead(200, { "Content-Type": excuse.support.mimeType, "Content-Disposition": `attachment; filename="${excuse.support.name.replace(/["\\]/g, "_")}"`, "Content-Length": buffer.length, "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store" });
+        response.end(buffer);
     }
 
     function requireAdministrator(request, response) {
@@ -826,6 +1232,15 @@ function createProjectServer(options = {}) {
         const role = String(session?.user?.role || "").trim().toLowerCase();
         if (!session || !["administrador", "coordinador"].includes(role)) {
             sendJson(response, 403, { ok: false, message: "Esta función es exclusiva para administradores y coordinadores." });
+            return null;
+        }
+        return session;
+    }
+
+    function requireBackupAdministrator(request, response) {
+        const session = currentSession(request);
+        if (!session || String(session.user?.role || "").trim().toLowerCase() !== "administrador") {
+            sendJson(response, 403, { ok: false, message: "El respaldo integral es exclusivo para administradores." });
             return null;
         }
         return session;
@@ -1029,6 +1444,7 @@ function createProjectServer(options = {}) {
         };
         programRecords.push(program);
         persistPrograms();
+        audit(session, "create", "programa", program.id, null, publicProgram(program));
         return sendJson(response, 201, {
             ok: true,
             message: "Programa creado correctamente.",
@@ -1053,6 +1469,7 @@ function createProjectServer(options = {}) {
         if (programRecords.some((item) => item !== program && normalizedProgramText(item.nombre) === normalizedProgramText(values.name))) {
             return sendJson(response, 409, { ok: false, message: "Ya existe otro programa con ese nombre." });
         }
+        const before = publicProgram(program);
         program.nombre = values.name;
         program.nivel = values.level;
         program.duracion = values.duration;
@@ -1060,12 +1477,32 @@ function createProjectServer(options = {}) {
         program.updatedAt = new Date().toISOString();
         program.updatedBy = session.user.email || session.user.id;
         persistPrograms();
+        audit(session, "update", "programa", program.id, before, publicProgram(program));
         return sendJson(response, 200, {
             ok: true,
             message: "Programa actualizado correctamente.",
             program: publicProgram(program),
             ...programDirectoryPayload()
         });
+    }
+
+    async function handleProgramDelete(request, response, code) {
+        const session = requireAdministrator(request, response);
+        if (!session) return;
+        const index = programRecords.findIndex(item => String(item.id) === String(code));
+        if (index < 0) return sendJson(response, 404, { ok: false, message: "No se encontró el programa solicitado." });
+        const program = programRecords[index];
+        const linkedFichas = sqlData.fichas.filter(item => String(item.programaId) === String(code));
+        if (linkedFichas.length) return sendJson(response, 409, {
+            ok: false,
+            message: `No se puede eliminar ${program.nombre}: tiene ${linkedFichas.length} ficha${linkedFichas.length === 1 ? "" : "s"} vinculada${linkedFichas.length === 1 ? "" : "s"}. Desactívalo o reasigna primero las fichas.`,
+            dependencies: { fichas: linkedFichas.length }
+        });
+        const before = publicProgram(program);
+        programRecords.splice(index, 1);
+        persistPrograms();
+        audit(session, "delete", "programa", code, before, null);
+        return sendJson(response, 200, { ok: true, message: "Programa eliminado correctamente.", ...programDirectoryPayload() });
     }
 
     function csvIndexForTarget(target) {
@@ -1134,7 +1571,7 @@ function createProjectServer(options = {}) {
 
     function invalidateUserSessions(user) {
         for (const [token, session] of sessions.entries()) {
-            if (session.user?.id === user.id || (user.email && normalizeEmail(session.user?.email) === normalizeEmail(user.email))) sessions.delete(token);
+            if ((user.id && session.user?.id === user.id) || (user.document && session.user?.document === user.document) || (user.email && normalizeEmail(session.user?.email) === normalizeEmail(user.email))) sessions.delete(token);
         }
     }
 
@@ -1146,6 +1583,7 @@ function createProjectServer(options = {}) {
             && (!email || normalizeEmail(user.correo) === email)
         );
         if (registry) return canonicalRole(registry.rol) === "Aprendiz" && canonicalUserStatus(registry.estado) === "Activo";
+        if (csvFileBacked) return false;
         const managed = managedUsers.find((user) => user.document === document || normalizeEmail(user.email) === email);
         return managed ? canonicalRole(managed.role) === "Aprendiz" && (canonicalUserStatus(managed.status) || "Activo") === "Activo" : true;
     }
@@ -1183,6 +1621,7 @@ function createProjectServer(options = {}) {
             && normalizeEmail(row.correo) === email
         );
         if (registry) return canonicalUserStatus(registry.estado) === "Activo" && canonicalRole(registry.rol) !== "Usuario";
+        if (csvFileBacked) return false;
         return (canonicalUserStatus(user?.status) || "Activo") === "Activo" && canonicalRole(user?.role) !== "Usuario";
     }
 
@@ -1217,7 +1656,7 @@ function createProjectServer(options = {}) {
             const key = document ? `document:${document}` : email ? `email:${email}` : `id:${id}`;
             const existing = users.get(key) || {};
             users.set(key, {
-                id,
+                id: existing.id || id,
                 username: String(user.username || user.usuario || existing.username || "").trim(),
                 document: document || existing.document || "",
                 documentType: String(user.documentType || user.tipo_documento || existing.documentType || "Cédula de Ciudadanía"),
@@ -1231,9 +1670,10 @@ function createProjectServer(options = {}) {
                 protected: builtInAccounts.some((account) => account.id === id) || Boolean(existing.protected)
             });
         };
+        const isRegistered = user => !csvFileBacked || csvUsers.some(row => row.identificacion === user.document && canonicalRole(row.rol) === canonicalRole(user.role));
+        apprentices.filter(isRegistered).forEach(add);
+        accounts.filter(user => userIsProtected(user) || isRegistered(user)).forEach(add);
         csvUsers.forEach(add);
-        apprentices.forEach(add);
-        accounts.forEach(add);
         return [...users.values()].sort((left, right) => {
             if (left.createdAt && right.createdAt) return String(right.createdAt).localeCompare(String(left.createdAt));
             if (left.createdAt) return -1;
@@ -1291,8 +1731,8 @@ function createProjectServer(options = {}) {
         const users = systemUsers();
         if (users.some((user) => user.document === document)) return sendJson(response, 409, { ok: false, message: "Ya existe un usuario con ese documento." });
         if (users.some((user) => normalizeEmail(user.email) === email)) return sendJson(response, 409, { ok: false, message: "Ya existe un usuario con ese correo." });
-        if (csvUsers.some((user) => String(user.identificacion || "").trim() === document)) return sendJson(response, 409, { ok: false, message: "El documento ya existe en usuarios_activos.csv." });
-        if (csvUsers.some((user) => normalizeEmail(user.correo) === email)) return sendJson(response, 409, { ok: false, message: "El correo ya existe en usuarios_activos.csv." });
+        if (csvUsers.some((user) => String(user.identificacion || "").trim() === document)) return sendJson(response, 409, { ok: false, message: "El documento ya existe en la base principal de usuarios." });
+        if (csvUsers.some((user) => normalizeEmail(user.correo) === email)) return sendJson(response, 409, { ok: false, message: "El correo ya existe en la base principal de usuarios." });
         if (username && accounts.some((user) => String(user.username || "").toLowerCase() === username)) return sendJson(response, 409, { ok: false, message: "Ese nombre de usuario ya está en uso." });
 
         const id = `usuario-${crypto.randomUUID()}`;
@@ -1322,14 +1762,16 @@ function createProjectServer(options = {}) {
         }
         upsertCsvUser(user);
         if (role === "Aprendiz") syncApprenticeProfile(user);
-        persistManagedUsers();
         persistCsvUsers();
+        persistManagedUsers();
         if (role === "Aprendiz") persistApprentices();
+        const createdUser = systemUsers().find((item) => item.document === document && normalizeEmail(item.email) === email);
+        audit(session, "create", "usuario", createdUser?.id || document, null, createdUser);
 
         return sendJson(response, 201, {
             ok: true,
             message: `${role} creado correctamente. El código de acceso se enviará a ${email} cuando lo solicite al iniciar sesión.`,
-            user: systemUsers().find((item) => item.document === document && normalizeEmail(item.email) === email),
+            user: createdUser,
             ...userDirectoryPayload()
         });
     }
@@ -1372,10 +1814,10 @@ function createProjectServer(options = {}) {
     async function handleUserUpdate(request, response, id) {
         const session = requireAdministrator(request, response);
         if (!session) return;
+        const body = await readJsonBody(request);
         const target = findDirectoryUser(id);
         if (!target) return sendJson(response, 404, { ok: false, message: "No se encontró el usuario solicitado." });
         if (userIsProtected(target)) return sendJson(response, 403, { ok: false, message: "La cuenta principal del sistema está protegida." });
-        const body = await readJsonBody(request);
         const documentType = String(body.tipo_documento ?? body.documentType ?? target.documentType ?? "Cédula de Ciudadanía").trim();
         const name = String(body.nombre ?? body.name ?? target.name).trim();
         const email = normalizeEmail(body.correo ?? body.email ?? target.email);
@@ -1394,7 +1836,7 @@ function createProjectServer(options = {}) {
         }
         const targetCsvIndex = csvIndexForTarget(target);
         if (csvUsers.some((user, index) => index !== targetCsvIndex && normalizeEmail(user.correo) === email)) {
-            return sendJson(response, 409, { ok: false, message: "El correo ya pertenece a otro registro de usuarios_activos.csv." });
+            return sendJson(response, 409, { ok: false, message: "El correo ya pertenece a otro registro de la base principal de usuarios." });
         }
         if (session.user.id === target.id && status === "Inactivo") {
             return sendJson(response, 400, { ok: false, message: "No puedes desactivar la cuenta con la que tienes la sesión abierta." });
@@ -1402,6 +1844,7 @@ function createProjectServer(options = {}) {
         const statusChanged = status !== target.status;
         const updated = applyUserUpdate(target, { documentType, name, email, phone, status, ficha });
         if (status === "Inactivo") invalidateUserSessions(updated);
+        audit(session, statusChanged ? (status === "Activo" ? "activate" : "deactivate") : "update", "usuario", updated.id, target, updated);
         return sendJson(response, 200, {
             ok: true,
             message: statusChanged
@@ -1434,9 +1877,10 @@ function createProjectServer(options = {}) {
         persistCsvUsers();
         persistManagedUsers();
         persistApprentices();
+        audit(session, "delete", "usuario", target.id, target, null);
         return sendJson(response, 200, {
             ok: true,
-            message: `${target.name} fue eliminado del sistema y de usuarios_activos.csv.`,
+            message: `${target.name} fue eliminado del sistema y de la base principal de usuarios.`,
             ...userDirectoryPayload()
         });
     }
@@ -1464,10 +1908,16 @@ function createProjectServer(options = {}) {
         return { rowNumber, document, name, email, role, status, ficha, username, password, phone, documentType };
     }
 
-    async function handleUserImport(request, response) {
+    async function handleUserImport(request, response, sqlUpload = false) {
         const session = requireAdministrator(request, response);
         if (!session) return;
-        const body = await readJsonBody(request, 512 * 1024);
+        let body;
+        if (sqlUpload) {
+            const sql = await readSqlFile(request);
+            refreshUsersFromCsv();
+            if (!requireAdministrator(request, response)) return;
+            body = { fileName: "SQLFILE.csv", csv: serializeCsvUsers(parseUsersSql(sql)) };
+        } else body = await readJsonBody(request, 512 * 1024);
         const fileName = String(body.fileName || "").trim();
         const csvText = String(body.csv || "");
         if (!/\.csv$/i.test(fileName) || !csvText.trim() || Buffer.byteLength(csvText, "utf8") > 450 * 1024) {
@@ -1503,10 +1953,10 @@ function createProjectServer(options = {}) {
                 const registryByDocument = csvUsers.filter((user) => String(user.identificacion || "").trim() === record.document);
                 const registryByEmail = csvUsers.filter((user) => normalizeEmail(user.correo) === record.email);
                 if (registryByDocument.some((user) => normalizeEmail(user.correo) !== record.email)) {
-                    throw new Error(`Fila ${record.rowNumber}: el documento ya está asociado a otro correo en usuarios_activos.csv.`);
+                    throw new Error(`Fila ${record.rowNumber}: el documento ya está asociado a otro correo en la base principal de usuarios.`);
                 }
                 if (registryByEmail.some((user) => String(user.identificacion || "").trim() !== record.document)) {
-                    throw new Error(`Fila ${record.rowNumber}: el correo ya está asociado a otro documento en usuarios_activos.csv.`);
+                    throw new Error(`Fila ${record.rowNumber}: el correo ya está asociado a otro documento en la base principal de usuarios.`);
                 }
                 if (target && (target.document !== record.document || normalizeEmail(target.email) !== record.email)) {
                     throw new Error(`Fila ${record.rowNumber}: el documento o correo ya está registrado con otros datos.`);
@@ -1582,6 +2032,7 @@ function createProjectServer(options = {}) {
         persistCsvUsers();
         persistManagedUsers();
         persistApprentices();
+        audit(session, "import", "usuarios", fileName, null, { total: records.length, created, updated }, { fileName });
         return sendJson(response, 201, {
             ok: true,
             message: `${records.length} usuario${records.length === 1 ? "" : "s"} procesado${records.length === 1 ? "" : "s"}: ${created} nuevo${created === 1 ? "" : "s"} y ${updated} actualizado${updated === 1 ? "" : "s"}.`,
@@ -1590,13 +2041,195 @@ function createProjectServer(options = {}) {
         });
     }
 
+    function exportDatabaseSql() {
+        refreshUsersFromCsv();
+        return createDump(csvUsers, {
+            ambientes: sqlData.ambientes, fichas: sqlData.fichas,
+            horarios: sqlData.horarios, programas: programRecords,
+            aprendices: apprentices, asistencia: attendanceRecords, reportes: reports,
+            cuentas: accounts.map(({ passwordHash, salt, password, ...profile }) => profile)
+        });
+    }
+
+    async function handleSqlExport(request, response) {
+        if (!requireAdministrator(request, response)) return;
+        const dump = exportDatabaseSql();
+        response.writeHead(200, {
+            "Content-Type": "application/sql; charset=utf-8",
+            "Content-Disposition": 'attachment; filename="Base_datos_SENA.sql"',
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff"
+        });
+        response.end(dump);
+    }
+
+    const cleanText = (value, max = 160) => String(value || "").trim().replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").slice(0, max);
+    const nextNumericId = records => records.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
+    const publicFicha = ficha => {
+        const program = programRecords.find(item => String(item.id) === String(ficha.programaId));
+        const code = String(ficha.numero || "");
+        return { id: String(ficha.id), code: String(ficha.numero || ""), plan: fichaPlan(code), program: String(program?.nombre || ficha.programa || "Sin programa"),
+            programId: String(ficha.programaId || ""), schedule: normalizeSqlText(ficha.jornada || ""), mode: String(ficha.modalidad || ""),
+            status: String(ficha.estado || ""), instructorId: ficha.instructorId == null ? "" : String(ficha.instructorId), dependencies: {
+                aprendices: csvUsers.filter(item => canonicalRole(item.rol) === "Aprendiz" && String(item.ficha) === code).length,
+                horarios: sqlData.horarios.filter(item => String(item.fichaId) === String(ficha.id)).length,
+                asistencias: attendanceRecords.filter(item => item.ficha === code).length
+            } };
+    };
+    const publicEnvironment = item => ({ id: String(item.id), code: String(item.codigo || ""), name: String(item.nombre || ""),
+        capacity: Number(item.capacidad) || 0, type: String(item.tipo || ""), status: String(item.estado || ""), zone: String(item.zona || ""),
+        dependencies: { horarios: sqlData.horarios.filter(schedule => String(schedule.ambienteId) === String(item.id)).length } });
+    const publicSchedule = item => {
+        const ficha = sqlData.fichas.find(value => String(value.id) === String(item.fichaId));
+        const environment = sqlData.ambientes.find(value => String(value.id) === String(item.ambienteId));
+        const instructor = systemUsers().find(value => String(value.id) === String(item.instructorId) || value.document === String(item.instructorId));
+        const code = String(ficha?.numero || item.ficha || ""), journey = fichaPlan(code)?.schedule || (Number(String(item.horaInicio || "00").slice(0, 2)) < 12 ? "Mañana" : Number(String(item.horaInicio || "00").slice(0, 2)) < 18 ? "Tarde" : "Noche");
+        return { id: String(item.id), ficha: code, day: normalizeSqlText(item.dia || ""),
+            start: String(item.horaInicio || ""), end: String(item.horaFin || ""), time: `${item.horaInicio || ""} - ${item.horaFin || ""}`,
+            environmentId: String(item.ambienteId || ""), environment: environment ? `${environment.codigo} · ${environment.nombre}` : "Sin ambiente",
+            zone: String(environment?.zona || ""), instructorId: String(item.instructorId || ""), instructor: instructor?.name || "Sin instructor", status: String(item.estado || "Activo"),
+            dependencies: { asistencias: attendanceRecords.filter(record => record.ficha === code && record.jornada === journey).length } };
+    };
+    function trainingPayload() {
+        return { scale: SCALE, weeklyPlan: weeklyPlan(sqlData.fichas), fichas: sqlData.fichas.map(publicFicha).sort((a, b) => a.code.localeCompare(b.code, "es", { numeric: true })),
+            schedules: sqlData.horarios.map(publicSchedule), environments: sqlData.ambientes.map(publicEnvironment),
+            programs: programRecords.map(item => ({ id: String(item.id), name: String(item.nombre || "") })),
+            instructors: systemUsers().filter(item => item.role === "Instructor" && item.status === "Activo").map(item => ({ id: item.id, name: item.name, document: item.document })) };
+    }
+    function handleTrainingData(request, response) {
+        if (!requireStaff(request, response)) return;
+        return sendJson(response, 200, { ok: true, ...trainingPayload() });
+    }
+    function validateFichaInput(body, current = {}) {
+        const code = cleanText(body.code ?? current.numero, 15).replace(/\D/g, "");
+        const programId = cleanText(body.programId ?? current.programaId, 20);
+        const schedule = cleanText(body.schedule ?? current.jornada, 20);
+        const mode = cleanText(body.mode ?? current.modalidad, 30);
+        const status = cleanText(body.status ?? current.estado, 20);
+        const instructorId = cleanText(body.instructorId ?? current.instructorId, 80);
+        if (!/^\d{4,15}$/.test(code) || !programRecords.some(item => String(item.id) === programId)) throw Object.assign(new Error("Revisa el número de ficha y selecciona un programa válido."), { status: 400 });
+        if (!["Mañana", "Tarde", "Noche", "Mixta"].includes(schedule) || !["Presencial", "Virtual", "A distancia", "Mixta"].includes(mode) || !["Activa", "Inactiva"].includes(status)) throw Object.assign(new Error("La jornada, modalidad o estado de la ficha no es válido."), { status: 400 });
+        const plan = fichaPlan(code);
+        if (plan && schedule !== plan.schedule) throw Object.assign(new Error(`La ficha ${code} corresponde a la jornada ${plan.schedule}, de ${plan.start} a ${plan.end}.`), { status: 400 });
+        if (instructorId && instructorId !== String(current.instructorId ?? "") && !systemUsers().some(item => (item.id === instructorId || item.document === instructorId) && item.role === "Instructor" && item.status === "Activo")) throw Object.assign(new Error("Selecciona un instructor activo o deja la ficha sin asignar."), { status: 400 });
+        return { code, programId, schedule, mode, status, instructorId: instructorId || null };
+    }
+    function validateEnvironmentInput(body, current = {}) {
+        const value = { code: cleanText(body.code ?? current.codigo, 30), name: cleanText(body.name ?? current.nombre), capacity: Number(body.capacity ?? current.capacidad),
+            type: cleanText(body.type ?? current.tipo, 40), status: cleanText(body.status ?? current.estado, 30), zone: cleanText(body.zone ?? current.zona, 60) };
+        if (!/^[A-Za-z0-9._-]{1,30}$/.test(value.code) || !value.name || !Number.isInteger(value.capacity) || value.capacity < 1 || value.capacity > 1000 || !value.zone) throw Object.assign(new Error("Revisa el código, nombre, capacidad y zona del ambiente."), { status: 400 });
+        if (!["Aula", "Laboratorio", "Especializado", "Taller", "Auditorio"].includes(value.type) || !["Disponible", "Ocupado", "Mantenimiento", "Inactivo"].includes(value.status)) throw Object.assign(new Error("El tipo o estado del ambiente no es válido."), { status: 400 });
+        return value;
+    }
+    function validateScheduleInput(body, current = {}) {
+        const value = { fichaId: cleanText(body.fichaId ?? current.fichaId, 30), ambienteId: cleanText(body.environmentId ?? current.ambienteId, 30), instructorId: cleanText(body.instructorId ?? current.instructorId, 80),
+            day: cleanText(body.day ?? current.dia, 20), start: cleanText(body.start ?? current.horaInicio, 5), end: cleanText(body.end ?? current.horaFin, 5), status: cleanText(body.status ?? current.estado ?? "Activo", 20) };
+        const selectedFicha = sqlData.fichas.find(item => String(item.id) === value.fichaId);
+        const selectedEnvironment = sqlData.ambientes.find(item => String(item.id) === value.ambienteId);
+        if (!selectedFicha || !selectedEnvironment || !systemUsers().some(item => (item.id === value.instructorId || item.document === value.instructorId) && item.role === "Instructor" && item.status === "Activo")) throw Object.assign(new Error("Selecciona ficha, ambiente e instructor válidos."), { status: 400 });
+        if (!["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"].includes(value.day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value.start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value.end) || value.start >= value.end || !["Activo", "Inactivo"].includes(value.status)) throw Object.assign(new Error("Revisa el día, el rango de horas y el estado."), { status: 400 });
+        const plan = fichaPlan(selectedFicha.numero);
+        if (plan && value.status === "Activo" && (!plan.days.includes(value.day) || value.start < plan.start || value.end > plan.end)) throw Object.assign(new Error(`Esta ficha tiene clases de lunes a viernes, de ${plan.start} a ${plan.end}.`), { status: 400 });
+        if (value.status === "Activo" && (String(selectedFicha.estado || "Activa") !== "Activa" || String(selectedEnvironment.estado || "Disponible") === "Inactivo")) throw Object.assign(new Error("No puedes activar un horario con una ficha o ambiente inactivo."), { status: 409 });
+        const collision = value.status === "Activo" && sqlData.horarios.some(item => item !== current && String(item.estado || "Activo") === "Activo" && normalizeSqlText(item.dia) === value.day && String(item.ambienteId) === value.ambienteId && value.start < String(item.horaFin).slice(0, 5) && value.end > String(item.horaInicio).slice(0, 5));
+        if (collision) throw Object.assign(new Error("El ambiente ya tiene un horario que se cruza con este rango."), { status: 409 });
+        const availableInstructors = systemUsers().filter(item => item.role === "Instructor");
+        const instructorKey = id => {
+            const user = availableInstructors.find(item => String(item.id) === String(id) || String(item.document) === String(id));
+            return String(user?.document || id);
+        };
+        const occupied = value.status === "Activo" && sqlData.horarios.some(item => item !== current && String(item.estado || "Activo") === "Activo" && normalizeSqlText(item.dia) === value.day && value.start < String(item.horaFin).slice(0, 5) && value.end > String(item.horaInicio).slice(0, 5) && (String(item.fichaId) === value.fichaId || instructorKey(item.instructorId) === instructorKey(value.instructorId)));
+        if (occupied) throw Object.assign(new Error("La ficha o el instructor ya tiene una clase en este rango."), { status: 409 });
+        return value;
+    }
+    async function handleFichaCreate(request, response) {
+        const session = requireAdministrator(request, response); if (!session) return;
+        const value = validateFichaInput(await readJsonBody(request));
+        if (sqlData.fichas.some(item => String(item.numero) === value.code)) return sendJson(response, 409, { ok: false, message: "Ya existe una ficha con ese número." });
+        const record = { id: nextNumericId(sqlData.fichas), numero: value.code, jornada: value.schedule, modalidad: value.mode, estado: value.status, programaId: Number(value.programId), instructorId: value.instructorId };
+        sqlData.fichas.push(record); persistTraining(); audit(session, "create", "ficha", record.id, null, publicFicha(record));
+        return sendJson(response, 201, { ok: true, message: "Ficha guardada en el servidor.", ...trainingPayload() });
+    }
+    async function handleFichaUpdate(request, response, id) {
+        const session = requireAdministrator(request, response); if (!session) return;
+        const record = sqlData.fichas.find(item => String(item.id) === String(id)); if (!record) return sendJson(response, 404, { ok: false, message: "Ficha no encontrada." });
+        const before = publicFicha(record), value = validateFichaInput(await readJsonBody(request), record);
+        if (sqlData.fichas.some(item => item !== record && String(item.numero) === value.code)) return sendJson(response, 409, { ok: false, message: "Ya existe otra ficha con ese número." });
+        Object.assign(record, { numero: value.code, jornada: value.schedule, modalidad: value.mode, estado: value.status, programaId: Number(value.programId), instructorId: value.instructorId });
+        persistTraining(); audit(session, "update", "ficha", record.id, before, publicFicha(record));
+        return sendJson(response, 200, { ok: true, message: "Ficha actualizada.", ...trainingPayload() });
+    }
+    async function handleFichaDelete(request, response, id) {
+        const session = requireAdministrator(request, response); if (!session) return;
+        const index = sqlData.fichas.findIndex(item => String(item.id) === String(id)); if (index < 0) return sendJson(response, 404, { ok: false, message: "Ficha no encontrada." });
+        const record = sqlData.fichas[index], code = String(record.numero);
+        const dependencies = {
+            aprendices: csvUsers.filter(item => canonicalRole(item.rol) === "Aprendiz" && String(item.ficha) === code).length,
+            horarios: sqlData.horarios.filter(item => String(item.fichaId) === String(record.id)).length,
+            asistencias: attendanceRecords.filter(item => item.ficha === code).length
+        };
+        if (Object.values(dependencies).some(Boolean)) return sendJson(response, 409, { ok: false, message: `No se puede eliminar la ficha ${code}: conserva ${dependencies.aprendices} aprendiz(es), ${dependencies.horarios} horario(s) y ${dependencies.asistencias} asistencia(s). Puedes desactivarla.`, dependencies });
+        const before = publicFicha(record); sqlData.fichas.splice(index, 1); persistTraining(); audit(session, "delete", "ficha", id, before, null);
+        return sendJson(response, 200, { ok: true, message: "Ficha eliminada correctamente.", ...trainingPayload() });
+    }
+    async function handleEnvironmentCreate(request, response) {
+        const session = requireAdministrator(request, response); if (!session) return;
+        const value = validateEnvironmentInput(await readJsonBody(request));
+        if (sqlData.ambientes.some(item => String(item.codigo).toLowerCase() === value.code.toLowerCase())) return sendJson(response, 409, { ok: false, message: "Ya existe un ambiente con ese código." });
+        const record = { id: nextNumericId(sqlData.ambientes), codigo: value.code, nombre: value.name, capacidad: value.capacity, tipo: value.type, estado: value.status, zona: value.zone };
+        sqlData.ambientes.push(record); persistTraining(); audit(session, "create", "ambiente", record.id, null, publicEnvironment(record));
+        return sendJson(response, 201, { ok: true, message: "Ambiente guardado en el servidor.", ...trainingPayload() });
+    }
+    async function handleEnvironmentUpdate(request, response, id) {
+        const session = requireAdministrator(request, response); if (!session) return;
+        const record = sqlData.ambientes.find(item => String(item.id) === String(id)); if (!record) return sendJson(response, 404, { ok: false, message: "Ambiente no encontrado." });
+        const before = publicEnvironment(record), value = validateEnvironmentInput(await readJsonBody(request), record);
+        if (sqlData.ambientes.some(item => item !== record && String(item.codigo).toLowerCase() === value.code.toLowerCase())) return sendJson(response, 409, { ok: false, message: "Ya existe otro ambiente con ese código." });
+        Object.assign(record, { codigo: value.code, nombre: value.name, capacidad: value.capacity, tipo: value.type, estado: value.status, zona: value.zone });
+        persistTraining(); audit(session, "update", "ambiente", record.id, before, publicEnvironment(record));
+        return sendJson(response, 200, { ok: true, message: "Ambiente actualizado.", ...trainingPayload() });
+    }
+    async function handleEnvironmentDelete(request, response, id) {
+        const session = requireAdministrator(request, response); if (!session) return;
+        const index = sqlData.ambientes.findIndex(item => String(item.id) === String(id)); if (index < 0) return sendJson(response, 404, { ok: false, message: "Ambiente no encontrado." });
+        const record = sqlData.ambientes[index], horarios = sqlData.horarios.filter(item => String(item.ambienteId) === String(record.id)).length;
+        if (horarios) return sendJson(response, 409, { ok: false, message: `No se puede eliminar ${record.nombre}: tiene ${horarios} horario${horarios === 1 ? "" : "s"} vinculado${horarios === 1 ? "" : "s"}. Desactívalo o reasigna primero los horarios.`, dependencies: { horarios } });
+        const before = publicEnvironment(record); sqlData.ambientes.splice(index, 1); persistTraining(); audit(session, "delete", "ambiente", id, before, null);
+        return sendJson(response, 200, { ok: true, message: "Ambiente eliminado correctamente.", ...trainingPayload() });
+    }
+    async function handleScheduleCreate(request, response) {
+        const session = requireAdministrator(request, response); if (!session) return;
+        const value = validateScheduleInput(await readJsonBody(request));
+        const record = { id: nextNumericId(sqlData.horarios), fichaId: Number(value.fichaId), ambienteId: Number(value.ambienteId), instructorId: value.instructorId, dia: value.day, horaInicio: value.start, horaFin: value.end, estado: value.status };
+        sqlData.horarios.push(record); persistTraining(); audit(session, "create", "horario", record.id, null, publicSchedule(record));
+        return sendJson(response, 201, { ok: true, message: "Horario guardado en el servidor.", ...trainingPayload() });
+    }
+    async function handleScheduleUpdate(request, response, id) {
+        const session = requireAdministrator(request, response); if (!session) return;
+        const record = sqlData.horarios.find(item => String(item.id) === String(id)); if (!record) return sendJson(response, 404, { ok: false, message: "Horario no encontrado." });
+        const before = publicSchedule(record), value = validateScheduleInput(await readJsonBody(request), record);
+        Object.assign(record, { fichaId: Number(value.fichaId), ambienteId: Number(value.ambienteId), instructorId: value.instructorId, dia: value.day, horaInicio: value.start, horaFin: value.end, estado: value.status });
+        persistTraining(); audit(session, "update", "horario", record.id, before, publicSchedule(record));
+        return sendJson(response, 200, { ok: true, message: "Horario actualizado.", ...trainingPayload() });
+    }
+    async function handleScheduleDelete(request, response, id) {
+        const session = requireAdministrator(request, response); if (!session) return;
+        const index = sqlData.horarios.findIndex(item => String(item.id) === String(id)); if (index < 0) return sendJson(response, 404, { ok: false, message: "Horario no encontrado." });
+        const record = sqlData.horarios[index], ficha = sqlData.fichas.find(item => String(item.id) === String(record.fichaId));
+        const journey = fichaPlan(ficha?.numero)?.schedule || (Number(String(record.horaInicio || "00").slice(0, 2)) < 12 ? "Mañana" : Number(String(record.horaInicio || "00").slice(0, 2)) < 18 ? "Tarde" : "Noche");
+        const asistencias = attendanceRecords.filter(item => item.ficha === String(ficha?.numero || "") && item.jornada === journey).length;
+        if (asistencias) return sendJson(response, 409, { ok: false, message: `No se puede eliminar este horario: tiene ${asistencias} asistencia${asistencias === 1 ? "" : "s"} vinculada${asistencias === 1 ? "" : "s"}. Puedes desactivarlo.`, dependencies: { asistencias } });
+        const before = publicSchedule(record); sqlData.horarios.splice(index, 1); persistTraining(); audit(session, "delete", "horario", id, before, null);
+        return sendJson(response, 200, { ok: true, message: "Horario eliminado correctamente.", ...trainingPayload() });
+    }
+
     function nextSessions() {
         const days = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6 };
         const now = new Date();
         const fichasById = new Map(sqlData.fichas.map((item) => [item.id, item]));
         const environmentsById = new Map(sqlData.ambientes.map((item) => [item.id, item]));
         const programsById = new Map(sqlData.programas.map((item) => [item.id, item]));
-        return sqlData.horarios.map((schedule) => {
+        return sqlData.horarios.filter(schedule => String(schedule.estado || "Activo") === "Activo").map((schedule) => {
             const dayName = normalizeSqlText(schedule.dia);
             const normalizedDay = dayName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             const targetDay = days[normalizedDay];
@@ -1610,6 +2243,7 @@ function createProjectServer(options = {}) {
             const ficha = fichasById.get(schedule.fichaId);
             const environment = environmentsById.get(schedule.ambienteId);
             const program = programsById.get(ficha?.programaId);
+            if (!ficha || String(ficha.estado || "Activa") !== "Activa" || !environment || String(environment.estado || "Disponible") === "Inactivo") return null;
             return {
                 ficha: String(ficha?.numero || ""),
                 programa: String(program?.nombre || "Programa de formación"),
@@ -1617,21 +2251,28 @@ function createProjectServer(options = {}) {
                 fecha: dateKey(date),
                 horaInicio: String(schedule.horaInicio || "").slice(0, 5),
                 horaFin: String(schedule.horaFin || "").slice(0, 5),
-                jornada: startHour < 12 ? "Mañana" : startHour < 18 ? "Tarde" : "Noche",
+                jornada: fichaPlan(ficha.numero)?.schedule || (startHour < 12 ? "Mañana" : startHour < 18 ? "Tarde" : "Noche"),
                 ambiente: environment ? `Amb. ${environment.codigo}` : "Sin ambiente",
                 timestamp: date.getTime()
             };
         }).filter(Boolean).sort((left, right) => left.timestamp - right.timestamp).slice(0, 3).map(({ timestamp, ...session }) => session);
     }
 
-    function handleStatistics(request, response, requestUrl) {
-        const session = requireAdministrator(request, response);
-        if (!session) return;
+    function statisticsPayload(requestUrl, session) {
         const range = resolveDashboardRange(requestUrl, attendanceRecords);
         const trendDays = [7, 15, 30].includes(Number(requestUrl.searchParams.get("trendDays")))
             ? Number(requestUrl.searchParams.get("trendDays"))
             : 7;
-        const inRange = (item, from = range.fromText, to = range.toText) => item.fecha >= from && item.fecha <= to;
+        const fichaFilter = String(requestUrl.searchParams.get("ficha") || "").trim();
+        const journeyFilter = String(requestUrl.searchParams.get("jornada") || "").trim();
+        const allFichas = attendanceFichas();
+        attendanceRecords.forEach((record) => {
+            if (!allFichas.some((item) => item.codigo === record.ficha)) allFichas.push({ codigo: record.ficha, programa: "Ficha histórica" });
+        });
+        if (fichaFilter && !allFichas.some((item) => item.codigo === fichaFilter)) throw Object.assign(new Error("La ficha seleccionada no existe."), { status: 400 });
+        if (journeyFilter && !["Mañana", "Tarde", "Noche", "Mixta"].includes(journeyFilter)) throw Object.assign(new Error("Jornada inválida."), { status: 400 });
+        const matchesScope = (item) => (!fichaFilter || item.ficha === fichaFilter) && (!journeyFilter || item.jornada === journeyFilter);
+        const inRange = (item, from = range.fromText, to = range.toText) => matchesScope(item) && item.fecha >= from && item.fecha <= to;
         const selectedRecords = attendanceRecords.filter((item) => inRange(item));
         const daysInRange = Math.round((range.to - range.from) / 86400000) + 1;
         const previousTo = addDays(range.from, -1);
@@ -1643,7 +2284,7 @@ function createProjectServer(options = {}) {
             ? Math.round((currentRate - previousRate) * 10) / 10
             : null;
         const activeInstructors = csvUsers.filter((user) => String(user.rol || "").toLowerCase() === "instructor" && String(user.estado || "").toLowerCase() === "activo").length;
-        const fichas = attendanceFichas();
+        const fichas = allFichas.filter((item) => !fichaFilter || item.codigo === fichaFilter);
         const availableEnvironments = sqlData.ambientes.filter((item) => String(item.estado || "").toLowerCase() === "disponible").length;
         const occupiedEnvironments = sqlData.ambientes.filter((item) => String(item.estado || "").toLowerCase() === "ocupado").length;
 
@@ -1655,7 +2296,7 @@ function createProjectServer(options = {}) {
         const trendStart = addDays(range.to, -(trendDays - 1));
         const trend = Array.from({ length: trendDays }, (_, index) => {
             const date = dateKey(addDays(trendStart, index));
-            const records = attendanceRecords.filter((item) => item.fecha === date);
+            const records = selectedRecords.filter((item) => item.fecha === date);
             return { date, percentage: records.length ? rateFor(records) : null, total: records.length };
         });
 
@@ -1670,7 +2311,7 @@ function createProjectServer(options = {}) {
         }));
 
         const alerts = [];
-        const committeeCases = academicCommitteeCases();
+        const committeeCases = academicCommitteeCases().filter((item) => !fichaFilter || String(item.ficha) === fichaFilter);
         if (committeeCases.length) alerts.push({
             type: "danger",
             icon: "fa-user-shield",
@@ -1684,12 +2325,21 @@ function createProjectServer(options = {}) {
         const pendingUsers = csvUsers.filter((user) => String(user.estado || "").toLowerCase() !== "activo").length;
         if (pendingUsers) alerts.push({ type: "danger", icon: "fa-user-clock", title: "Usuarios pendientes", description: `${pendingUsers} usuario${pendingUsers === 1 ? " está" : "s están"} pendiente${pendingUsers === 1 ? "" : "s"} de activar.`, time: "Estado actual" });
 
-        return sendJson(response, 200, {
+        const students = new Map();
+        selectedRecords.forEach((record) => {
+            const key = `${record.ficha}:${record.identificacion}`;
+            if (!students.has(key)) {
+                const apprentice = apprentices.find((item) => item.document === record.identificacion);
+                students.set(key, { identificacion: record.identificacion, nombre: record.nombre || apprentice?.name || record.identificacion, ficha: record.ficha, records: [] });
+            }
+            students.get(key).records.push(record);
+        });
+        return {
             ok: true,
             usuario: { name: session.user.name, role: session.user.role },
-            filters: { from: range.fromText, to: range.toText, period: range.period, periods: range.periods, trendDays },
+            filters: { from: range.fromText, to: range.toText, period: range.period, periods: range.periods, trendDays, ficha: fichaFilter, jornada: journeyFilter, fichas: allFichas },
             summary: {
-                apprentices: apprentices.filter(apprenticeIsEnabled).length,
+                apprentices: apprentices.filter((item) => apprenticeIsEnabled(item) && (!fichaFilter || String(item.program?.ficha || item.program?.code) === fichaFilter)).length,
                 instructors: activeInstructors,
                 fichas: fichas.length,
                 environmentsAvailable: availableEnvironments,
@@ -1699,12 +2349,199 @@ function createProjectServer(options = {}) {
                 attendanceRecords: selectedRecords.length,
                 attendanceDelta
             },
+            generatedAt: new Date().toISOString(),
+            distribution: statusSummary(selectedRecords),
+            students: [...students.values()].map(({ records, ...student }) => ({ ...student, ...statusSummary(records) })).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+            records: selectedRecords.map((item) => ({ fecha: item.fecha, jornada: item.jornada, ficha: item.ficha, identificacion: item.identificacion, nombre: item.nombre || apprentices.find((a) => a.document === item.identificacion)?.name || item.identificacion, estado: item.estado, observacion: item.observacion || "" })),
+            timeline: Array.from({ length: daysInRange }, (_, index) => {
+                const date = dateKey(addDays(range.from, index));
+                const records = selectedRecords.filter((item) => item.fecha === date);
+                return { date, percentage: records.length ? rateFor(records) : null, ...statusSummary(records) };
+            }),
             trend,
             composition,
             weeklyPerformance,
             topFichas: composition.slice(0, 5),
             alerts,
-            nextSessions: nextSessions()
+            nextSessions: nextSessions().filter((item) => !fichaFilter || item.ficha === fichaFilter)
+        };
+    }
+
+    function handleStatistics(request, response, requestUrl) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        return sendJson(response, 200, statisticsPayload(requestUrl, session));
+    }
+
+    const reportsFile = options.reportsFile === null ? null : (options.reportsFile || (persistentRuntime ? path.join(dataDirectory, "reportes_estadisticas.json") : null));
+    const reports = options.reports ? JSON.parse(JSON.stringify(options.reports)) : (reportsFile && fs.existsSync(reportsFile) ? JSON.parse(fs.readFileSync(reportsFile, "utf8")) : []);
+    const reportMetadata = ({ id, createdAt, createdBy, filters, distribution, students }) => ({ id, createdAt, createdBy, filters: { from: filters.from, to: filters.to, ficha: filters.ficha, jornada: filters.jornada }, total: distribution.total, attendance: distribution.attendance, students: students.length });
+
+    async function handleReports(request, response) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        if (request.method === "GET") return sendJson(response, 200, { ok: true, reports: reports.map(reportMetadata).reverse() });
+        const body = await readJsonBody(request);
+        if (!localDate(body.from) || !localDate(body.to)) return sendJson(response, 400, { ok: false, message: "Selecciona las dos fechas del informe." });
+        const params = new URLSearchParams({ from: body.from, to: body.to, ficha: String(body.ficha || ""), jornada: String(body.jornada || ""), period: "custom" });
+        const payload = statisticsPayload(new URL(`/api/statistics?${params}`, "http://localhost"), session);
+        if (!payload.distribution.total) return sendJson(response, 400, { ok: false, message: "No hay asistencia guardada en este rango. Registra la asistencia o selecciona otras fechas." });
+        const report = { ...payload, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: session.user.name || session.user.username };
+        writeJsonFileAtomic(reportsFile, [...reports, report]);
+        reports.push(report);
+        return sendJson(response, 201, { ok: true, report: reportMetadata(report) });
+    }
+
+    async function handleReport(request, response, id, pdf) {
+        if (!requireStaff(request, response)) return;
+        const report = reports.find((item) => item.id === id);
+        if (!report) return sendJson(response, 404, { ok: false, message: "No se encontró el informe." });
+        if (!pdf) return sendJson(response, 200, { ok: true, report });
+        const buffer = await createReportPdf(report);
+        response.writeHead(200, { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="informe-${report.filters.ficha || 'general'}-${report.filters.from}-${id.slice(0, 8)}.pdf"`, "Cache-Control": "no-store", "Content-Length": buffer.length });
+        response.end(buffer);
+    }
+
+    function backupData() {
+        refreshUsersFromCsv();
+        return {
+            storage: { source: repository ? "mysql" : "legacy", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", timezone: "UTC" },
+            users: csvUsers,
+            apprentices,
+            managedUsers,
+            attendance: attendanceRecords,
+            programs: programRecords,
+            training: trainingState,
+            reports,
+            audit: auditRecords,
+            excuses
+        };
+    }
+
+    function validateRestoredData(data) {
+        const users = validateUsersCsvSource(serializeCsvUsers(data.users));
+        const unique = (records, key, label) => {
+            const values = new Set();
+            for (const item of records) {
+                const value = String(item?.[key] ?? "");
+                if (!value || values.has(value)) throw Object.assign(new Error(`El respaldo contiene ${label} sin identificador o repetidos.`), { status: 400 });
+                values.add(value);
+            }
+        };
+        unique(data.programs, "id", "programas");
+        unique(data.training.fichas, "id", "fichas");
+        unique(data.training.ambientes, "id", "ambientes");
+        unique(data.training.horarios, "id", "horarios");
+        const programIds = new Set(data.programs.map(item => String(item.id)));
+        const fichaIds = new Set(data.training.fichas.map(item => String(item.id)));
+        const environmentIds = new Set(data.training.ambientes.map(item => String(item.id)));
+        const fichaCodes = new Set(data.training.fichas.map(item => String(item.numero)));
+        if (data.training.fichas.some(item => !programIds.has(String(item.programaId)))) throw Object.assign(new Error("El respaldo contiene fichas asociadas a programas inexistentes."), { status: 400 });
+        if (data.training.horarios.some(item => !fichaIds.has(String(item.fichaId)) || !environmentIds.has(String(item.ambienteId)))) throw Object.assign(new Error("El respaldo contiene horarios asociados a fichas o ambientes inexistentes."), { status: 400 });
+        if (users.some(item => canonicalRole(item.rol) === "Aprendiz" && item.ficha && !fichaCodes.has(String(item.ficha)))) throw Object.assign(new Error("El respaldo contiene aprendices asociados a fichas inexistentes."), { status: 400 });
+        if (data.attendance.some(item => !/^\d{4}-\d{2}-\d{2}$/.test(String(item.fecha || "")) || !/^\d+$/.test(String(item.ficha || "")))) throw Object.assign(new Error("El respaldo contiene registros de asistencia inválidos."), { status: 400 });
+        unique(data.excuses || [], "id", "excusas");
+        if ((data.excuses || []).some((item) => !["pending", "approved", "rejected"].includes(item.status) || !item.support?.dataBase64 || !/^[a-f0-9]{64}$/.test(String(item.support.sha256 || "")))) throw Object.assign(new Error("El respaldo contiene excusas inválidas o sin soporte íntegro."), { status: 400 });
+        return { ...data, users };
+    }
+
+    function replaceArray(target, values) {
+        target.splice(0, target.length, ...JSON.parse(JSON.stringify(values)));
+    }
+
+    const jsonText = value => `${JSON.stringify(value, null, 2)}\n`;
+
+    function restoredFileEntries() {
+        const entries = [];
+        if (csvFileBacked) entries.push({ file: usersCsvFile, content: serializeCsvUsers(csvUsers) });
+        if (!options.apprentices) entries.push({ file: apprenticesFile, content: jsonText(apprentices) });
+        if (!options.managedUsers && !options.apprentices) entries.push({ file: managedUsersFile, content: jsonText(managedUsers) });
+        if (!options.attendanceRecords) entries.push({ file: attendanceFile, content: jsonText(attendanceRecords) });
+        if (!options.programs && !options.sqlData) entries.push({ file: programsFile, content: jsonText(programRecords) });
+        if (!(options.trainingState || (options.sqlData && !options.trainingFile) || !trainingFile)) entries.push({ file: trainingFile, content: jsonText(trainingState) });
+        if (reportsFile) entries.push({ file: reportsFile, content: jsonText(reports) });
+        if (auditFile) entries.push({ file: auditFile, content: jsonText(auditRecords) });
+        if (excusesFile) entries.push({ file: excusesFile, content: jsonText(excuses) });
+        return entries;
+    }
+
+    function applyRestoredData(data) {
+        csvUsers = JSON.parse(JSON.stringify(data.users));
+        replaceArray(apprentices, data.apprentices);
+        const previousAccounts = new Map(managedUsers.map(item => [String(item.id || item.document || normalizeEmail(item.email)), item]));
+        const restoredAccounts = data.managedUsers.map(item => {
+            const { salt: _salt, passwordHash: _passwordHash, password: _password, ...profile } = item;
+            const previous = previousAccounts.get(String(profile.id || profile.document || normalizeEmail(profile.email)));
+            return previous?.salt && previous?.passwordHash ? { ...profile, salt: previous.salt, passwordHash: previous.passwordHash } : profile;
+        });
+        replaceArray(managedUsers, restoredAccounts);
+        replaceArray(attendanceRecords, data.attendance);
+        replaceArray(programRecords, data.programs);
+        replaceArray(sqlData.fichas, data.training.fichas);
+        replaceArray(sqlData.horarios, data.training.horarios);
+        replaceArray(sqlData.ambientes, data.training.ambientes);
+        for (const key of Object.keys(trainingState)) if (!["fichas", "horarios", "ambientes"].includes(key)) delete trainingState[key];
+        for (const [key, value] of Object.entries(data.training)) if (!["fichas", "horarios", "ambientes"].includes(key)) trainingState[key] = JSON.parse(JSON.stringify(value));
+        replaceArray(reports, data.reports);
+        replaceArray(auditRecords, data.audit);
+        replaceArray(excuses, data.excuses || []);
+        accounts.splice(0, accounts.length, ...builtInAccounts, ...managedUsers);
+    }
+
+    function handleBackupExport(request, response) {
+        const session = requireBackupAdministrator(request, response);
+        if (!session) return;
+        const backup = createBackup(backupData());
+        const buffer = Buffer.from(`${JSON.stringify(backup, null, 2)}\n`, "utf8");
+        const date = new Date().toISOString().slice(0, 10);
+        audit(session, "export", "respaldo", date, null, { bytes: buffer.length });
+        response.writeHead(200, {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Disposition": `attachment; filename="Respaldo_integral_SENA_${date}.json"`,
+            "Content-Length": buffer.length,
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff"
+        });
+        response.end(buffer);
+    }
+
+    async function handleBackupRestore(request, response) {
+        const session = requireBackupAdministrator(request, response);
+        if (!session) return;
+        const restored = validateRestoredData(await readBackupFile(request));
+        refreshUsersFromCsv();
+        const previous = JSON.parse(JSON.stringify(backupData()));
+        const automaticDirectory = options.backupDirectory || path.join(root, "respaldos", "restauraciones");
+        const automaticName = `Pre_restauracion_${new Date().toISOString().replace(/[:.]/g, "-")}_${crypto.randomUUID().slice(0, 8)}.json`;
+        const automaticFile = path.join(automaticDirectory, automaticName);
+        const automaticBackup = createBackup(previous);
+        writeFilesAtomically([{ file: automaticFile, content: jsonText(automaticBackup) }]);
+        const automaticAudit = createAuditEntry(session, "create", "respaldo_automatico", automaticName, null, null, { file: automaticName, checksum: automaticBackup.checksum });
+        try {
+            applyRestoredData(restored);
+            appendAuditEntry(automaticAudit);
+            appendAuditEntry(createAuditEntry(session, "restore", "respaldo", new Date().toISOString(), null, null, {
+                users: csvUsers.length, attendance: attendanceRecords.length, fichas: sqlData.fichas.length,
+                schedules: sqlData.horarios.length, environments: sqlData.ambientes.length, reports: reports.length,
+                automaticBackup: automaticName
+            }));
+            writeFilesAtomically(restoredFileEntries());
+            if (csvFileBacked) csvSource = serializeCsvUsers(csvUsers);
+        } catch (error) {
+            applyRestoredData(previous);
+            appendAuditEntry(automaticAudit);
+            audit(session, "restore_failed", "respaldo", new Date().toISOString(), null, null, { automaticBackup: automaticName, error: error.message });
+            throw Object.assign(new Error(`No se pudo restaurar el respaldo; se conservaron los datos anteriores. ${error.message}`), { status: error.status || 500 });
+        }
+        codes.clear();
+        attendanceTokens.clear();
+        for (const token of sessions.keys()) if (token !== session.token) sessions.delete(token);
+        persistAuthState();
+        return sendJson(response, 200, {
+            ok: true,
+            message: "Respaldo restaurado correctamente. Se creó una copia automática del estado anterior y la actualización se aplicó de forma integral.",
+            automaticBackup: automaticName,
+            summary: { users: csvUsers.length, attendance: attendanceRecords.length, programs: programRecords.length, fichas: sqlData.fichas.length, schedules: sqlData.horarios.length, environments: sqlData.ambientes.length, reports: reports.length }
         });
     }
 
@@ -1743,25 +2580,62 @@ function createProjectServer(options = {}) {
             listar: handleUsersData,
             crear: handleUserCreate,
             importar: handleUserImport,
+            importarSql: (request, response) => handleUserImport(request, response, true),
+            exportarSql: handleSqlExport,
             actualizar: handleUserUpdate,
             eliminar: handleUserDelete
         },
         formacion: {
+            consultarFormacion: handleTrainingData,
+            listarFichas: handleTrainingData,
+            crearFicha: handleFichaCreate,
+            actualizarFicha: handleFichaUpdate,
+            eliminarFicha: handleFichaDelete,
+            listarHorarios: handleTrainingData,
+            crearHorario: handleScheduleCreate,
+            actualizarHorario: handleScheduleUpdate,
+            eliminarHorario: handleScheduleDelete,
+            listarAmbientes: handleTrainingData,
+            crearAmbiente: handleEnvironmentCreate,
+            actualizarAmbiente: handleEnvironmentUpdate,
+            eliminarAmbiente: handleEnvironmentDelete,
             listarProgramas: handleProgramsData,
             crearPrograma: handleProgramCreate,
             actualizarPrograma: handleProgramUpdate,
+            eliminarPrograma: handleProgramDelete,
             consultarAsistencia: handleAttendanceData,
             guardarAsistencia: handleAttendanceSave,
-            consultarEstadisticas: handleStatistics
+            cerrarAsistencia: handleAttendanceClose,
+            reabrirAsistencia: handleAttendanceReopen,
+            generarQr: handleAttendanceQr,
+            registrarQr: handleAttendanceQrRegister,
+            listarExcusas: handleExcusesList,
+            crearExcusa: handleExcuseCreate,
+            revisarExcusa: handleExcuseReview,
+            consultarSoporteExcusa: handleExcuseSupport,
+            consultarEstadisticas: handleStatistics,
+            reportes: handleReports,
+            consultarReporte: handleReport
         },
-        sistema: { consultarEstado: handleSystemHealth }
+        sistema: { consultarEstado: handleSystemHealth, consultarAuditoria: handleAudit, consultarNotificaciones: handleNotifications, exportarRespaldo: handleBackupExport, restaurarRespaldo: handleBackupRestore }
     });
 
     const server = http.createServer(async (request, response) => {
+        response.setHeader("Access-Control-Allow-Origin", "*");
+        response.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS");
+        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        if (repository && ["POST", "PATCH", "DELETE"].includes(request.method) && String(request.url || "").startsWith("/api/")) {
+            deferResponseUntilMysqlCommit(request, response);
+        }
+        if (request.method === "OPTIONS") {
+            response.writeHead(204);
+            return response.end();
+        }
         cleanExpired();
-        const requestUrl = new URL(request.url, "http://localhost");
-        const pathname = decodeURIComponent(requestUrl.pathname);
         try {
+            const requestUrl = new URL(request.url, "http://localhost");
+            const pathname = decodeURIComponent(requestUrl.pathname);
+            if (pathname.startsWith("/api/")) refreshUsersFromCsv();
             if (await atenderApi({ request, response, requestUrl, pathname })) return;
             if (pathname.startsWith("/api/")) return sendJson(response, 404, { ok: false, message: "Ruta de API no encontrada." });
             return serveStatic(request, response, pathname);
@@ -1770,6 +2644,44 @@ function createProjectServer(options = {}) {
             return sendJson(response, error.status || 500, { ok: false, message: error.message || "Error interno del servidor." });
         }
     });
+
+    function deferResponseUntilMysqlCommit(_request, response) {
+        const previous = JSON.parse(JSON.stringify(backupData()));
+        const originalWriteHead = response.writeHead.bind(response);
+        const originalEnd = response.end.bind(response);
+        let statusCode = 200;
+        let statusMessage;
+        let headers;
+        let ended = false;
+        response.writeHead = function deferredWriteHead(status, messageOrHeaders, possibleHeaders) {
+            statusCode = status;
+            if (typeof messageOrHeaders === "string") {
+                statusMessage = messageOrHeaders;
+                headers = possibleHeaders;
+            } else headers = messageOrHeaders;
+            response.statusCode = status;
+            return response;
+        };
+        response.end = function deferredEnd(chunk, encoding, callback) {
+            if (ended) return response;
+            ended = true;
+            const flush = () => {
+                if (statusMessage) originalWriteHead(statusCode, statusMessage, headers);
+                else originalWriteHead(statusCode, headers);
+                originalEnd(chunk, encoding, callback);
+            };
+            if (statusCode < 200 || statusCode >= 400) { flush(); return response; }
+            repository.saveSnapshot(backupData()).then(flush).catch((error) => {
+                applyRestoredData(previous);
+                console.error("No se confirmó la operación en MySQL:", error.message);
+                for (const name of response.getHeaderNames()) response.removeHeader(name);
+                const body = JSON.stringify({ ok: false, message: "MySQL rechazó la operación; no se aplicaron cambios. Revisa la conexión y vuelve a intentar." });
+                originalWriteHead(503, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Content-Length": Buffer.byteLength(body) });
+                originalEnd(body, undefined, callback);
+            });
+            return response;
+        };
+    }
 
     let emailHealthTimer = null;
     server.on("listening", () => {
@@ -1782,18 +2694,74 @@ function createProjectServer(options = {}) {
         emailHealthTimer = null;
     });
 
+    server.exportDatabaseSql = exportDatabaseSql;
     return server;
 }
 
-if (require.main === module) {
+async function startApplication() {
+    const databaseConfig = validateDatabaseEnv(process.env);
+    let repository = null;
+    let pool = null;
+    let serverOptions = {};
+    if (databaseConfig.source === "mysql") {
+        pool = createDatabasePool(databaseConfig, { migrations: true });
+        try {
+            await checkDatabase(pool);
+            await assertMigrationsCurrent(pool);
+            repository = createMysqlRepository(pool);
+            if (!(await repository.isActivated())) throw new Error("MySQL todavía no está validado como fuente definitiva. Ejecuta npm run db:cutover y completa la validación final antes de usar --activate.");
+            const state = await repository.loadState();
+            serverOptions = {
+                repository,
+                csvUsers: state.users,
+                apprentices: state.apprentices,
+                managedUsers: state.managedUsers,
+                attendanceRecords: state.attendance,
+                programs: state.programs,
+                trainingState: state.training,
+                reports: state.reports,
+                reportsFile: null,
+                auditRecords: state.audit,
+                auditFile: null,
+                excuses: state.excuses,
+                excusesFile: null,
+                authStateFile: null,
+                emailHistoryFile: null
+            };
+        } catch (error) {
+            await pool.end();
+            throw new Error(`No se inició el sistema porque MySQL no está listo: ${error.message}`);
+        }
+    }
     const port = Number(process.env.PORT || 3000);
-    const server = createProjectServer();
-    server.listen(port, () => {
+    const server = createProjectServer(serverOptions);
+    let closing = false;
+    const shutdown = async (signal) => {
+        if (closing) return;
+        closing = true;
+        console.log(`${signal}: cerrando servidor y pool MySQL...`);
+        await new Promise((resolve) => server.listening ? server.close(resolve) : resolve());
+        if (pool) await pool.end();
+    };
+    for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => shutdown(signal).then(() => process.exit(0)).catch((error) => { console.error(error); process.exit(1); }));
+    server.listen(port, "0.0.0.0", () => {
         console.log(`Sistema SENA disponible en http://localhost:${port}/login.html`);
+        console.log(`Escuchando en 0.0.0.0:${port}`);
+        console.log(`Fuente de datos: ${databaseConfig.source === "mysql" ? `MySQL (${databaseConfig.database})` : "archivos legados; MySQL aún no es definitivo"}`);
+        if (process.env.PUBLIC_URL?.trim()) console.log(`Acceso público: ${new URL("/login.html", process.env.PUBLIC_URL.trim()).href}`);
+        else console.log("PUBLIC_URL no configurada: los QR usarán la dirección de acceso actual. Configúrala para compartirlos por Internet.");
         const gmailReady = normalizeEmail(process.env.GMAIL_USER) && String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s/g, "");
         const resendReady = process.env.RESEND_API_KEY;
         if (!gmailReady && !resendReady) console.log("Aviso: configura Gmail o Resend en .env para habilitar los códigos por correo.");
     });
+    return server;
 }
 
-module.exports = { createProjectServer, loadCsvUsers };
+if (require.main === module) {
+    startApplication().catch((error) => {
+        console.error(`ERROR DE ARRANQUE: ${error.message}`);
+        process.exitCode = 1;
+    });
+}
+
+module.exports = { createProjectServer, loadCsvUsers, startApplication };

@@ -1,0 +1,10 @@
+recursos/
+  estilos/
+    base.css                    Estilos generales y menú principal.
+    estilos_acceso.css          Diseño de la pantalla de inicio de sesión.
+    estilos_generales.css       Carga los estilos principales del sistema.
+    paneles_academicos.css      Tarjetas y animaciones académicas.
+    navegacion_aprendiz.css     Diseño del portal del aprendiz.
+    estadisticas_usuarios.css   Diseño de estadísticas de usuarios.
+    estadisticas_reportes.css   Diseño de estadísticas y reportes.
+    programas_indicadores.css   Programas, indicadores, filtros y tablas.

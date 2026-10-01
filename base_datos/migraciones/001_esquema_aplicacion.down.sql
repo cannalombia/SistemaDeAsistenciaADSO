@@ -1,0 +1,14 @@
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS app_state;
+DROP TABLE IF EXISTS app_audit;
+DROP TABLE IF EXISTS app_reports;
+DROP TABLE IF EXISTS app_attendance;
+DROP TABLE IF EXISTS app_schedules;
+DROP TABLE IF EXISTS app_fichas;
+DROP TABLE IF EXISTS app_environments;
+DROP TABLE IF EXISTS app_programs;
+DROP TABLE IF EXISTS app_apprentices;
+DROP TABLE IF EXISTS app_managed_users;
+DROP TABLE IF EXISTS app_users;
+DROP TABLE IF EXISTS app_settings;
+SET FOREIGN_KEY_CHECKS = 1;

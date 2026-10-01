@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fichas</title>
+
+    <link rel="stylesheet" href="estilos_generales.css">
+
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>.auth-pending body{visibility:hidden}</style>
+    <script>document.documentElement.classList.add("auth-pending");</script>
+</head>
+
+<body>
+
+<div class="container">
+
+    <aside class="sidebar" data-navegacion-principal></aside>
+
+    <main class="main">
+
+        <header class="header">
+
+            <div>
+                <h1>Gestión de Fichas</h1>
+                <p>Administración de fichas de formación</p>
+            </div>
+
+            <button type="button" class="btn" data-action="new-ficha">
+                <i class="fas fa-plus"></i>
+                Nueva Ficha
+            </button>
+
+        </header>
+
+        <section class="table-container">
+
+    <h2 style="margin-bottom:20px;">
+        Consultar Ficha
+    </h2>
+
+    <div class="form-group">
+
+        <label>Seleccione una ficha</label>
+
+        <select id="ficha">
+
+            <option value="">Seleccione...</option>
+
+            <option value="3349882">3349882</option>
+            <option value="3349883">3349883</option>
+            <option value="3349884">3349884</option>
+            <option value="3349885">3349885</option>
+
+        </select>
+
+    </div>
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th>Ficha</th>
+                <th>Programa</th>
+                <th>Jornada</th>
+                <th>Modalidad</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody id="tablaFichas">
+
+        </tbody>
+
+    </table>
+
+</section>
+
+    </main>
+
+</div>
+
+        <script src="navegacion.js"></script>
+<script src="autenticacion.js"></script>
+        <script src="datos_demostracion.js"></script>
+<script src="aplicacion.js"></script>
+</body>
+</html>

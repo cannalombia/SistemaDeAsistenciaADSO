@@ -1,0 +1,94 @@
+const assert = require("node:assert/strict");
+const fs = require("fs");
+const path = require("path");
+const { createProjectServer } = require("../servidor/servidor");
+const { PDFDocument } = require("../servidor/vendor/pdf-lib.min.js");
+
+async function main() {
+    const directory = fs.mkdtempSync(path.join(require("os").tmpdir(), "sena-reports-"));
+    const reportsFile = path.join(directory, "reports.json");
+    const apprentices = Array.from({ length: 36 }, (_, i) => ({ id: `test-${i}`, document: String(123456780 + i), name: i === 0 ? "María José Muñoz Rodríguez con nombre largo de prueba" : `Aprendiz de prueba ${i}`, email: `test${i}@example.com`, role: "Aprendiz", status: "Activo", program: { ficha: i < 35 ? "3349882" : "3349883", name: "Desarrollo de software", schedule: "Mañana" }, attendance: [] }));
+    const attendanceRecords = apprentices.flatMap((a, i) => ["2026-08-01", "2026-08-02"].map((fecha) => ({ identificacion: a.document, nombre: a.name, ficha: a.program.ficha, fecha, jornada: "Mañana", estado: ["presente", "tardanza", "ausente", "justificado"][i % 4], observacion: i === 0 ? "Observación de prueba con acentos: revisión académica. ".repeat(3) : "", hora_registro: `${fecha}T12:00:00Z` })));
+    const options = { adminPassword: "admin123", apprentices, attendanceRecords, managedUsers: [], csvUsers: [], reportsFile, exposeTestCode: true, emailSender: async () => ({ id: "qr-test" }), sqlData: { ambientes: [], fichas: [], programas: [], horarios: [] } };
+    let server;
+    let base;
+    const start = async () => { server = createProjectServer(options); await new Promise((r) => server.listen(0, "127.0.0.1", r)); base = `http://127.0.0.1:${server.address().port}`; };
+    const close = async () => { await new Promise((r) => server.close(r)); server = null; };
+    const login = async (identifier, password) => { const r = await fetch(`${base}/api/auth/password`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifier, password }) }); assert.equal(r.status, 200); return r.headers.get("set-cookie").split(";")[0]; };
+    let cookie;
+    const request = async (url, body, session = cookie) => fetch(base + url, { method: body ? "POST" : "GET", headers: { Cookie: session || "", "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    try {
+        await start(); cookie = await login("admin", "admin123");
+        const qrPath = "/api/attendance/qr";
+        const registerPath = qrPath + "/register";
+        const qrInput = { ficha: "3349882", jornada: "Mañana" };
+        assert.equal((await request(qrPath, qrInput, "")).status, 403);
+        assert.equal((await request(qrPath, { ...qrInput, ficha: "999" })).status, 400);
+        assert.equal((await request(qrPath, { ...qrInput, jornada: "Inválida" })).status, 400);
+        const qr = await (await request(qrPath, qrInput)).json();
+        const token = new URL(qr.url).searchParams.get("token");
+        assert.match(token, /^[a-f0-9]{64}$/); assert.match(qr.image, /^data:image\/png;base64,/);
+        assert(qr.remainingMs > 55000 && qr.remainingMs <= 60000);
+        assert.equal((await request(registerPath, { token }, "")).status, 403);
+        assert.equal((await request(registerPath, { token })).status, 403);
+        const apprenticeLogin = async (a) => {
+            const sent = await (await request("/api/auth/email/request", { document: a.document }, "")).json();
+            const verified = await request("/api/auth/email/verify", { document: a.document, code: sent.testCode }, "");
+            assert.equal(verified.status, 200);
+            return verified.headers.get("set-cookie").split(";")[0];
+        };
+        const studentCookie = await apprenticeLogin(apprentices[0]);
+        const otherCookie = await apprenticeLogin(apprentices[35]);
+        assert.equal((await request(qrPath, qrInput, studentCookie)).status, 403);
+        assert.equal((await request(registerPath, { token }, otherCookie)).status, 403);
+        assert.equal((await request(registerPath, { token: "f".repeat(64) }, studentCookie)).status, 410);
+        const simultaneous = await Promise.all([request(registerPath, { token }, studentCookie), request(registerPath, { token }, studentCookie)]);
+        assert.deepEqual(simultaneous.map((r) => r.status).sort(), [201, 409]);
+        const registered = await simultaneous.find((r) => r.status === 201).json();
+        const savedAttendance = await (await request(`/api/attendance?ficha=3349882&fecha=${registered.registro.fecha}&jornada=${encodeURIComponent("Mañana")}`)).json();
+        assert.equal(savedAttendance.aprendices.find((a) => a.identificacion === apprentices[0].document).observacion, "Registro por QR");
+        const renewed = await (await request(qrPath, qrInput)).json();
+        const renewedToken = new URL(renewed.url).searchParams.get("token");
+        assert.notEqual(token, renewedToken);
+        assert.equal((await request(registerPath, { token }, studentCookie)).status, 410);
+        assert.equal((await request(registerPath, { token: renewedToken }, studentCookie)).status, 409);
+        const realNow = Date.now;
+        try {
+            Date.now = () => renewed.expiresAt + 1;
+            assert.equal((await request(registerPath, { token: renewedToken }, studentCookie)).status, 410);
+        } finally { Date.now = realNow; }
+        console.log("OK: QR, permisos, ficha, token desconocido, caducidad, renovación, duplicados concurrentes y asistencia existente.");
+        const query = "/api/statistics?from=2026-08-01&to=2026-08-02&ficha=3349882";
+        const data = await (await request(query)).json();
+        assert.equal(data.distribution.total, 70); assert.equal(data.students.length, 35); assert.equal(data.timeline.length, 2);
+        assert(data.records.every((r) => r.ficha === "3349882"));
+        assert.equal(data.distribution.counts.presente, 18); assert.equal(data.summary.attendance, 25.7);
+        assert.equal((await request("/api/statistics?from=2026-02-30&to=2026-03-05")).status, 400);
+        assert.equal((await request("/api/statistics?from=2026-08-03&to=2026-08-01")).status, 400);
+        assert.equal((await request(query + "&jornada=Inválida")).status, 400);
+        assert.equal((await request("/api/reports", null, "")).status, 403);
+        const filters = { from: "2026-08-01", to: "2026-08-02", ficha: "3349882", jornada: "Mañana" };
+        assert.equal((await request("/api/reports", { ...filters, from: "2026-09-01", to: "2026-09-02" })).status, 400);
+        assert.equal((await request("/api/reports", filters, "")).status, 403);
+        const created = await request("/api/reports", filters); assert.equal(created.status, 201);
+        const { report } = await created.json();
+        const pdfResponse = await request(`/api/reports/${report.id}/pdf`); assert.equal(pdfResponse.status, 200); assert.equal(pdfResponse.headers.get("content-type"), "application/pdf");
+        const bytes = Buffer.from(await pdfResponse.arrayBuffer()); assert.equal(bytes.subarray(0, 5).toString(), "%PDF-");
+        const pdf = await PDFDocument.load(bytes); assert(pdf.getPageCount() >= 3);
+        fs.writeFileSync(path.join(directory, "informe-prueba.pdf"), bytes);
+        const updated = await request("/api/attendance", { ficha: "3349882", fecha: "2026-08-01", jornada: "Mañana", correctionReason: "Corrección posterior al corte del informe", aprendices: apprentices.slice(0, 35).map((a) => ({ identificacion: a.document, estado: "presente", observacion: "Actualizado después del informe" })) }); assert.equal(updated.status, 200);
+        const refreshed = await (await request(query)).json(); assert.equal(refreshed.distribution.counts.presente, 44);
+        const saved = await (await request(`/api/reports/${report.id}`)).json(); assert.equal(saved.report.distribution.counts.presente, 18);
+        assert.equal((await request(`/api/reports/${report.id}/pdf`, null, "")).status, 403);
+        assert.equal((await request("/api/reports/00000000-0000-0000-0000-000000000000")).status, 404);
+        cookie = await login("instructor", "instructor123");
+        assert.equal((await request(query)).status, 200);
+        assert.equal((await request("/api/reports", filters)).status, 201);
+        assert.equal((await request(`/api/reports/${report.id}/pdf`)).status, 200);
+        await close(); await start(); cookie = await login("admin", "admin123");
+        const history = await (await request("/api/reports")).json(); assert.equal(history.reports.length, 2);
+        assert.equal((await (await request(`/api/reports/${report.id}`)).json()).report.distribution.counts.presente, 18);
+        console.log(`OK: filtros, fechas, acceso, instructor, guardado, actualización de asistencia, corte inmutable, reinicio y PDF (${pdf.getPageCount()} páginas).`);
+    } finally { if (server) await close(); if (path.dirname(path.resolve(directory)) !== path.resolve(require("os").tmpdir()) || !path.basename(directory).startsWith("sena-reports-")) throw new Error("Directorio temporal inesperado"); fs.rmSync(directory, { recursive: true, force: true }); }
+}
+main().catch((error) => { console.error(error); process.exitCode = 1; });

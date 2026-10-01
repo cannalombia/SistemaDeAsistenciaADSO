@@ -1,0 +1,11 @@
+-- Ejecutar una sola vez con una cuenta administradora de MySQL.
+-- Sustituye la contraseña antes de ejecutar y no guardes el valor real en Git.
+CREATE USER IF NOT EXISTS 'sena_app'@'%' IDENTIFIED BY 'CAMBIAR_POR_UNA_CLAVE_LARGA_Y_UNICA';
+GRANT SELECT, INSERT, UPDATE, DELETE
+    ON sistema_asistencia_sena.* TO 'sena_app'@'%';
+
+-- Cuenta separada para npm run db:migrate y db:rollback; no la uses para arrancar Node.
+CREATE USER IF NOT EXISTS 'sena_migrator'@'%' IDENTIFIED BY 'OTRA_CLAVE_LARGA_Y_UNICA';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP
+    ON sistema_asistencia_sena.* TO 'sena_migrator'@'%';
+FLUSH PRIVILEGES;

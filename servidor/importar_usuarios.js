@@ -9,7 +9,7 @@ function normalizeEmail(value) {
 }
 
 function importUsers() {
-    const csvUsers = loadCsvUsers(path.join(root, "datos", "importaciones", "usuarios_activos.csv"));
+    const csvUsers = loadCsvUsers();
     const existing = fs.existsSync(databaseFile)
         ? JSON.parse(fs.readFileSync(databaseFile, "utf8"))
         : [];

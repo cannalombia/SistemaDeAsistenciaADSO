@@ -6,9 +6,9 @@ const vm = require("vm");
 const { createProjectServer, loadCsvUsers } = require("../servidor/servidor");
 
 const projectRoot = path.resolve(__dirname, "..");
-const root = path.join(projectRoot, "aplicacion", "paginas");
-const scriptsRoot = path.join(projectRoot, "aplicacion", "recursos", "scripts");
-const stylesRoot = path.join(projectRoot, "aplicacion", "recursos", "estilos");
+const root = path.join(projectRoot, "aplicacion", "paginas HTML");
+const scriptsRoot = path.join(projectRoot, "aplicacion", "recursos", "JS scripts");
+const stylesRoot = path.join(projectRoot, "aplicacion", "recursos", "estilos CCS");
 const imagesRoot = path.join(projectRoot, "aplicacion", "recursos", "imagenes");
 const serverFile = path.join(projectRoot, "servidor", "servidor.js");
 const emailModuleFile = path.join(projectRoot, "servidor", "modulos", "correo.js");
@@ -65,7 +65,8 @@ for (const file of htmlFiles) {
         }
     }
 
-    if (file !== "login.html") {
+    // El receptor QR comprueba la sesión en su script y no muestra datos privados.
+    if (!["login.html", "asistencia_qr.html"].includes(file)) {
         check(html.includes('src="autenticacion.js"'), `${file}: falta la protección de autenticación`);
         check(html.includes('src="aplicacion.js"'), `${file}: falta el comportamiento de la aplicación`);
         check(html.includes("auth-pending"), `${file}: puede mostrar contenido antes de autenticar`);
@@ -73,7 +74,7 @@ for (const file of htmlFiles) {
     }
 }
 
-for (const file of ["navegacion.js", "datos_demostracion.js", "autenticacion.js", "aplicacion.js", "asistencia.js", "estadisticas.js", "programas.js", "script.js"]) {
+for (const file of fs.readdirSync(scriptsRoot).filter((name) => name.endsWith(".js"))) {
     try {
         new vm.Script(fs.readFileSync(path.join(scriptsRoot, file), "utf8"), { filename: file });
     } catch (error) {
@@ -87,15 +88,15 @@ try {
 }
 
 const login = fs.readFileSync(path.join(root, "login.html"), "utf8");
-const appSource = ["aplicacion.js", "asistencia.js", "estadisticas.js", "programas.js", "script.js"]
+const appSource = ["aplicacion.js", "asistencia.js", "estadisticas.js", "programas.js", "usuarios.js"]
     .map((file) => fs.readFileSync(path.join(scriptsRoot, file), "utf8"))
     .join("\n");
 const authSource = fs.readFileSync(path.join(scriptsRoot, "autenticacion.js"), "utf8");
 const navigationSource = fs.readFileSync(path.join(scriptsRoot, "navegacion.js"), "utf8");
-const crudSource = fs.readFileSync(path.join(scriptsRoot, "script.js"), "utf8");
+const crudSource = fs.readFileSync(path.join(scriptsRoot, "usuarios.js"), "utf8");
 const operationalApprentices = path.join(projectRoot, "datos", "aprendices.json");
 const sampleApprentices = path.join(projectRoot, "datos", "ejemplos", "aprendices.ejemplo.json");
-const operationalUsers = path.join(projectRoot, "datos", "importaciones", "usuarios_activos.csv");
+const operationalUsers = require("../servidor/configuracion/rutas").usuariosCsv;
 const sampleUsers = path.join(projectRoot, "datos", "ejemplos", "usuarios_activos.ejemplo.csv");
 const usesOperationalData = fs.existsSync(operationalApprentices) && fs.existsSync(operationalUsers);
 const apprenticeData = JSON.parse(fs.readFileSync(usesOperationalData ? operationalApprentices : sampleApprentices, "utf8"));
@@ -148,7 +149,7 @@ const requiredFeatures = {
     "horario.html": ['data-action="new-schedule"', 'id="tablaHorarios"'],
     "ambiente.html": ['data-action="new-environment"', 'id="tablaAmbientes"'],
     "asistencia.html": ['id="attendance-table-body"', 'id="attendance-ficha"', 'id="attendance-search"', 'data-action="save-attendance"', 'data-action="mark-all-present"'],
-    "estadisticas.html": ['id="dashboard-date-from"', 'id="dashboard-date-to"', 'id="dashboard-period"', 'id="dashboard-composition"', 'id="dashboard-heatmap"', 'id="dashboard-alert-list"', 'id="dashboard-sessions"'],
+    "estadisticas.html": ['id="dashboard-date-from"', 'id="dashboard-date-to"', 'id="dashboard-period"', 'id="dashboard-composition"', 'id="daily-chart"', 'id="statistics-students"', 'id="reports-list"'],
     "ajustes.html": ['data-action="edit-profile"', 'data-action="backup"', 'id="email-service-state"', 'data-action="view-email-history"'],
     "aprendiz.html": ['id="apprentice-attendance-table"', 'id="apprentice-profile-form"', 'data-apprentice-section="program"']
 };
@@ -161,21 +162,21 @@ check(!statisticsPage.includes("dashboard-help"), "estadisticas.html: no debe mo
 check(!fs.readFileSync(path.join(root, "asistencia.html"), "utf8").includes("attendance-help"), "asistencia.html: no debe mostrar la opción Ayuda");
 check(fs.existsSync(path.join(scriptsRoot, "aplicacion.js")), "Falta el archivo funcional aplicacion.js");
 check(fs.readFileSync(path.join(root, "programa_formacion.html"), "utf8").includes('src="programas.js"'), "programa_formacion.html: falta su módulo de pantalla");
-check(fs.readFileSync(path.join(root, "crear_usuario.html"), "utf8").includes('src="script.js"'), "crear_usuario.html: falta cargar script.js");
+check(fs.readFileSync(path.join(root, "crear_usuario.html"), "utf8").includes('src="usuarios.js"'), "crear_usuario.html: falta cargar usuarios.js");
 check(fs.existsSync(path.join(automationRoot, "asegurar_servidor.ps1")) && fs.existsSync(path.join(automationRoot, "vigilante_servidor.ps1")) && fs.existsSync(path.join(automationRoot, "instalar_inicio_automatico.ps1")), "Faltan los scripts de recuperación automática del servidor");
 check(navigationSource.includes("function configurarMenuAdaptable"), "navegacion.js: falta el menú adaptable para los roles");
-check(appSource.includes("academic-committee-dialog") && appSource.includes("fallas sin justificación"), "script.js: falta la alerta académica del aprendiz");
-check(crudSource.includes('fetch("/api/users"'), "script.js: la creación de usuarios no consulta la API real");
+check(appSource.includes("academic-committee-dialog") && appSource.includes("fallas sin justificación"), "usuarios.js: falta la alerta académica del aprendiz");
+check(crudSource.includes('fetch("/api/users"'), "usuarios.js: la creación de usuarios no consulta la API real");
 check(!statisticsPage.includes("Tendencia de asistencia general") && !statisticsPage.includes("Acciones rápidas"), "estadisticas.html: debe ocultar tendencia general y acciones rápidas");
 const createUserPage = fs.readFileSync(path.join(root, "crear_usuario.html"), "utf8");
 check(!/reloj-crud|historial-crud|reproducirSonidoDinero|crud-learning-row/.test(createUserPage), "crear_usuario.html: conserva elementos de demostración que no pertenecen al CRUD");
-check(!/AudioContext|playUserSavedSound|registerCrudActivity/.test(crudSource), "script.js: conserva sonidos o historiales artificiales sin relación con la gestión de usuarios");
-check(appSource.includes('data-user-action="edit"') && appSource.includes('data-user-action="status"') && appSource.includes('data-user-action="delete"'), "script.js: faltan acciones reales para modificar, activar, desactivar o eliminar usuarios");
+check(!/AudioContext|playUserSavedSound|registerCrudActivity/.test(crudSource), "usuarios.js: conserva sonidos o historiales artificiales sin relación con la gestión de usuarios");
+check(appSource.includes('data-user-action="edit"') && appSource.includes('data-user-action="status"') && appSource.includes('data-user-action="delete"'), "usuarios.js: faltan acciones reales para modificar, activar, desactivar o eliminar usuarios");
 for (const routeFile of ["acceso.js", "usuarios.js", "formacion.js", "sistema.js", "index.js"]) {
     check(fs.existsSync(path.join(apiRoutesRoot, routeFile)), `Servidor: falta el grupo de rutas ${routeFile}`);
 }
-check(appSource.includes("/api/programs") && appSource.includes("downloadProgramCsv"), "script.js: programas no consulta la API real o no exporta los resultados filtrados");
-check(!appSource.includes('loadData("programs")'), "script.js: programas no debe volver a la lista simulada de localStorage");
+check(appSource.includes("/api/programs") && appSource.includes("downloadProgramCsv"), "usuarios.js: programas no consulta la API real o no exporta los resultados filtrados");
+check(!appSource.includes('loadData("programs")'), "usuarios.js: programas no debe volver a la lista simulada de localStorage");
 check(fs.readFileSync(serverFile, "utf8").includes("pendingCodeRequests") && fs.readFileSync(serverFile, "utf8").includes("emailService.enqueueVerificationCode"), "servidor.js: falta protección contra envíos duplicados o saturación del correo");
 check(fs.existsSync(emailModuleFile) && fs.readFileSync(emailModuleFile, "utf8").includes("deliveryTail"), "correo.js: falta la cola independiente de entrega");
 check(navigationSource.includes('className = "sidebar-overlay"'), "navegacion.js: falta cerrar el menú móvil desde el fondo");
@@ -208,7 +209,7 @@ async function smokeTest() {
             "asistencia.js",
             "estadisticas.js",
             "programas.js",
-            "script.js",
+            "usuarios.js",
             "estilos_generales.css",
             "estilos_acceso.css",
             "base.css",
@@ -252,7 +253,9 @@ async function emailApiTest() {
     const today = new Date();
     const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
     const academicAlertRecords = Array.from({ length: 5 }, (_, index) => {
-        const date = new Date(today.getFullYear(), quarterStartMonth, index + 1, 12);
+        // Mantiene todos los registros dentro del periodo vigente incluso durante
+        // los primeros cuatro días de un trimestre (cuando index + 1 sería futuro).
+        const date = new Date(today.getFullYear(), quarterStartMonth, Math.min(today.getDate(), index + 1), 12);
         const fecha = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
         return {
             identificacion: testApprentice.document,
@@ -268,6 +271,7 @@ async function emailApiTest() {
     });
     const server = createProjectServer({
         adminPassword: "admin123",
+        instructorPassword: "instructor123",
         otpSecret: "secreto-de-prueba",
         exposeTestCode: true,
         apprentices: [testApprentice],
@@ -421,7 +425,7 @@ async function emailApiTest() {
         check(instructorResponse.status === 200 && instructorData.user.role === "Instructor", "API contraseña: no autenticó al instructor");
 
         const instructorStatisticsResponse = await fetch(`${baseUrl}/api/statistics`, { headers: { Cookie: instructorCookie } });
-        check(instructorStatisticsResponse.status === 403, "API estadísticas: permitió el acceso a un instructor");
+        check(instructorStatisticsResponse.status === 200, "API estadísticas: no permitió consultar informes al instructor");
 
         const invalidPasswordResponse = await fetch(`${baseUrl}/api/auth/password`, {
             method: "POST",
@@ -477,6 +481,8 @@ async function emailApiTest() {
         const apprenticeAttendanceResponse = await fetch(`${baseUrl}/api/attendance`, { headers: { Cookie: sessionCookie } });
         check(apprenticeAttendanceResponse.status === 403, "API asistencia: permitió que un aprendiz entrara a la interfaz administrativa");
 
+        const apprenticeReportsResponse = await fetch(`${baseUrl}/api/reports`, { headers: { Cookie: sessionCookie } });
+        check(apprenticeReportsResponse.status === 403, "API informes: permitió consultar al aprendiz");
         const apprenticeStatisticsResponse = await fetch(`${baseUrl}/api/statistics`, { headers: { Cookie: sessionCookie } });
         check(apprenticeStatisticsResponse.status === 403, "API estadísticas: permitió el acceso a un aprendiz");
 

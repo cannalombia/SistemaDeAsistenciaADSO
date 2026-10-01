@@ -1,0 +1,44 @@
+scripts/
+  aplicacion.js              Funciones generales de la aplicación.
+  asistencia.js              Funciones relacionadas con la asistencia.
+  autenticacion.js           Control del inicio de sesión y acceso.
+  datos_demostracion.js      Datos usados para demostraciones o pruebas.
+  estadisticas.js            Funciones de estadísticas.
+  estadisticas_informes.js   Estadísticas utilizadas en informes.
+  navegacion.js              Navegación entre pantallas y secciones.
+  programas.js               Funciones de programas de formación.
+  reportes.js                Funciones relacionadas con reportes.
+  usuarios.js                Gestión y operaciones de usuarios.
+
+
+UNA SOLA APLICACION
+        |
+        +-- autenticacion.js
+        |      ¿Quién puede entrar?
+        |
+        +-- navegacion.js
+        |      ¿Cómo me muevo por el sistema?
+        |
+        +-- usuarios.js
+        |      ¿Cómo administro usuarios?
+        |
+        +-- asistencia.js
+        |      ¿Cómo registro asistencia?
+        |
+        +-- programas.js
+        |      ¿Cómo administro programas?
+        |
+        +-- estadisticas.js
+        |      ¿Cómo veo los resultados?
+        |
+        +-- estadisticas_informes.js
+        |      ¿Cómo analizo esos resultados?
+        |
+        +-- reportes.js
+        |      ¿Cómo genero y descargo informes?
+        |
+        +-- aplicacion.js
+        |      Funciones que todos pueden reutilizar.
+        |
+        +-- datos_demostracion.js
+               Datos para pruebas y diseño.

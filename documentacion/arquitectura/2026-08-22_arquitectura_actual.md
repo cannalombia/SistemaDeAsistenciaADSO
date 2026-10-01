@@ -17,7 +17,7 @@ sin instalar una base de datos adicional.
 
 El menú se construye en un solo lugar. Esto evita corregir el mismo enlace en
 diez páginas distintas. La gestión de usuarios también tiene un archivo propio,
-`script.js`, porque allí conviven el formulario, la tabla y la importación CSV.
+`usuarios.js`, porque allí conviven el formulario, la tabla y la importación CSV.
 
 ## Decisiones que se tomaron
 

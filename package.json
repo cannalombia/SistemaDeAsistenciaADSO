@@ -5,16 +5,28 @@
   "description": "Sistema de asistencia con roles Administrador, Instructor y Aprendiz",
   "scripts": {
     "start": "node servidor/servidor.js",
+    "tunnel": "ssh -4 -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -R 80:localhost:3000 nokey@localhost.run",
     "start:ensure": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/asegurar_servidor.ps1",
     "status": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/asegurar_servidor.ps1 -StatusOnly",
     "install:autostart": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/instalar_inicio_automatico.ps1",
-    "test": "node pruebas/prueba_modulos.js && node pruebas/prueba_proyecto.js",
+    "test": "node pruebas/prueba_modulos.js && node pruebas/prueba_mysql.js && node pruebas/prueba_cierre_asistencia.js && node pruebas/prueba_proyecto.js && node pruebas/prueba_reportes.js && node pruebas/prueba_public_url.js && node pruebas/prueba_base_principal.js && node pruebas/prueba_sqlfile.js && node pruebas/prueba_respaldo_atomico.js && node pruebas/prueba_formacion_auditoria.js && node pruebas/prueba_escala.js",
+    "test:reports": "node pruebas/prueba_reportes.js",
     "test:unit": "node pruebas/prueba_modulos.js",
+    "test:sql": "node pruebas/prueba_sqlfile.js",
+    "test:training": "node pruebas/prueba_formacion_auditoria.js && node pruebas/prueba_escala.js",
     "test:integration": "node pruebas/prueba_proyecto.js",
     "import:users": "node servidor/importar_usuarios.js",
-    "reset:admin": "node servidor/restablecer_administrador.js"
+    "reset:admin": "node servidor/restablecer_administrador.js",
+    "db:migrate": "node herramientas/base_datos/migrar.js",
+    "db:validate": "node herramientas/base_datos/corte.js --validate-only",
+    "db:cutover": "node herramientas/base_datos/corte.js",
+    "db:activate": "node herramientas/base_datos/corte.js --validate-only --activate",
+    "db:rollback": "node herramientas/base_datos/rollback.js --confirm"
   },
   "dependencies": {
-    "nodemailer": "^9.0.4"
+    "busboy": "^1.6.0",
+    "mysql2": "^3.24.5",
+    "nodemailer": "^10.0.13",
+    "qrcode": "^1.5.4"
   }
 }

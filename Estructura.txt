@@ -1,11 +1,13 @@
 SISTEMA DE ASISTENCIA SENA - MAPA DEL PROYECTO
-Actualizado: 2026-08-22
+Actualizado: 2026-09-23
+
 
 PARA EMPEZAR
 
 - ABRIR_PROYECTO.cmd inicia el servidor y abre la pantalla de ingreso.
 - index.html muestra una entrada sencilla para abrir el proyecto.
 - README.md explica la instalación, el correo y las pruebas.
+
 
 CARPETAS PRINCIPALES
 
@@ -41,6 +43,7 @@ servidor/
   rutas/                   Acceso, usuarios, formación y estado del sistema.
   servidor.js              Une los módulos y mantiene el servidor activo.
 
+
 ARCHIVOS QUE SE USAN CON MÁS FRECUENCIA
 
 - aplicacion/paginas/login.html
@@ -55,14 +58,29 @@ ARCHIVOS QUE SE USAN CON MÁS FRECUENCIA
 - pruebas/prueba_proyecto.js
   Comprueba acceso, correo, programas y operaciones reales de usuarios.
 
+
 COMANDOS
 
-- Iniciar el proyecto:            npm.cmd start
-- Comprobar el servidor:          npm.cmd run status
-- Ejecutar todas las pruebas:     npm.cmd test
-- Cambiar la clave administrativa: npm.cmd run reset:admin
+- Iniciar el proyecto:
+  npm.cmd start
 
-SEGURIDAD
+- Comprobar el servidor:
+  npm.cmd run status
 
-Las cuentas y contraseñas no se escriben en este índice. La configuración
-privada permanece en .env y en los archivos locales excluidos por Git.
+- Ejecutar todas las pruebas:
+  npm.cmd test
+
+- Cambiar la clave administrativa:
+  npm.cmd run reset:admin
+
+
+[ CERRAR NODE.JS ]
+
+tasklist | findstr node
+taskkill /IM node.exe /F
+taskkill /IM node_repl.exe /F
+
+# Verificar
+tasklist | findstr node
+
+# Si no aparece ningún proceso, Node.js quedó cerrado.

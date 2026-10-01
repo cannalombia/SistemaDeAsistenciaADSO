@@ -1,110 +1,49 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Acceso al Sistema de Asistencia SENA">
+
     <title>Abrir Sistema de Asistencia SENA</title>
-    <style>
-        :root {
-            color-scheme: light;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f3f6f8;
-            color: #11213a;
-        }
 
-        * { box-sizing: border-box; }
-
-        body {
-            min-height: 100vh;
-            margin: 0;
-            display: grid;
-            place-items: center;
-            padding: 24px;
-            background: linear-gradient(135deg, #003b57 0 42%, #f3f6f8 42% 100%);
-        }
-
-        main {
-            width: min(560px, 100%);
-            padding: 38px;
-            border: 1px solid #dbe3e8;
-            border-radius: 22px;
-            background: #ffffff;
-            box-shadow: 0 22px 55px rgba(0, 32, 48, 0.2);
-            text-align: center;
-        }
-
-        .marca {
-            display: inline-grid;
-            place-items: center;
-            width: 72px;
-            height: 72px;
-            margin-bottom: 18px;
-            border-radius: 50%;
-            background: #39a900;
-            color: #ffffff;
-            font-size: 25px;
-            font-weight: 800;
-        }
-
-        h1 {
-            margin: 0 0 12px;
-            font-size: clamp(26px, 6vw, 38px);
-            line-height: 1.1;
-        }
-
-        p {
-            margin: 0 auto 24px;
-            color: #566578;
-            line-height: 1.55;
-        }
-
-        a {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 52px;
-            padding: 0 28px;
-            border-radius: 12px;
-            background: #39a900;
-            color: #ffffff;
-            font-weight: 700;
-            text-decoration: none;
-            box-shadow: 0 10px 22px rgba(57, 169, 0, 0.25);
-        }
-
-        a:hover, a:focus-visible { background: #2d8500; }
-        a:focus-visible { outline: 3px solid #11213a; outline-offset: 3px; }
-
-        .ayuda {
-            margin-top: 26px;
-            padding-top: 20px;
-            border-top: 1px solid #e3e9ed;
-            font-size: 13px;
-        }
-
-        code {
-            display: inline-block;
-            margin-top: 6px;
-            padding: 6px 9px;
-            border-radius: 7px;
-            background: #edf2f5;
-            color: #003b57;
-        }
-    </style>
+    <link rel="stylesheet" href="aplicacion/recursos/estilos/inicio.css">
 </head>
+
 <body>
+
     <main>
-        <div class="marca" aria-hidden="true">SENA</div>
+
+        <div class="marca" aria-hidden="true">
+            SENA
+        </div>
+
         <h1>Sistema de Asistencia SENA</h1>
-        <p>Este es el punto de entrada del proyecto. Usa el botón para abrir la pantalla de acceso.</p>
-        <a id="abrir-proyecto" href="http://localhost:3000/login.html">Abrir el proyecto</a>
-        <p class="ayuda">
-            Si la página no abre, inicia primero el servidor desde esta carpeta con:<br>
-            <code>npm.cmd start</code>
-            <br><br>Si Windows abre este archivo como código, utiliza
-            <strong>ABRIR_PROYECTO.cmd</strong> desde la carpeta principal.
+
+        <p>
+            Este es el punto de entrada del proyecto.
+            Usa el botón para abrir la pantalla de acceso.
         </p>
+
+        <a id="abrir-proyecto" href="http://localhost:3000/login.html">
+            Abrir el proyecto
+        </a>
+
+        <p class="ayuda"> Si la página no abre, inicia primero el servidor desde esta carpeta con:
+            <br>
+
+            <code>npm.cmd start</code>
+
+            <br><br>
+
+            Si Windows abre este archivo como código, utiliza
+            <strong>ABRIR_PROYECTO.cmd</strong>
+            desde la carpeta principal.
+        </p>
+
     </main>
+
 </body>
+
 </html>

@@ -19,6 +19,15 @@ function crearRutasUsuarios(controladores) {
             return true;
         }
 
+        if (pathname === "/api/users/import-sql" && request.method === "POST") {
+            await controladores.importarSql(request, response);
+            return true;
+        }
+        if (pathname === "/api/users/export-sql" && request.method === "GET") {
+            await controladores.exportarSql(request, response);
+            return true;
+        }
+
         const coincidencia = pathname.match(/^\/api\/users\/([^/]+)$/);
         if (!coincidencia) return false;
         if (request.method === "PATCH") await controladores.actualizar(request, response, coincidencia[1]);

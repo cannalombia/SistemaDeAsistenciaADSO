@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso al sistema | SENA</title>
+    <link rel="stylesheet" href="estilos_generales.css">
+    <style>.auth-pending body{visibility:hidden}</style>
+    <script>document.documentElement.classList.add("auth-pending");</script>
+</head>
+<body>
+    <!-- Entrada de compatibilidad: autenticacion.js dirige al panel del rol. -->
+    <div class="container">
+        <aside class="sidebar" data-navegacion-principal></aside>
+        <main class="main">
+            <header class="header"><h1>Sistema de Asistencia SENA</h1></header>
+            <p>Comprobando sesión para abrir tu panel…</p>
+        </main>
+    </div>
+    <script src="navegacion.js"></script>
+    <script src="autenticacion.js"></script>
+    <script src="aplicacion.js"></script>
+</body>
+</html>

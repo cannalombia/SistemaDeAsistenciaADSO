@@ -17,7 +17,7 @@ posterior.
 - El comportamiento móvil quedó junto a la navegación que controla.
 - Programas y gestión de usuarios dejaron de compartir un único archivo con el
   resto de las pantallas.
-- El CRUD de usuarios quedó en `script.js`. Sus comandos principales tienen
+- El CRUD de usuarios quedó en `usuarios.js`. Sus comandos principales tienen
   comentarios `//` para que puedan explicarse como evidencia del trabajo de
   clase sin perder la conexión real con el servidor.
 - Los datos visuales de muestra quedaron en un archivo identificado y reducido.
@@ -52,7 +52,7 @@ Al volver a revisar el CRUD se encontraron elementos que no ayudaban a gestionar
 usuarios: un reloj, un historial temporal y sonidos creados únicamente para
 mostrar métodos de JavaScript. Se retiraron sin cambiar las operaciones reales.
 
-Las pruebas dejaron de exigir una lista de palabras dentro de `script.js`. Los
+Las pruebas dejaron de exigir una lista de palabras dentro de `usuarios.js`. Los
 recorridos de la API ya crean, consultan, actualizan, desactivan, importan y
 eliminan usuarios, por lo que esos resultados son ahora la evidencia principal.
 

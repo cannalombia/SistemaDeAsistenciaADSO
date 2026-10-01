@@ -106,4 +106,5 @@ try {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
 }
 
+require("./prueba_logica_aprendida");
 console.log("OK: utilidades, dominio, correo, CSV y compatibilidad de datos validados.");
