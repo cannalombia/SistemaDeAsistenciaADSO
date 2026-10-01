@@ -1,211 +1,310 @@
-# Sistema de Asistencia SENA
+<div align="center">
 
-Este proyecto sirve para llevar el control de usuarios, programas, fichas,
-horarios, ambientes y asistencia. También permite que los aprendices ingresen
-con un código enviado a su correo.
+<img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Logo SENA" width="110">
 
-## Presentación y estructura
+<pre>
+******************************************************
+       ** --  SISTEMA DE ASISTENCIA SENA  -- **       
+******************************************************
+</pre>
 
-Para explicar el proyecto al instructor, consulta la
-[guía de presentación](documentacion/guias/presentacion_proyecto.md).
-El [mapa de carpetas](Estructura.txt) indica qué contiene cada directorio y
-cuáles archivos usa el sistema. El código está separado en `aplicacion/`
-(interfaz) y `servidor/` (API y reglas); `pruebas/` contiene las verificaciones.
-Los archivos de referencia se conservan en documentación, importaciones
-originales y respaldos, separados de los datos activos.
 
-## Estado de cierre
+<pre>-- GESTIÓN DE USUARIOS, FORMACIÓN Y CONTROL DE ASISTENCIA --</pre>
 
-MySQL es la persistencia operacional definitiva y la configuración activa usa
-`DATA_SOURCE=mysql`. Las migraciones, el corte, la activación, los reinicios y
-la validación posterior quedaron aprobados sin diferencias. CSV y JSON se
-conservan únicamente como respaldo legacy; no son la fuente activa.
+Proyecto académico desarrollado para administrar usuarios, programas, fichas, horarios, ambientes y asistencia.
+</div>
 
-Las credenciales integradas fueron retiradas del código. Los hashes, salts,
-claves de base de datos y proveedores permanecen en `.env` o en archivos
-locales ignorados por Git. Git quedó limpio en el commit estable `3f5e5b9` y se
-generó el paquete limpio `BLUE_MAGIC_V5_PAQUETE_LIMPIO_2026-10-01.zip`, sin
-secretos, datos operativos ni dependencias instaladas.
+<pre>
+******************************************************
+              ** --  DESCRIPCIÓN  -- **               
+******************************************************
+</pre>
 
-## ¿Quieres abrirlo?
+Sistema de Asistencia SENA es una aplicación web orientada al control de usuarios, programas de formación, fichas, horarios, ambientes y registros de asistencia.
+El sistema integra una interfaz web, un servidor Node.js y una base de datos MySQL. También permite el ingreso de aprendices mediante códigos enviados al correo electrónico y dispone de herramientas para consultar estadísticas, generar informes y conservar el historial de asistencia.
+Nota: este repositorio corresponde a un proyecto académico y no representa una plataforma oficial del SENA.
 
-Para abrirlo desde datos móviles sin instalar nada, consulta la
-[guía de acceso público con SSH y localhost.run](documentacion/guias/acceso_publico_ssh.md).
+<pre>
+******************************************************
+          ** --  ESTADO DEL PROYECTO  -- **           
+******************************************************
+</pre>
 
-### Persistencia principal
+- Interfaz web operativa.
+- Servidor Node.js operativo.
+- Persistencia MySQL activa.
+- Migraciones completadas.
+- Validación posterior a migración aprobada.
+- Pruebas automatizadas disponibles.
+- CSV y JSON conservados solo como respaldo legacy.
+La fuente activa de datos es:
+DATA_SOURCE=mysql
+Los archivos CSV y JSON se conservan únicamente como respaldo o referencia histórica. No son la persistencia operacional activa.
+<pre>
+******************************************************
+           ** --  ESTRUCTURA GENERAL  -- **           
+******************************************************
+</pre>
 
-La aplicación consulta y actualiza MySQL. La cuenta de ejecución usa permisos
-mínimos y la cuenta de migraciones se reserva para cambios de esquema. El estado
-se comprueba en `/api/health`: debe mostrar `database.source=mysql` y
-`database.ready=true`.
+El proyecto está dividido en áreas principales:
+- aplicacion/: interfaz del usuario.
+- servidor/: API, reglas de negocio, autenticación y persistencia.
+- pruebas/: verificaciones del sistema.
+- documentacion/: guías, arquitectura y soporte técnico.
+- datos/: archivos legacy y referencias controladas.
+Para revisar el mapa completo:
+[`Estructura.txt`](Estructura.txt)
+Para preparar la exposición:
+[Guía de presentación del proyecto](documentacion/guias/presentacion_proyecto.md)
+<pre>
+******************************************************
+               ** --  REQUISITOS  -- **               
+******************************************************
+</pre>
 
-`usuarios_listo_para_importar.csv` y los JSON de `datos/` son archivos legacy
-privados conservados para respaldo y recuperación controlada. No los edites
-esperando cambiar la aplicación activa y no los incluyas en entregas públicas.
-La guía de cierre y rollback está en
-[`documentacion/guias/cierre_tecnico_mysql.md`](documentacion/guias/cierre_tecnico_mysql.md).
+Antes de ejecutar el proyecto se necesita:
+- Windows 10 u 11
+- Node.js 18 o posterior
+- npm
+- MySQL 8.4 LTS
+También deben existir:
+- base de datos principal;
+- base de datos de pruebas;
+- cuenta de aplicación con permisos mínimos;
+- cuenta separada para migraciones;
+- archivo .env configurado localmente.
+<pre>
+******************************************************
+              ** --  INSTALACIÓN  -- **               
+******************************************************
+</pre>
 
-La forma más sencilla en Windows es hacer doble clic en
-[`ABRIR_PROYECTO.cmd`](ABRIR_PROYECTO.cmd). Este acceso comprueba el servidor y
-abre la pantalla de ingreso en tu navegador.
-
-También puedes abrir [`index.html`](index.html) y presionar **Abrir el
-proyecto**. Si Windows lo abre como código en Visual Studio Code, haz clic
-derecho sobre el archivo, selecciona **Abrir con** y elige Chrome o Edge.
-
-También puedes entrar directamente desde esta dirección:
-[http://localhost:3000/login.html](http://localhost:3000/login.html).
-
-### Abrirlo desde Visual Studio Code
-
-Abre la carpeta completa del proyecto en Visual Studio Code, presiona `F5` y
-elige **Abrir Sistema de Asistencia SENA**. Visual Studio Code comprobará el
-servidor y abrirá Edge en la pantalla de ingreso.
-
-No uses **Go Live** para este proyecto. Ese botón solo abre los archivos
-visuales y deja por fuera el servidor, la autenticación y el envío de correos.
-
-Si la página no carga, seguramente el servidor todavía no está iniciado. Abre
-una terminal en esta carpeta y ejecuta:
-
-```powershell
-npm.cmd start
-```
-
-Espera a que aparezca el mensaje de confirmación y vuelve a abrir el enlace.
-
-## Antes de instalarlo
-
-Necesitas Windows 10 u 11, Node.js 18 o posterior, npm y MySQL 8.4 LTS. La base
-principal, la base de pruebas y las cuentas de aplicación y migración deben
-crearse antes del primer inicio.
-
-Para preparar el proyecto por primera vez, usa estos comandos:
-
-```powershell
+Desde PowerShell, dentro de la carpeta del proyecto:
 npm.cmd install
 Copy-Item .env.example .env
+Después completa las variables requeridas dentro de .env.
+.env contiene información privada y no debe subirse a GitHub.
+
+Una vez configurado:
 npm.cmd start
-```
+<pre>
+******************************************************
+        ** --  CÓMO INICIAR EL SISTEMA  -- **         
+******************************************************
+</pre>
 
-Completa en `.env` las variables `DB_*`, las credenciales locales de acceso y la
-configuración del correo. `.env` está ignorado: no lo compartas ni lo subas a
-GitHub. Para Gmail o Resend, sigue la guía
-[`documentacion/guias/2026-08-21_configurar_correo.md`](documentacion/guias/2026-08-21_configurar_correo.md).
 
-¿No encuentras algún archivo? En [`Estructura.txt`](Estructura.txt) está el mapa
-completo de las carpetas.
+<pre>-- OPCIÓN RECOMENDADA EN WINDOWS --</pre>
 
-## Por qué está organizado así
+Haz doble clic en:
+[`ABRIR_PROYECTO.cmd`](ABRIR_PROYECTO.cmd)
+Este acceso comprueba el estado del servidor y abre la pantalla de ingreso en el navegador.
+<pre>-- DESDE LA TERMINAL --</pre>
 
-La primera versión fue creciendo pantalla por pantalla. Para que una corrección
-no obligue a buscar por todo el proyecto, cada tarea principal quedó en un lugar
-reconocible. El menú vive en `navegacion.js`, el CRUD de usuarios en `usuarios.js`
-y el correo en su propio servicio. Las direcciones de la API se agrupan en
-`servidor/rutas` según sean de acceso, usuarios, formación o estado del sistema.
+npm.cmd start
+Luego abre:
+http://localhost:3000/login.html
+<pre>-- DESDE `INDEX.HTML` --</pre>
 
-MySQL concentra la persistencia transaccional. Los archivos JSON y CSV se
-mantienen como respaldo legacy y muestras de instalación, separados de la
-operación activa.
+También puedes abrir:
+[`index.html`](index.html)
+y seleccionar Abrir el proyecto.
+Si Windows intenta abrirlo como código, abre el archivo con Chrome o Edge.
+<pre>
+******************************************************
+    ** --  ACCESO DESDE VISUAL STUDIO CODE  -- **     
+******************************************************
+</pre>
 
-La explicación completa, incluidos los límites que todavía tiene el proyecto,
-está en
-[`documentacion/arquitectura/2026-08-22_arquitectura_actual.md`](documentacion/arquitectura/2026-08-22_arquitectura_actual.md).
-Para trabajar nuevas mejoras de forma consistente, usa
-[`documentacion/arquitectura/2026-08-22_flujo_de_calidad.md`](documentacion/arquitectura/2026-08-22_flujo_de_calidad.md).
+Abre la carpeta completa del proyecto en Visual Studio Code.
+Presiona:
+F5
+y selecciona:
+Abrir Sistema de Asistencia SENA
+No uses Go Live, porque este proyecto necesita el servidor Node.js para autenticación, API, persistencia y correo.
 
-## Mantener el sistema activo
+Si el servidor todavía no está iniciado:
+npm.cmd start
+<pre>
+******************************************************
+           ** --  PERSISTENCIA MYSQL  -- **           
+******************************************************
+</pre>
 
-El proyecto incluye un vigilante para Windows. Su trabajo es comprobar que el
-servidor siga funcionando y volver a iniciarlo si se detiene.
+MySQL es la persistencia operacional principal del sistema.
+La configuración activa debe utilizar:
+DATA_SOURCE=mysql
+El sistema cuenta con:
+- base principal;
+- base de pruebas;
+- cuenta de aplicación con permisos mínimos;
+- cuenta de migraciones;
+- migraciones versionadas;
+- validación de estructura;
+- mecanismo de respaldo y recuperación.
+<pre>-- COMPROBAR CONEXIÓN --</pre>
 
-Para instalarlo:
+El estado de la base se consulta en:
+/api/health
+La respuesta debe indicar:
+database.source=mysql
+database.ready=true
+<pre>-- DATOS LEGACY --</pre>
 
-```powershell
-npm.cmd run install:autostart
-```
+Archivos como usuarios_listo_para_importar.csv y los JSON ubicados en datos/ se conservan únicamente como respaldo o recuperación.
+No deben editarse esperando modificar los datos activos del sistema.
+Para cierre técnico y recuperación:
+[Guía de cierre técnico MySQL](documentacion/guias/cierre_tecnico_mysql.md)
+<pre>
+******************************************************
+             ** --  ADMINISTRADOR  -- **              
+******************************************************
+</pre>
 
-Puedes revisar el estado cuando quieras:
+Desde Configuración, la cuenta administrativa puede actualizar:
+- nombre;
+- correo;
+- contraseña.
+Si se necesita restablecer la contraseña administrativa desde el equipo local:
+npm.cmd run reset:admin
+El procedimiento conserva el nombre y el correo configurados.
+<pre>
+******************************************************
+        ** --  ESTADÍSTICAS E INFORMES  -- **         
+******************************************************
+</pre>
 
-```powershell
-npm.cmd run status
-```
 
-Y si quieres pedirle que compruebe o inicie el servidor manualmente:
+<pre>-- ESTADÍSTICAS --</pre>
 
-```powershell
-npm.cmd run start:ensure
-```
+Desde Estadísticas se puede seleccionar:
+- ficha;
+- fecha inicial;
+- fecha final.
+El panel actualiza los indicadores y el detalle de asistencia según los filtros seleccionados.
+<pre>-- INFORMES GUARDADOS --</pre>
 
-## Perfil y contraseña del administrador
+La opción Generar y guardar permite conservar un corte de información dentro del historial.
+Desde Reportes guardados es posible:
+- buscar informes;
+- consultar el detalle;
+- descargar PDF;
+- conservar el corte histórico aunque posteriormente cambie la asistencia.
+Los informes se almacenan en MySQL.
+<pre>-- EXPORTACIÓN DESDE ASISTENCIA --</pre>
 
-Desde **Configuración** puedes cambiar el nombre, el correo y la contraseña de
-la cuenta administrativa. Estos cambios pertenecen a la misma cuenta con la que
-inicias sesión; no se guardan como una copia separada en el navegador.
+Desde Asistencia:
+1. guarda primero los cambios;
+2. selecciona ficha, fecha y jornada;
+3. pulsa Exportar PDF.
+<pre>-- BIBLIOTECA PDF --</pre>
 
-Si no recuerdas la contraseña actual, usa `npm.cmd run reset:admin` desde la
-carpeta del proyecto. El comando cambia solamente la contraseña y conserva el
-nombre y el correo configurados.
+La biblioteca utilizada para producir los documentos se encuentra incluida localmente en:
+servidor/vendor
+<pre>
+******************************************************
+                ** --  PRUEBAS  -- **                 
+******************************************************
+</pre>
 
-## Cómo se comprueba un cambio
-
-Después de hacer cambios, ejecuta las pruebas:
-
-```powershell
+Después de realizar cambios:
 npm.cmd test
-```
+Una ejecución satisfactoria debe finalizar con:
+OK
+También se pueden ejecutar grupos específicos:
+<pre>-- PRUEBAS UNITARIAS --</pre>
 
-Si aparece el mensaje `OK`, las páginas principales y los recorridos reales de
-la API pasaron la revisión. Entre ellos están crear, modificar, desactivar,
-importar y eliminar usuarios; no se considera suficiente encontrar una palabra
-o un comando escrito dentro del código.
-
-También puedes ejecutar cada grupo por separado:
-
-```powershell
 npm.cmd run test:unit
+<pre>-- PRUEBAS DE INTEGRACIÓN --</pre>
+
 npm.cmd run test:integration
-```
+<pre>-- PRUEBAS DE REPORTES --</pre>
 
-## Estadísticas e informes de asistencia
+npm.cmd run test:reports
+<pre>
+******************************************************
+      ** --  MANTENER EL SERVIDOR ACTIVO  -- **       
+******************************************************
+</pre>
 
-En **Estadísticas**, selecciona una ficha y las fechas inicial y final. Las
-gráficas y el detalle por aprendiz se actualizan automáticamente con la
-asistencia guardada. El panel vuelve a consultar los datos cada 30 segundos
-mientras está visible y no se están editando los filtros.
+El proyecto incluye un mecanismo de supervisión para Windows.
+<pre>-- INSTALAR INICIO AUTOMÁTICO --</pre>
 
-Pulsa **Generar y guardar** para conservar un informe en el historial. Desde
-**Reportes guardados** puedes buscarlo, abrir su detalle y descargar el PDF.
-Cada informe conserva los datos originales de su corte, aunque después se
-modifique la asistencia. El historial se guarda en MySQL y permanece disponible
-al reiniciar el servidor. Inclúyelo en los respaldos privados generados desde
-la aplicación.
+npm.cmd run install:autostart
+<pre>-- CONSULTAR ESTADO --</pre>
 
-En **Asistencia**, guarda primero los cambios y pulsa **Exportar PDF**. Se
-descarga el informe de la ficha, fecha y jornada seleccionadas, con todos los
-aprendices registrados, independientemente de la búsqueda o página visible.
-También queda archivado en Estadísticas. Los instructores, administradores y
-coordinadores pueden consultar y descargar estos informes.
+npm.cmd run status
+<pre>-- COMPROBAR O INICIAR MANUALMENTE --</pre>
 
-Los porcentajes usan presentes / registros guardados. Tardanzas, ausencias y
-justificaciones se desglosan por separado; los días sin registro no cuentan
-como ausencias. Los rangos sin datos no generan informes vacíos.
+npm.cmd run start:ensure
+<pre>
+******************************************************
+       ** --  SEGURIDAD Y DATOS PRIVADOS  -- **       
+******************************************************
+</pre>
 
-La biblioteca PDF está incluida localmente en `servidor/vendor`, con su
-licencia MIT. No necesita una conexión externa para generar los documentos.
-La prueba `npm.cmd run test:reports` usa datos aislados y comprueba filtros,
-permisos, persistencia, cortes históricos y PDFs de varias páginas.
+La configuración privada debe permanecer fuera del repositorio.
+Git debe ignorar elementos como:
+- .env
+- credenciales locales
+- contraseñas
+- tokens
+- claves de correo
+- logs
+- respaldos operativos
+- dumps privados
+Las credenciales integradas fueron retiradas del código y la configuración sensible se mantiene mediante variables de entorno o archivos locales ignorados.
+<pre>
+******************************************************
+         ** --  DOCUMENTACIÓN TÉCNICA  -- **          
+******************************************************
+</pre>
 
-## Sobre los datos privados
+- [`Estructura.txt`](Estructura.txt)
+- [Presentación del proyecto](documentacion/guias/presentacion_proyecto.md)
+- [Arquitectura actual](documentacion/arquitectura/2026-08-22_arquitectura_actual.md)
+- [Flujo de calidad](documentacion/arquitectura/2026-08-22_flujo_de_calidad.md)
+- [Configuración de correo](documentacion/guias/2026-08-21_configurar_correo.md)
+- [Cierre técnico MySQL](documentacion/guias/cierre_tecnico_mysql.md)
+- [Acceso público](documentacion/guias/acceso_publico_ssh.md)
+<pre>
+******************************************************
+         ** --  PUBLICACIÓN EN GITHUB  -- **          
+******************************************************
+</pre>
 
-Las contraseñas, claves de correo, códigos pendientes, historiales de envío y
-registros del servidor se quedan en el computador. Git los ignora para evitar
-que terminen publicados por accidente.
+El código fuente puede mantenerse en GitHub para:
+- control de versiones;
+- historial de commits;
+- respaldo del código;
+- trazabilidad;
+- colaboración.
+Repositorio:
+SistemaDeAsistenciaADSO
+GitHub Pages no ejecuta el servidor Node.js, MySQL ni los servicios de correo.
+Para disponer de un enlace público permanente sería necesario alojar también el servidor y la base de datos en una infraestructura compatible.
+<pre>
+******************************************************
+          ** --  FLUJO RÁPIDO DE USO  -- **           
+******************************************************
+</pre>
 
-## Publicarlo en GitHub
+1. Instalar dependencias
+2. Configurar .env
+3. Verificar MySQL
+4. Iniciar servidor
+5. Abrir login
+6. Usar el sistema
+7. Ejecutar pruebas después de cambios
+Comandos esenciales:
+npm.cmd install
+npm.cmd start
+npm.cmd test
+<div align="center">
 
-GitHub es útil para guardar el código y mantener su historial, pero GitHub Pages
-no puede ejecutar este servidor Node.js ni enviar los correos de confirmación.
-El repositorio puede estar en GitHub y la aplicación seguir funcionando en este
-computador. Para tener un enlace público que funcione desde cualquier lugar,
-haría falta alojar también el servidor en un servicio compatible con Node.js.
+
+<pre>-- SISTEMA DE ASISTENCIA SENA --</pre>
+
+Proyecto académico de Análisis y Desarrollo de Software
+Repositorio: SistemaDeAsistenciaADSO
+</div>
