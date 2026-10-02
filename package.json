@@ -9,7 +9,7 @@
     "start:ensure": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/asegurar_servidor.ps1",
     "status": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/asegurar_servidor.ps1 -StatusOnly",
     "install:autostart": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/instalar_inicio_automatico.ps1",
-    "test": "node pruebas/prueba_modulos.js && node pruebas/prueba_mysql.js && node pruebas/prueba_cierre_asistencia.js && node pruebas/prueba_proyecto.js && node pruebas/prueba_reportes.js && node pruebas/prueba_public_url.js && node pruebas/prueba_base_principal.js && node pruebas/prueba_sqlfile.js && node pruebas/prueba_respaldo_atomico.js && node pruebas/prueba_formacion_auditoria.js && node pruebas/prueba_escala.js",
+    "test": "node pruebas/prueba_modulos.js && node pruebas/prueba_http.js && node pruebas/prueba_mysql.js && node pruebas/prueba_cierre_asistencia.js && node pruebas/prueba_proyecto.js && node pruebas/prueba_reportes.js && node pruebas/prueba_public_url.js && node pruebas/prueba_base_principal.js && node pruebas/prueba_sqlfile.js && node pruebas/prueba_respaldo_atomico.js && node pruebas/prueba_formacion_auditoria.js && node pruebas/prueba_escala.js",
     "test:reports": "node pruebas/prueba_reportes.js",
     "test:unit": "node pruebas/prueba_modulos.js",
     "test:sql": "node pruebas/prueba_sqlfile.js",

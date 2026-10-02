@@ -22,6 +22,7 @@ const { createDatabasePool, checkDatabase } = require("./base_datos/conexion");
 const { assertMigrationsCurrent } = require("./base_datos/migraciones");
 const { createMysqlRepository } = require("./base_datos/repositorio");
 const { readExcuseSubmission } = require("./modulos/excusas");
+const { sendJson, readRequestJsonBody } = require("./modulos/http");
 
 const root = rutasProyecto.raizProyecto;
 const dataDirectory = rutasProyecto.datos;
@@ -52,39 +53,6 @@ function loadEnvFile() {
 }
 
 loadEnvFile();
-
-function sendJson(response, status, value, headers = {}) {
-    response.writeHead(status, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-        ...headers
-    });
-    response.end(JSON.stringify(value));
-}
-
-async function readRequestJsonBody(request, maxBytes = 128 * 1024) {
-    return new Promise((resolve, reject) => {
-        const chunks = [];
-        let size = 0;
-        request.on("data", (chunk) => {
-            size += chunk.length;
-            if (size > maxBytes) {
-                reject(Object.assign(new Error("Solicitud demasiado grande."), { status: 413 }));
-                request.destroy();
-                return;
-            }
-            chunks.push(chunk);
-        });
-        request.on("end", () => {
-            try {
-                resolve(JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"));
-            } catch (_error) {
-                reject(Object.assign(new Error("El contenido enviado no es válido."), { status: 400 }));
-            }
-        });
-        request.on("error", reject);
-    });
-}
 
 function loadOrCreateOtpSecret(options) {
     const configured = String(options.otpSecret ?? process.env.OTP_SECRET ?? "").trim();
