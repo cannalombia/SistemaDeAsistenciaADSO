@@ -9,7 +9,7 @@ async function main() {
     const reportsFile = path.join(directory, "reports.json");
     const apprentices = Array.from({ length: 36 }, (_, i) => ({ id: `test-${i}`, document: String(123456780 + i), name: i === 0 ? "María José Muñoz Rodríguez con nombre largo de prueba" : `Aprendiz de prueba ${i}`, email: `test${i}@example.com`, role: "Aprendiz", status: "Activo", program: { ficha: i < 35 ? "3349882" : "3349883", name: "Desarrollo de software", schedule: "Mañana" }, attendance: [] }));
     const attendanceRecords = apprentices.flatMap((a, i) => ["2026-08-01", "2026-08-02"].map((fecha) => ({ identificacion: a.document, nombre: a.name, ficha: a.program.ficha, fecha, jornada: "Mañana", estado: ["presente", "tardanza", "ausente", "justificado"][i % 4], observacion: i === 0 ? "Observación de prueba con acentos: revisión académica. ".repeat(3) : "", hora_registro: `${fecha}T12:00:00Z` })));
-    const options = { adminPassword: "admin123", apprentices, attendanceRecords, managedUsers: [], csvUsers: [], reportsFile, exposeTestCode: true, emailSender: async () => ({ id: "qr-test" }), sqlData: { ambientes: [], fichas: [], programas: [], horarios: [] } };
+    const options = { adminPassword: "admin123", instructorPassword: "instructor123", apprentices, attendanceRecords, managedUsers: [], csvUsers: [], reportsFile, exposeTestCode: true, emailSender: async () => ({ id: "qr-test" }), sqlData: { ambientes: [], fichas: [], programas: [], horarios: [] } };
     let server;
     let base;
     const start = async () => { server = createProjectServer(options); await new Promise((r) => server.listen(0, "127.0.0.1", r)); base = `http://127.0.0.1:${server.address().port}`; };

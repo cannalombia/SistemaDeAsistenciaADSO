@@ -511,6 +511,7 @@ async function emailApiTest() {
 async function csvEmailLookupTest() {
     const sentMessages = [];
     const server = createProjectServer({
+        adminPassword: "csv-email-test-password",
         otpSecret: "secreto-csv-prueba",
         exposeTestCode: true,
         apprentices: [],
