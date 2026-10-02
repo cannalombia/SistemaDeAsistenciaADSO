@@ -2497,28 +2497,99 @@ function createProjectServer(options = {}) {
 
     const reportsFile = options.reportsFile === null ? null : (options.reportsFile || (persistentRuntime ? path.join(dataDirectory, "reportes_estadisticas.json") : null));
     const reports = options.reports ? JSON.parse(JSON.stringify(options.reports)) : (reportsFile && fs.existsSync(reportsFile) ? JSON.parse(fs.readFileSync(reportsFile, "utf8")) : []);
-    const reportMetadata = ({ id, createdAt, createdBy, filters, distribution, students }) => ({ id, createdAt, createdBy, filters: { from: filters.from, to: filters.to, ficha: filters.ficha, jornada: filters.jornada }, total: distribution.total, attendance: distribution.attendance, students: students.length });
+    const reportsRetentionLimit = options.reportsRetentionLimit == null
+        ? boundedInteger(process.env.REPORTS_RETENTION_LIMIT, 500, 10, 5000)
+        : boundedInteger(options.reportsRetentionLimit, 500, 2, 5000);
+    const reportStatus = (report) => report.status === "archived" ? "archived" : "active";
+    const reportMetadata = ({ id, createdAt, createdBy, filters, distribution, students, status, archivedAt, archivedBy }) => ({
+        id, createdAt, createdBy,
+        filters: { from: filters.from, to: filters.to, ficha: filters.ficha, jornada: filters.jornada },
+        total: distribution.total, attendance: distribution.attendance, students: students.length,
+        status: status === "archived" ? "archived" : "active",
+        archivedAt: archivedAt || null,
+        archivedBy: archivedBy || null
+    });
+
+    function persistReports() {
+        writeJsonFileAtomic(reportsFile, reports);
+    }
+
+    function pruneArchivedReports(session) {
+        const removed = [];
+        while (reports.length >= reportsRetentionLimit) {
+            const archived = reports
+                .map((report, index) => ({ report, index }))
+                .filter(({ report }) => reportStatus(report) === "archived")
+                .sort((left, right) => String(left.report.archivedAt || left.report.createdAt).localeCompare(String(right.report.archivedAt || right.report.createdAt)))[0];
+            if (!archived) break;
+            removed.push(reportMetadata(archived.report));
+            reports.splice(archived.index, 1);
+        }
+        if (removed.length) audit(session, "retention_delete", "reporte", removed.map((item) => item.id).join(","), removed, null, { limit: reportsRetentionLimit, count: removed.length });
+        return removed;
+    }
 
     async function handleReports(request, response) {
         const session = requireStaff(request, response);
         if (!session) return;
-        if (request.method === "GET") return sendJson(response, 200, { ok: true, reports: reports.map(reportMetadata).reverse() });
+        if (request.method === "GET") {
+            const role = String(session.user.role || "").trim().toLowerCase();
+            return sendJson(response, 200, {
+                ok: true,
+                reports: reports.map(reportMetadata).reverse(),
+                permissions: { manage: ["administrador", "coordinador"].includes(role) },
+                retention: { limit: reportsRetentionLimit, strategy: "Los informes archivados más antiguos se eliminan primero al alcanzar el límite." }
+            });
+        }
         const body = await readJsonBody(request);
         if (!localDate(body.from) || !localDate(body.to)) return sendJson(response, 400, { ok: false, message: "Selecciona las dos fechas del informe." });
         const params = new URLSearchParams({ from: body.from, to: body.to, ficha: String(body.ficha || ""), jornada: String(body.jornada || ""), period: "custom" });
         const payload = statisticsPayload(new URL(`/api/statistics?${params}`, "http://localhost"), session);
         if (!payload.distribution.total) return sendJson(response, 400, { ok: false, message: "No hay asistencia guardada en este rango. Registra la asistencia o selecciona otras fechas." });
-        const report = { ...payload, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: session.user.name || session.user.username };
-        writeJsonFileAtomic(reportsFile, [...reports, report]);
+        pruneArchivedReports(session);
+        if (reports.length >= reportsRetentionLimit) return sendJson(response, 409, { ok: false, message: `Se alcanzó el límite de ${reportsRetentionLimit} informes activos. Archiva o elimina uno antes de generar otro.` });
+        const report = { ...payload, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: session.user.name || session.user.username, status: "active" };
         reports.push(report);
+        persistReports();
+        audit(session, "create", "reporte", report.id, null, reportMetadata(report));
         return sendJson(response, 201, { ok: true, report: reportMetadata(report) });
     }
 
     async function handleReport(request, response, id, pdf) {
-        if (!requireStaff(request, response)) return;
+        const session = request.method === "GET" ? requireStaff(request, response) : requireAdministrator(request, response);
+        if (!session) return;
         const report = reports.find((item) => item.id === id);
         if (!report) return sendJson(response, 404, { ok: false, message: "No se encontró el informe." });
-        if (!pdf) return sendJson(response, 200, { ok: true, report });
+        if (request.method === "PATCH") {
+            const body = await readJsonBody(request);
+            const action = String(body.action || "").trim().toLowerCase();
+            if (!['archive', 'restore'].includes(action)) return sendJson(response, 400, { ok: false, message: "La acción debe ser archive o restore." });
+            const expectedStatus = action === "archive" ? "active" : "archived";
+            if (reportStatus(report) !== expectedStatus) return sendJson(response, 409, { ok: false, message: action === "archive" ? "El informe ya está archivado." : "El informe no está archivado." });
+            const before = reportMetadata(report);
+            if (action === "archive") {
+                report.status = "archived";
+                report.archivedAt = new Date().toISOString();
+                report.archivedBy = session.user.name || session.user.username;
+            } else {
+                report.status = "active";
+                delete report.archivedAt;
+                delete report.archivedBy;
+            }
+            persistReports();
+            audit(session, action, "reporte", report.id, before, reportMetadata(report));
+            return sendJson(response, 200, { ok: true, report: reportMetadata(report), message: action === "archive" ? "Informe archivado." : "Informe restaurado." });
+        }
+        if (request.method === "DELETE") {
+            const body = await readJsonBody(request);
+            if (body.confirm !== true) return sendJson(response, 400, { ok: false, message: "Confirma explícitamente la eliminación del informe." });
+            const before = reportMetadata(report);
+            reports.splice(reports.indexOf(report), 1);
+            persistReports();
+            audit(session, "delete", "reporte", report.id, before, null);
+            return sendJson(response, 200, { ok: true, message: "Informe eliminado permanentemente." });
+        }
+        if (!pdf) return sendJson(response, 200, { ok: true, report: { ...report, status: reportStatus(report) } });
         const buffer = await createReportPdf(report);
         response.writeHead(200, { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="informe-${report.filters.ficha || 'general'}-${report.filters.from}-${id.slice(0, 8)}.pdf"`, "Cache-Control": "no-store", "Content-Length": buffer.length });
         response.end(buffer);

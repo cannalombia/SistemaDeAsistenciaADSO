@@ -16,5 +16,12 @@
         document.body.appendChild(link); link.click(); link.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
-    window.SenaReports = { request, download, create: (filters) => request("/api/reports", { method: "POST", body: JSON.stringify(filters) }) };
+    window.SenaReports = {
+        request,
+        download,
+        create: (filters) => request("/api/reports", { method: "POST", body: JSON.stringify(filters) }),
+        archive: (id) => request(`/api/reports/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ action: "archive" }) }),
+        restore: (id) => request(`/api/reports/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ action: "restore" }) }),
+        remove: (id) => request(`/api/reports/${encodeURIComponent(id)}`, { method: "DELETE", body: JSON.stringify({ confirm: true }) })
+    };
 })();

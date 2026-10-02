@@ -9,14 +9,15 @@ async function main() {
     const reportsFile = path.join(directory, "reports.json");
     const apprentices = Array.from({ length: 36 }, (_, i) => ({ id: `test-${i}`, document: String(123456780 + i), name: i === 0 ? "María José Muñoz Rodríguez con nombre largo de prueba" : `Aprendiz de prueba ${i}`, email: `test${i}@example.com`, role: "Aprendiz", status: "Activo", program: { ficha: i < 35 ? "3349882" : "3349883", name: "Desarrollo de software", schedule: "Mañana" }, attendance: [] }));
     const attendanceRecords = apprentices.flatMap((a, i) => ["2026-08-01", "2026-08-02"].map((fecha) => ({ identificacion: a.document, nombre: a.name, ficha: a.program.ficha, fecha, jornada: "Mañana", estado: ["presente", "tardanza", "ausente", "justificado"][i % 4], observacion: i === 0 ? "Observación de prueba con acentos: revisión académica. ".repeat(3) : "", hora_registro: `${fecha}T12:00:00Z` })));
-    const options = { adminPassword: "admin123", instructorPassword: "instructor123", apprentices, attendanceRecords, managedUsers: [], csvUsers: [], reportsFile, exposeTestCode: true, emailSender: async () => ({ id: "qr-test" }), sqlData: { ambientes: [], fichas: [], programas: [], horarios: [] } };
+    const auditRecords = [];
+    const options = { adminPassword: "admin123", instructorPassword: "instructor123", apprentices, attendanceRecords, managedUsers: [], csvUsers: [], reportsFile, reportsRetentionLimit: 2, auditRecords, auditFile: null, exposeTestCode: true, emailSender: async () => ({ id: "qr-test" }), sqlData: { ambientes: [], fichas: [], programas: [], horarios: [] } };
     let server;
     let base;
     const start = async () => { server = createProjectServer(options); await new Promise((r) => server.listen(0, "127.0.0.1", r)); base = `http://127.0.0.1:${server.address().port}`; };
     const close = async () => { await new Promise((r) => server.close(r)); server = null; };
     const login = async (identifier, password) => { const r = await fetch(`${base}/api/auth/password`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifier, password }) }); assert.equal(r.status, 200); return r.headers.get("set-cookie").split(";")[0]; };
     let cookie;
-    const request = async (url, body, session = cookie) => fetch(base + url, { method: body ? "POST" : "GET", headers: { Cookie: session || "", "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const request = async (url, body, session = cookie, method = body ? "POST" : "GET") => fetch(base + url, { method, headers: { Cookie: session || "", "Content-Type": "application/json" }, ...(body !== undefined && body !== null ? { body: JSON.stringify(body) } : {}) });
     try {
         await start(); cookie = await login("admin", "admin123");
         const qrPath = "/api/attendance/qr";
@@ -83,12 +84,28 @@ async function main() {
         assert.equal((await request("/api/reports/00000000-0000-0000-0000-000000000000")).status, 404);
         cookie = await login("instructor", "instructor123");
         assert.equal((await request(query)).status, 200);
-        assert.equal((await request("/api/reports", filters)).status, 201);
+        const instructorCreated = await (await request("/api/reports", filters)).json();
         assert.equal((await request(`/api/reports/${report.id}/pdf`)).status, 200);
         await close(); await start(); cookie = await login("admin", "admin123");
-        const history = await (await request("/api/reports")).json(); assert.equal(history.reports.length, 2);
+        let history = await (await request("/api/reports")).json(); assert.equal(history.reports.length, 2);
+        assert.equal(history.permissions.manage, true); assert.equal(history.retention.limit, 2);
         assert.equal((await (await request(`/api/reports/${report.id}`)).json()).report.distribution.counts.presente, 18);
-        console.log(`OK: filtros, fechas, acceso, instructor, guardado, actualización de asistencia, corte inmutable, reinicio y PDF (${pdf.getPageCount()} páginas).`);
+        assert.equal((await request(`/api/reports/${report.id}`, { action: "archive" }, cookie, "PATCH")).status, 200);
+        assert.equal((await request(`/api/reports/${report.id}/pdf`)).status, 200);
+        history = await (await request("/api/reports")).json(); assert.equal(history.reports.find((item) => item.id === report.id).status, "archived");
+        const third = await request("/api/reports", filters); assert.equal(third.status, 201);
+        assert.equal((await request(`/api/reports/${report.id}`)).status, 404);
+        history = await (await request("/api/reports")).json(); assert.equal(history.reports.length, 2);
+        cookie = await login("instructor", "instructor123");
+        assert.equal((await request(`/api/reports/${instructorCreated.report.id}`, { action: "archive" }, cookie, "PATCH")).status, 403);
+        cookie = await login("admin", "admin123");
+        assert.equal((await request(`/api/reports/${instructorCreated.report.id}`, { action: "archive" }, cookie, "PATCH")).status, 200);
+        assert.equal((await request(`/api/reports/${instructorCreated.report.id}`, { action: "restore" }, cookie, "PATCH")).status, 200);
+        assert.equal((await request(`/api/reports/${instructorCreated.report.id}`, { confirm: false }, cookie, "DELETE")).status, 400);
+        assert.equal((await request(`/api/reports/${instructorCreated.report.id}`, { confirm: true }, cookie, "DELETE")).status, 200);
+        assert.equal((await request(`/api/reports/${instructorCreated.report.id}`)).status, 404);
+        for (const action of ["create", "archive", "restore", "delete", "retention_delete"]) assert.ok(auditRecords.some((item) => item.entity === "reporte" && item.action === action), `Falta auditoría de reportes: ${action}`);
+        console.log(`OK: filtros, acceso, corte inmutable, reinicio, PDF, archivado, restauración, eliminación confirmada, permisos, auditoría y retención (${pdf.getPageCount()} páginas).`);
     } finally { if (server) await close(); if (path.dirname(path.resolve(directory)) !== path.resolve(require("os").tmpdir()) || !path.basename(directory).startsWith("sena-reports-")) throw new Error("Directorio temporal inesperado"); fs.rmSync(directory, { recursive: true, force: true }); }
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -58,7 +58,7 @@ function crearRutasFormacion(controladores) {
             return true;
         }
         const reporte = pathname.match(/^\/api\/reports\/([a-f0-9-]+)(\/pdf)?$/);
-        if (reporte && request.method === "GET") {
+        if (reporte && (request.method === "GET" || (!reporte[2] && ["PATCH", "DELETE"].includes(request.method)))) {
             await controladores.consultarReporte(request, response, reporte[1], Boolean(reporte[2]));
             return true;
         }
