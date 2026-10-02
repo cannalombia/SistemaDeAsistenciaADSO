@@ -22,6 +22,7 @@
 
     let activeUser = null;
     let pendingDocument = "";
+    let pendingRecoveryIdentifier = "";
 
     function normalize(value) {
         return String(value || "").trim().toLocaleLowerCase("es");
@@ -223,6 +224,22 @@
 
     function bindActions() {
         const staffForm = document.getElementById("staff-login-form");
+        const recoveryPanel = document.getElementById("admin-recovery-panel");
+        const recoveryRequestForm = document.getElementById("admin-recovery-request-form");
+        const recoveryResetForm = document.getElementById("admin-recovery-reset-form");
+        const forgotPasswordButton = document.querySelector('[data-auth-action="forgot-password"]');
+
+        function showStaffLogin() {
+            pendingRecoveryIdentifier = "";
+            recoveryRequestForm?.reset();
+            recoveryResetForm?.reset();
+            if (recoveryPanel) recoveryPanel.hidden = true;
+            if (recoveryRequestForm) recoveryRequestForm.hidden = false;
+            if (recoveryResetForm) recoveryResetForm.hidden = true;
+            if (staffForm) staffForm.hidden = false;
+            if (forgotPasswordButton) forgotPasswordButton.hidden = false;
+        }
+
         if (staffForm) {
             staffForm.addEventListener("submit", async (event) => {
                 event.preventDefault();
@@ -245,6 +262,80 @@
                 }
             });
         }
+
+        forgotPasswordButton?.addEventListener("click", () => {
+            if (staffForm) staffForm.hidden = true;
+            forgotPasswordButton.hidden = true;
+            if (recoveryPanel) recoveryPanel.hidden = false;
+            if (recoveryRequestForm) {
+                recoveryRequestForm.hidden = false;
+                recoveryRequestForm.elements.identifier.value = staffForm?.elements.identifier.value || "";
+                recoveryRequestForm.elements.identifier.focus();
+            }
+            if (recoveryResetForm) recoveryResetForm.hidden = true;
+            setLoginStatus("", false);
+        });
+
+        recoveryRequestForm?.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            setLoginBusy(true);
+            setLoginStatus("Procesando la solicitud de recuperación…", false);
+            try {
+                pendingRecoveryIdentifier = recoveryRequestForm.elements.identifier.value.trim();
+                const result = await apiRequest("/api/auth/password/recovery/request", {
+                    method: "POST",
+                    body: JSON.stringify({ identifier: pendingRecoveryIdentifier })
+                });
+                recoveryRequestForm.hidden = true;
+                recoveryResetForm.hidden = false;
+                setLoginStatus(result.message, false);
+                recoveryResetForm.elements.code.focus();
+            } catch (error) {
+                setLoginStatus(error.message, true);
+            } finally {
+                setLoginBusy(false);
+            }
+        });
+
+        recoveryResetForm?.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const newPassword = recoveryResetForm.elements.newPassword.value;
+            if (newPassword !== recoveryResetForm.elements.confirmPassword.value) {
+                setLoginStatus("Las contraseñas no coinciden.", true);
+                recoveryResetForm.elements.confirmPassword.focus();
+                return;
+            }
+            setLoginBusy(true);
+            setLoginStatus("Validando el código y actualizando la contraseña…", false);
+            try {
+                const result = await apiRequest("/api/auth/password/recovery/reset", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        identifier: pendingRecoveryIdentifier,
+                        code: recoveryResetForm.elements.code.value,
+                        newPassword
+                    })
+                });
+                const recoveredIdentifier = pendingRecoveryIdentifier;
+                showStaffLogin();
+                staffForm.elements.identifier.value = recoveredIdentifier;
+                staffForm.elements.password.value = "";
+                setLoginStatus(result.message, false);
+                staffForm.elements.password.focus();
+            } catch (error) {
+                setLoginStatus(error.message, true);
+                recoveryResetForm.elements.code.focus();
+                recoveryResetForm.elements.code.select();
+            } finally {
+                setLoginBusy(false);
+            }
+        });
+
+        document.querySelector('[data-auth-action="cancel-recovery"]')?.addEventListener("click", () => {
+            showStaffLogin();
+            setLoginStatus("", false);
+            staffForm?.elements.identifier.focus();
+        });
 
         const emailRequestForm = document.getElementById("email-request-form");
         const emailVerifyForm = document.getElementById("email-verify-form");

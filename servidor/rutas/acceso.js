@@ -1,6 +1,8 @@
 function crearRutasAcceso(controladores) {
     const rutas = new Map([
         ["POST /api/auth/password", controladores.iniciarConContrasena],
+        ["POST /api/auth/password/recovery/request", controladores.solicitarRecuperacion],
+        ["POST /api/auth/password/recovery/reset", controladores.completarRecuperacion],
         ["POST /api/auth/email/request", controladores.solicitarCodigo],
         ["POST /api/auth/email/verify", controladores.verificarCodigo],
         ["GET /api/auth/email/status", controladores.estadoCorreo],

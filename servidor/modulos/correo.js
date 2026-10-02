@@ -34,6 +34,20 @@ function verificationMessage(user, code, from) {
     };
 }
 
+function passwordRecoveryMessage(user, code, from) {
+    const email = normalizeEmail(user.email);
+    const name = shortName(user.name);
+    const safeName = escapeHtml(name);
+    const safeCode = escapeHtml(code);
+    return {
+        from,
+        to: [email],
+        subject: "Código para recuperar el acceso administrativo",
+        text: `Hola ${name},\n\nRecibimos una solicitud para cambiar la contraseña administrativa. Tu código de recuperación es:\n\n${code}\n\nExpira en 10 minutos y solo puede usarse una vez.\n\nSi no solicitaste este cambio, ignora este mensaje y conserva tu contraseña actual.`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:30px;color:#263238;border:1px solid #e5ece8;border-radius:18px"><h2 style="margin:0 0 24px;color:#39b54a">Recuperación administrativa</h2><p>Hola ${safeName},</p><p>Recibimos una solicitud para cambiar la contraseña administrativa. Tu código de recuperación es:</p><p style="font-size:36px;font-weight:800;letter-spacing:9px;margin:26px 0;color:#00304d">${safeCode}</p><p><strong>Expira en 10 minutos y solo puede usarse una vez.</strong></p><p style="margin-top:28px;color:#68737a;font-size:13px">Si no solicitaste este cambio, ignora este mensaje y conserva tu contraseña actual.</p></div>`
+    };
+}
+
 function retryAfterMilliseconds(response) {
     const value = response.headers.get("retry-after");
     if (!value) return 0;
@@ -166,12 +180,12 @@ function createEmailService(config, { appendHistory = () => {} } = {}) {
         }
     }
 
-    async function sendVerificationCode(user, code, requestId) {
+    async function sendCode(user, code, requestId, createMessage) {
         const email = normalizeEmail(user.email);
         const from = config.emailFrom || (gmailTransport
             ? `Sistema SENA <${config.gmailUser}>`
             : "Sistema SENA <onboarding@resend.dev>");
-        const message = verificationMessage(user, code, from);
+        const message = createMessage(user, code, from);
         const startedAt = Date.now();
         try {
             const delivery = await runWithRetries(() => {
@@ -270,10 +284,11 @@ function createEmailService(config, { appendHistory = () => {} } = {}) {
     return {
         provider,
         testMode,
-        enqueueVerificationCode: (user, code, requestId) => enqueue(() => sendVerificationCode(user, code, requestId)),
+        enqueueVerificationCode: (user, code, requestId) => enqueue(() => sendCode(user, code, requestId, verificationMessage)),
+        enqueuePasswordRecoveryCode: (user, code, requestId) => enqueue(() => sendCode(user, code, requestId, passwordRecoveryMessage)),
         probe,
         getHealth
     };
 }
 
-module.exports = { createEmailService, verificationMessage };
+module.exports = { createEmailService, verificationMessage, passwordRecoveryMessage };

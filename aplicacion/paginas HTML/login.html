@@ -65,6 +65,56 @@
                     </button>
                 </form>
 
+                <button type="button" class="btn-link" data-auth-action="forgot-password">
+                    Olvidé mi contraseña
+                </button>
+
+                <div id="admin-recovery-panel" hidden>
+                    <form id="admin-recovery-request-form" class="email-code-form">
+                        <label for="recovery-identifier">Usuario o correo administrativo</label>
+                        <div class="input">
+                            <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+                            <input id="recovery-identifier" name="identifier" type="text"
+                                placeholder="Ingrese su usuario o correo" autocomplete="username" required>
+                        </div>
+                        <button type="submit" class="btn-secondary">
+                            <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                            Enviar código de recuperación
+                        </button>
+                        <p class="auth-help">Si corresponde a la cuenta administrativa, enviaremos un código al correo autorizado.</p>
+                    </form>
+
+                    <form id="admin-recovery-reset-form" class="email-code-form" hidden>
+                        <label for="recovery-code">Código de recuperación</label>
+                        <div class="input code-input">
+                            <i class="fa-solid fa-key" aria-hidden="true"></i>
+                            <input id="recovery-code" name="code" type="text" inputmode="numeric"
+                                pattern="[0-9]{6}" maxlength="6" placeholder="000000"
+                                autocomplete="one-time-code" required>
+                        </div>
+
+                        <label for="recovery-new-password">Nueva contraseña</label>
+                        <div class="input">
+                            <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                            <input id="recovery-new-password" name="newPassword" type="password"
+                                minlength="10" autocomplete="new-password" required>
+                        </div>
+
+                        <label for="recovery-confirm-password">Confirmar nueva contraseña</label>
+                        <div class="input">
+                            <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                            <input id="recovery-confirm-password" name="confirmPassword" type="password"
+                                minlength="10" autocomplete="new-password" required>
+                        </div>
+
+                        <button type="submit" class="btn-login">Cambiar contraseña</button>
+                    </form>
+
+                    <button type="button" class="btn-link" data-auth-action="cancel-recovery">
+                        Volver al inicio de sesión
+                    </button>
+                </div>
+
                 </section>
 
                 <section id="apprentice-panel" class="auth-role-panel" role="tabpanel" hidden>

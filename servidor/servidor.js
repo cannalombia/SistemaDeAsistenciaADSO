@@ -104,6 +104,12 @@ function createProjectServer(options = {}) {
     const attendanceTokens = new Map();
     const hourlyRequests = new Map();
     const pendingCodeRequests = new Set();
+    const now = typeof options.now === "function" ? options.now : Date.now;
+    const recoveryCodeTtlMs = 10 * 60 * 1000;
+    const recoveryResendDelayMs = 60 * 1000;
+    const recoveryAttemptLimit = 5;
+    let adminRecovery = null;
+    let adminRecoveryRequestPending = false;
     const persistentRuntime = !options.apprentices && !options.emailSender;
     const authStateFile = options.authStateFile === null
         ? null
@@ -112,7 +118,7 @@ function createProjectServer(options = {}) {
         ? null
         : (options.emailHistoryFile || (persistentRuntime ? path.join(dataDirectory, "historial_envios_correo.json") : null));
     const storedAuthState = readJsonFile(authStateFile, {});
-    const nowAtStartup = Date.now();
+    const nowAtStartup = now();
     for (const item of Array.isArray(storedAuthState.codes) ? storedAuthState.codes : []) {
         const document = String(item.document || "").replace(/\D/g, "");
         const email = normalizeEmail(item.email);
@@ -134,6 +140,19 @@ function createProjectServer(options = {}) {
                 windowEndsAt: Number(item.windowEndsAt)
             });
         }
+    }
+    const storedAdminRecovery = storedAuthState.adminRecovery;
+    if (storedAdminRecovery
+        && normalizeEmail(storedAdminRecovery.email)
+        && /^[a-f0-9]{64}$/i.test(String(storedAdminRecovery.hash || ""))
+        && Number(storedAdminRecovery.expiresAt) > nowAtStartup) {
+        adminRecovery = {
+            hash: String(storedAdminRecovery.hash),
+            email: normalizeEmail(storedAdminRecovery.email),
+            expiresAt: Number(storedAdminRecovery.expiresAt),
+            nextSendAt: Number(storedAdminRecovery.nextSendAt) || nowAtStartup,
+            attempts: boundedInteger(storedAdminRecovery.attempts, 0, 0, recoveryAttemptLimit)
+        };
     }
     let emailHistory = readJsonFile(emailHistoryFile, []);
     if (!Array.isArray(emailHistory)) emailHistory = [];
@@ -497,7 +516,8 @@ function createProjectServer(options = {}) {
             version: 1,
             savedAt: new Date().toISOString(),
             codes: [...codes.entries()].map(([document, item]) => ({ document, ...item })),
-            hourlyRequests: [...hourlyRequests.entries()].map(([key, item]) => ({ key, ...item }))
+            hourlyRequests: [...hourlyRequests.entries()].map(([key, item]) => ({ key, ...item })),
+            adminRecovery
         });
     }
 
@@ -527,6 +547,10 @@ function createProjectServer(options = {}) {
 
     function hashCode(email, code) {
         return crypto.createHmac("sha256", config.otpSecret).update(`${email}:${code}`).digest("hex");
+    }
+
+    function hashRecoveryCode(email, code) {
+        return crypto.createHmac("sha256", config.otpSecret).update(`admin-recovery:${email}:${code}`).digest("hex");
     }
 
     function verifyPassword(account, password) {
@@ -617,18 +641,22 @@ function createProjectServer(options = {}) {
     }
 
     function cleanExpired() {
-        const now = Date.now();
-        for (const [token, item] of attendanceTokens) if (item.expiresAt <= now) attendanceTokens.delete(token);
+        const currentTime = now();
+        for (const [token, item] of attendanceTokens) if (item.expiresAt <= currentTime) attendanceTokens.delete(token);
         let authStateChanged = false;
         for (const [document, item] of codes) {
-            if (item.expiresAt <= now) {
+            if (item.expiresAt <= currentTime) {
                 codes.delete(document);
                 authStateChanged = true;
             }
         }
-        for (const [token, item] of sessions) if (item.expiresAt <= now) sessions.delete(token);
+        if (adminRecovery && adminRecovery.expiresAt <= currentTime) {
+            adminRecovery = null;
+            authStateChanged = true;
+        }
+        for (const [token, item] of sessions) if (item.expiresAt <= currentTime) sessions.delete(token);
         for (const [key, item] of hourlyRequests) {
-            if (item.windowEndsAt <= now) {
+            if (item.windowEndsAt <= currentTime) {
                 hourlyRequests.delete(key);
                 authStateChanged = true;
             }
@@ -660,6 +688,131 @@ function createProjectServer(options = {}) {
             picture: "logo_sena.png",
             method: "password"
         });
+    }
+
+    const recoveryRequestMessage = "Si los datos corresponden a la cuenta administrativa, recibirás un código para continuar.";
+
+    function isAdminRecoveryIdentifier(identifier, account) {
+        const normalized = String(identifier || "").trim().toLowerCase();
+        const email = normalizeEmail(normalized);
+        return normalized === account.username || Boolean(email && email === normalizeEmail(account.email));
+    }
+
+    async function handleAdminRecoveryRequest(request, response) {
+        const body = await readJsonBody(request);
+        const account = builtInAccounts[0];
+        if (!isAdminRecoveryIdentifier(body.identifier, account)) {
+            return sendJson(response, 200, { ok: true, message: recoveryRequestMessage });
+        }
+
+        const email = normalizeEmail(account.email);
+        const currentTime = now();
+        if (adminRecovery && adminRecovery.email === email && adminRecovery.nextSendAt > currentTime) {
+            const seconds = Math.ceil((adminRecovery.nextSendAt - currentTime) / 1000);
+            return sendJson(response, 429, { ok: false, message: `Espera ${seconds} segundos antes de solicitar otro código.` });
+        }
+
+        const clientKey = crypto.createHash("sha256")
+            .update(`admin-recovery:${request.socket.remoteAddress || "local"}:${account.id}`)
+            .digest("hex");
+        const rate = hourlyRequests.get(clientKey);
+        if (rate && rate.windowEndsAt > currentTime && rate.count >= 5) {
+            return sendJson(response, 429, { ok: false, message: "Alcanzaste el límite de solicitudes de recuperación por hora." });
+        }
+        if (adminRecoveryRequestPending) {
+            return sendJson(response, 429, { ok: false, message: "Ya hay una recuperación en proceso de envío. Espera un momento." });
+        }
+
+        const code = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
+        const requestId = crypto.randomUUID();
+        adminRecoveryRequestPending = true;
+        try {
+            await emailService.enqueuePasswordRecoveryCode(account, code, requestId);
+            adminRecovery = {
+                hash: hashRecoveryCode(email, code),
+                email,
+                expiresAt: currentTime + recoveryCodeTtlMs,
+                nextSendAt: currentTime + recoveryResendDelayMs,
+                attempts: 0
+            };
+            hourlyRequests.set(clientKey, {
+                count: rate && rate.windowEndsAt > currentTime ? rate.count + 1 : 1,
+                windowEndsAt: rate && rate.windowEndsAt > currentTime ? rate.windowEndsAt : currentTime + 60 * 60 * 1000
+            });
+            persistAuthState();
+            audit(null, "request", "admin_password_recovery", account.id, null, null, {
+                requestId,
+                recipient: maskEmail(email)
+            });
+
+            const result = { ok: true, message: recoveryRequestMessage };
+            if (config.exposeTestCode) result.testCode = code;
+            return sendJson(response, 200, result);
+        } finally {
+            adminRecoveryRequestPending = false;
+        }
+    }
+
+    async function handleAdminRecoveryReset(request, response) {
+        const body = await readJsonBody(request);
+        const account = builtInAccounts[0];
+        const identifierAllowed = isAdminRecoveryIdentifier(body.identifier, account);
+        const code = String(body.code || "").trim();
+        const newPassword = String(body.newPassword || "");
+        const genericCodeError = "El código no es válido o ya venció. Solicita uno nuevo.";
+
+        if (!identifierAllowed || !/^\d{6}$/.test(code)) {
+            return sendJson(response, 401, { ok: false, message: genericCodeError });
+        }
+        if (newPassword.length < 10) {
+            return sendJson(response, 400, { ok: false, message: "La nueva contraseña debe tener al menos 10 caracteres." });
+        }
+        if (!adminRecovery || adminRecovery.email !== normalizeEmail(account.email) || adminRecovery.expiresAt <= now()) {
+            adminRecovery = null;
+            persistAuthState();
+            audit(null, "reject", "admin_password_recovery", account.id, null, null, { reason: "expired_or_missing" });
+            return sendJson(response, 401, { ok: false, message: genericCodeError });
+        }
+        if (!safeEqual(adminRecovery.hash, hashRecoveryCode(adminRecovery.email, code))) {
+            adminRecovery.attempts += 1;
+            const limitReached = adminRecovery.attempts >= recoveryAttemptLimit;
+            if (limitReached) adminRecovery = null;
+            persistAuthState();
+            audit(null, "reject", "admin_password_recovery", account.id, null, null, {
+                reason: limitReached ? "attempt_limit" : "invalid_code",
+                attempts: limitReached ? recoveryAttemptLimit : adminRecovery.attempts
+            });
+            return sendJson(response, limitReached ? 429 : 401, {
+                ok: false,
+                message: limitReached ? "Demasiados intentos. Solicita un código nuevo." : "El código no es correcto."
+            });
+        }
+        if (verifyPassword(account, newPassword)) {
+            return sendJson(response, 400, { ok: false, message: "La contraseña nueva debe ser diferente de la actual." });
+        }
+
+        const recipient = maskEmail(adminRecovery.email);
+        adminRecovery = null;
+        persistAuthState();
+        account.salt = crypto.randomBytes(16).toString("hex");
+        account.passwordHash = crypto.scryptSync(newPassword, account.salt, 64).toString("hex");
+        adminCredentials.salt = account.salt;
+        adminCredentials.passwordHash = account.passwordHash;
+        saveAdminAccount();
+
+        let sessionsInvalidated = 0;
+        for (const [token, storedSession] of sessions) {
+            if (storedSession.user?.id === account.id) {
+                sessions.delete(token);
+                sessionsInvalidated += 1;
+            }
+        }
+        audit(null, "reset_password", "admin_password_recovery", account.id, null, null, {
+            method: "email_otp",
+            recipient,
+            sessionsInvalidated
+        });
+        return sendJson(response, 200, { ok: true, message: "Contraseña administrativa actualizada. Ya puedes iniciar sesión." });
     }
 
     async function handleRequestCode(request, response) {
@@ -1228,8 +1381,9 @@ function createProjectServer(options = {}) {
     }
 
     function saveAdminAccount() {
-        // Durante las pruebas las credenciales viven en memoria. La instalación normal sí las conserva.
-        if (!persistentRuntime && !options.adminCredentialsFile) return;
+        // Las instalaciones con MySQL conservan esta credencial fuera de la base de datos.
+        // Las pruebas aisladas solo escriben cuando proporcionan un archivo temporal explícito.
+        if (!persistentRuntime && !repository && !options.adminCredentialsFile) return;
         const account = builtInAccounts[0];
         writeJsonFileAtomic(adminCredentialsFile, {
             salt: account.salt,
@@ -2532,6 +2686,8 @@ function createProjectServer(options = {}) {
     const atenderApi = crearEnrutadorApi({
         acceso: {
             iniciarConContrasena: handlePasswordLogin,
+            solicitarRecuperacion: handleAdminRecoveryRequest,
+            completarRecuperacion: handleAdminRecoveryReset,
             solicitarCodigo: handleRequestCode,
             verificarCodigo: handleVerifyCode,
             estadoCorreo: handleEmailStatus,
