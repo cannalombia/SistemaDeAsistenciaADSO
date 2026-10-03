@@ -4933,3 +4933,169 @@ tal como quedó establecido en 51.9.
 PASO 2B CERRADO.
 BLOQUE 51 EN DESARROLLO.
 No se inició 2C, no se abrió el Bloque 52 y no se hizo push.
+
+---------------------------------------------------------------------
+51.17 PASO 2C — RETENCIÓN SEGURA DE REPORTES
+---------------------------------------------------------------------
+
+La implementación aprobada para 2C fue B + D.
+
+B — PREFLIGHT COMPLETO:
+
+- se calcula required antes de mutar;
+- se localizan únicamente reportes archivados;
+- se ordenan por archivedAt || createdAt;
+- se cierra la selección exacta de candidatos;
+- se comprueba que candidates.length >= required;
+- si no existen suficientes archivados se devuelve null sin llamar a
+  removeReport(), sin splice(), push(), persistReports() ni audit().
+
+D — PERSISTENCIA ANTES DE AUDITORÍA:
+
+- todas las eliminaciones se aplican mediante removeReport();
+- se agrega el nuevo reporte;
+- se ejecuta una sola llamada a persistReports();
+- después se registra retention_delete;
+- después se registra create;
+- finalmente se responde HTTP 201.
+
+ORDEN IMPLEMENTADO:
+
+preflight
+→ aplicar todas las eliminaciones
+→ agregar nuevo reporte
+→ persistReports()
+→ audit retention_delete
+→ audit create
+→ responder 201
+
+Ninguna eliminación se persiste o audita individualmente. No existe una
+auditoría dentro del bucle de eliminación.
+
+---------------------------------------------------------------------
+51.18 CONTRATO DEL DOMINIO DE RETENCIÓN
+---------------------------------------------------------------------
+
+Se incorporó en servidor/dominio/reportes.js:
+
+pruneOldestArchivedReports(reports, limit)
+
+CONTRATO:
+
+- null: no existen suficientes archivados y la colección no fue modificada;
+- []: la operación es factible y no requiere eliminaciones;
+- [{ before, removed }, ...]: eliminaciones aplicadas en orden, reutilizando
+  exactamente el recibo exitoso de removeReport().
+
+La fase solo-lectura y la fase mutante están separadas. La selección se
+completa antes del primer removeReport(). La función no conoce sesión, HTTP,
+persistencia, auditoría, MySQL ni cola de concurrencia.
+
+---------------------------------------------------------------------
+51.19 PRUEBAS ESPECÍFICAS DE 2C
+---------------------------------------------------------------------
+
+FRONTERA 409:
+
+- se necesitan 3 eliminaciones;
+- solo existen 2 archivados y varios activos;
+- la respuesta conserva HTTP 409 y el mensaje existente;
+- reports queda exactamente igual;
+- se observan cero splice() sobre la colección en la prueba de dominio;
+- se observan cero llamadas a persistReports() en la prueba HTTP;
+- no se genera retention_delete;
+- no se genera audit create.
+
+ORDEN DE EFECTOS:
+
+La prueba instrumentada exige la secuencia exacta:
+
+persistReports
+→ retention_delete
+→ create
+
+No comprueba solamente presencia; compara el orden completo observado y
+confirma que persistReports() se ejecuta una sola vez.
+
+CONCURRENCIA:
+
+- dos POST concurrentes quedan serializados por la cola MySQL existente;
+- el segundo no inicia mientras el primer snapshot está pendiente;
+- cada operación recalcula la retención sobre el estado confirmado;
+- se eliminan los archivados en orden de antigüedad;
+- ambos POST responden HTTP 201 al confirmarse sus snapshots;
+- el límite y las auditorías permanecen consistentes.
+
+ROLLBACK MYSQL:
+
+- se rechaza un snapshot después de poda, creación y auditorías en memoria;
+- la infraestructura MySQL existente restaura reportes y auditoría;
+- la respuesta es HTTP 503;
+- la cola continúa operativa con la solicitud siguiente.
+
+---------------------------------------------------------------------
+51.20 VALIDACIÓN DEL PASO 2C
+---------------------------------------------------------------------
+
+[OK] node --check servidor/dominio/reportes.js.
+[OK] node --check servidor/servidor.js.
+[OK] node --check pruebas/prueba_reportes.js.
+[OK] node --check pruebas/prueba_persistencia_concurrente.js.
+[OK] prueba unitaria de dominio mediante pruebas/prueba_modulos.js.
+[OK] npm run test:reports.
+[OK] npm run test:persistence-concurrency.
+[OK] npm test completo, código de salida 0.
+[OK] git diff --check.
+
+---------------------------------------------------------------------
+51.21 COMMIT TÉCNICO DEL PASO 2C
+---------------------------------------------------------------------
+
+HASH COMPLETO: 369c0e0a6ea7778ceae76001f5c9c9ea3651ffcc
+HASH CORTO: 369c0e0
+
+MENSAJE:
+
+refactor: extraer retencion segura de reportes
+
+ARCHIVOS:
+
+- servidor/dominio/reportes.js;
+- servidor/servidor.js;
+- pruebas/prueba_modulos.js;
+- pruebas/prueba_reportes.js;
+- pruebas/prueba_persistencia_concurrente.js.
+
+---------------------------------------------------------------------
+51.22 ALCANCE DE ATOMICIDAD LEGACY
+---------------------------------------------------------------------
+
+B corrige la infactibilidad previsible antes de cualquier mutación. Ya no
+existe poda parcial seguida de HTTP 409.
+
+D evita una auditoría retention_delete contradictoria cuando falla
+persistReports(), porque la auditoría ocurre únicamente después de la
+persistencia de la poda y de la creación.
+
+E NO SE IMPLEMENTÓ EN 2C.
+
+Por tanto:
+
+- el rollback de reports en memoria ante un fallo legacy de persistReports()
+  sigue NO resuelto;
+- un fallo posterior de audit() sigue siendo una limitación legacy general;
+- no se declara atomicidad completa entre memoria, archivo de reportes y
+  auditoría;
+- no se creó infraestructura transaccional general;
+- no se modificaron MySQL, su repositorio, snapshots ni cola.
+
+El hallazgo legacy queda parcialmente corregido y parcialmente pendiente.
+El Bloque 52 NO se abre todavía.
+
+---------------------------------------------------------------------
+51.23 ESTADO DEL BLOQUE
+---------------------------------------------------------------------
+
+PASO 2C CERRADO.
+BLOQUE 51 EN DESARROLLO.
+No se abrió el Bloque 52 y no se hizo push.
