@@ -4,7 +4,110 @@ const path = require("path");
 const { createProjectServer } = require("../servidor/servidor");
 const { PDFDocument } = require("../servidor/vendor/pdf-lib.min.js");
 
+function storedReport(id, status, createdAt, archivedAt) {
+    return {
+        id,
+        createdAt,
+        createdBy: "Prueba retención",
+        status,
+        ...(archivedAt ? { archivedAt, archivedBy: "Administrador" } : {}),
+        filters: { from: "2026-08-01", to: "2026-08-01", ficha: "3349882", jornada: "Mañana" },
+        distribution: { total: 1, attendance: 100, counts: { presente: 1, tardanza: 0, ausente: 0, justificado: 0 }, percentages: { presente: 100, tardanza: 0, ausente: 0, justificado: 0 } },
+        students: [{ identificacion: "100", nombre: "Aprendiz retención", ficha: "3349882", total: 1, attendance: 100, counts: { presente: 1, tardanza: 0, ausente: 0, justificado: 0 } }],
+        records: [{ fecha: "2026-08-01", jornada: "Mañana", ficha: "3349882", identificacion: "100", nombre: "Aprendiz retención", estado: "presente", observacion: "" }],
+        summary: {}, timeline: [], trend: [], composition: [], weeklyPerformance: [], topFichas: [], alerts: [], nextSessions: [],
+        generatedAt: createdAt,
+        usuario: { name: "Prueba retención", role: "Administrador" }
+    };
+}
+
+async function createRetentionFixture(reports, reportsRetentionLimit) {
+    const directory = fs.mkdtempSync(path.join(require("os").tmpdir(), "sena-retention-"));
+    const reportsFile = path.join(directory, "reports.json");
+    fs.writeFileSync(reportsFile, `${JSON.stringify(reports, null, 2)}\n`, "utf8");
+    const auditRecords = [];
+    const apprentice = { id: "retention-student", document: "100", name: "Aprendiz retención", email: "retention@example.com", role: "Aprendiz", status: "Activo", program: { ficha: "3349882", name: "Software", schedule: "Mañana" }, attendance: [] };
+    const attendanceRecords = [{ identificacion: "100", nombre: apprentice.name, ficha: "3349882", fecha: "2026-08-01", jornada: "Mañana", estado: "presente", observacion: "", hora_registro: "2026-08-01T12:00:00.000Z" }];
+    const server = createProjectServer({ adminPassword: "admin123", instructorPassword: "instructor123", apprentices: [apprentice], attendanceRecords, managedUsers: [], csvUsers: [], reportsFile, reportsRetentionLimit, auditRecords, auditFile: null, emailSender: async () => ({ id: "retention-test" }), sqlData: { ambientes: [], fichas: [], programas: [], horarios: [] } });
+    await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const login = await fetch(`${base}/api/auth/password`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifier: "admin", password: "admin123" }) });
+    assert.equal(login.status, 200);
+    const cookie = login.headers.get("set-cookie").split(";")[0];
+    const request = (url, body, method = body ? "POST" : "GET") => fetch(base + url, { method, headers: { Cookie: cookie, "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const close = async () => {
+        await new Promise(resolve => server.close(resolve));
+        if (path.dirname(path.resolve(directory)) !== path.resolve(require("os").tmpdir()) || !path.basename(directory).startsWith("sena-retention-")) throw new Error("Directorio temporal de retención inesperado");
+        fs.rmSync(directory, { recursive: true, force: true });
+    };
+    return { reportsFile, auditRecords, request, close };
+}
+
+async function testRetentionBoundaryAndOrder() {
+    const filters = { from: "2026-08-01", to: "2026-08-01", ficha: "3349882", jornada: "Mañana" };
+    const blockedReports = [
+        storedReport("archived-1", "archived", "2026-07-01T10:00:00.000Z", "2026-08-01T10:00:00.000Z"),
+        storedReport("active-1", "active", "2026-07-02T10:00:00.000Z"),
+        storedReport("archived-2", "archived", "2026-07-03T10:00:00.000Z", "2026-08-02T10:00:00.000Z"),
+        storedReport("active-2", "active", "2026-07-04T10:00:00.000Z"),
+        storedReport("active-3", "active", "2026-07-05T10:00:00.000Z"),
+        storedReport("active-4", "active", "2026-07-06T10:00:00.000Z")
+    ];
+    const blocked = await createRetentionFixture(blockedReports, 4);
+    const originalRename = fs.renameSync;
+    let blockedPersistCalls = 0;
+    try {
+        const beforeList = await (await blocked.request("/api/reports")).json();
+        const beforeFile = fs.readFileSync(blocked.reportsFile, "utf8");
+        fs.renameSync = function observeBlockedPersistence(source, destination) {
+            if (path.resolve(String(destination)) === path.resolve(blocked.reportsFile)) blockedPersistCalls += 1;
+            return originalRename.call(fs, source, destination);
+        };
+        const response = await blocked.request("/api/reports", filters);
+        const body = await response.json();
+        assert.equal(response.status, 409);
+        assert.equal(body.message, "Se alcanzó el límite de 4 informes activos. Archiva o elimina uno antes de generar otro.");
+        assert.equal(blockedPersistCalls, 0);
+        assert.deepEqual(await (await blocked.request("/api/reports")).json(), beforeList);
+        assert.equal(fs.readFileSync(blocked.reportsFile, "utf8"), beforeFile);
+        assert.equal(blocked.auditRecords.some(item => item.entity === "reporte" && ["retention_delete", "create"].includes(item.action)), false);
+    } finally {
+        fs.renameSync = originalRename;
+        await blocked.close();
+    }
+
+    const ordered = await createRetentionFixture([
+        storedReport("archived-oldest", "archived", "2026-07-01T10:00:00.000Z", "2026-08-01T10:00:00.000Z"),
+        storedReport("active-preserved", "active", "2026-07-02T10:00:00.000Z")
+    ], 2);
+    const effects = [];
+    const originalAuditPush = ordered.auditRecords.push;
+    try {
+        fs.renameSync = function observeOrderedPersistence(source, destination) {
+            if (path.resolve(String(destination)) === path.resolve(ordered.reportsFile)) effects.push("persistReports");
+            return originalRename.call(fs, source, destination);
+        };
+        ordered.auditRecords.push = function observeReportAudit(...entries) {
+            for (const entry of entries) if (entry.entity === "reporte" && ["retention_delete", "create"].includes(entry.action)) effects.push(entry.action);
+            return originalAuditPush.apply(this, entries);
+        };
+        const response = await ordered.request("/api/reports", filters);
+        assert.equal(response.status, 201);
+        assert.deepEqual(effects, ["persistReports", "retention_delete", "create"]);
+        const history = await (await ordered.request("/api/reports")).json();
+        assert.equal(history.reports.length, 2);
+        assert.equal(history.reports.some(item => item.id === "archived-oldest"), false);
+        assert.equal(history.reports.some(item => item.id === "active-preserved"), true);
+    } finally {
+        fs.renameSync = originalRename;
+        ordered.auditRecords.push = originalAuditPush;
+        await ordered.close();
+    }
+    console.log("OK: preflight sin mutación, persistencia única y orden persistReports → retention_delete → create validados.");
+}
+
 async function main() {
+    await testRetentionBoundaryAndOrder();
     const directory = fs.mkdtempSync(path.join(require("os").tmpdir(), "sena-reports-"));
     const reportsFile = path.join(directory, "reports.json");
     const apprentices = Array.from({ length: 36 }, (_, i) => ({ id: `test-${i}`, document: String(123456780 + i), name: i === 0 ? "María José Muñoz Rodríguez con nombre largo de prueba" : `Aprendiz de prueba ${i}`, email: `test${i}@example.com`, role: "Aprendiz", status: "Activo", program: { ficha: i < 35 ? "3349882" : "3349883", name: "Desarrollo de software", schedule: "Mañana" }, attendance: [] }));

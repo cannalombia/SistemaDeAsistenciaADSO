@@ -33,7 +33,8 @@ const {
     validateReportTransition,
     archiveReport,
     restoreReport,
-    removeReport
+    removeReport,
+    pruneOldestArchivedReports
 } = require("../servidor/dominio/reportes");
 
 assert.equal(normalizeEmail("  Persona@Ejemplo.COM "), "persona@ejemplo.com");
@@ -205,6 +206,54 @@ assert.deepEqual(reportCollection, [remainingReport]);
 const collectionBeforeMissingRemoval = JSON.parse(JSON.stringify(reportCollection));
 assert.equal(removeReport(reportCollection, removableReport), null);
 assert.deepEqual(reportCollection, collectionBeforeMissingRemoval);
+
+const retentionReport = (id, status, createdAt, archivedAt) => ({
+    ...JSON.parse(JSON.stringify(activeReport)),
+    id,
+    status,
+    createdAt,
+    ...(archivedAt ? { archivedAt, archivedBy: "Administrador" } : {})
+});
+const belowLimitReports = [retentionReport("below-limit", "active", "2026-08-01T10:00:00.000Z")];
+const belowLimitBefore = [...belowLimitReports];
+assert.deepEqual(pruneOldestArchivedReports(belowLimitReports, 3), []);
+assert.deepEqual(belowLimitReports, belowLimitBefore);
+
+const blockedRetentionReports = [
+    retentionReport("archived-1", "archived", "2026-07-01T10:00:00.000Z", "2026-08-01T10:00:00.000Z"),
+    retentionReport("active-1", "active", "2026-07-02T10:00:00.000Z"),
+    retentionReport("archived-2", "archived", "2026-07-03T10:00:00.000Z", "2026-08-02T10:00:00.000Z"),
+    retentionReport("active-2", "active", "2026-07-04T10:00:00.000Z"),
+    retentionReport("active-3", "active", "2026-07-05T10:00:00.000Z"),
+    retentionReport("active-4", "active", "2026-07-06T10:00:00.000Z")
+];
+const blockedRetentionBefore = JSON.parse(JSON.stringify(blockedRetentionReports));
+const blockedRetentionReferences = [...blockedRetentionReports];
+const originalArraySplice = Array.prototype.splice;
+let blockedRetentionSplices = 0;
+Array.prototype.splice = function observedSplice(...args) {
+    if (this === blockedRetentionReports) blockedRetentionSplices += 1;
+    return originalArraySplice.apply(this, args);
+};
+try {
+    assert.equal(pruneOldestArchivedReports(blockedRetentionReports, 4), null);
+} finally {
+    Array.prototype.splice = originalArraySplice;
+}
+assert.equal(blockedRetentionSplices, 0);
+assert.deepEqual(blockedRetentionReports, blockedRetentionBefore);
+assert.deepEqual(blockedRetentionReports, blockedRetentionReferences);
+
+const feasibleRetentionReports = [
+    retentionReport("archived-newest", "archived", "2026-07-01T10:00:00.000Z", "2026-08-03T10:00:00.000Z"),
+    retentionReport("active-preserved", "active", "2026-07-02T10:00:00.000Z"),
+    retentionReport("archived-oldest", "archived", "2026-07-03T10:00:00.000Z", "2026-08-01T10:00:00.000Z"),
+    retentionReport("archived-fallback", "archived", "2026-08-02T10:00:00.000Z")
+];
+const feasibleRemovals = pruneOldestArchivedReports(feasibleRetentionReports, 3);
+assert.deepEqual(feasibleRemovals.map(item => item.removed.id), ["archived-oldest", "archived-fallback"]);
+assert.deepEqual(feasibleRemovals.map(item => item.before.id), ["archived-oldest", "archived-fallback"]);
+assert.deepEqual(feasibleRetentionReports.map(item => item.id), ["archived-newest", "active-preserved"]);
 
 const emailMessage = verificationMessage(
     { name: "Juan <script>", email: "juan@example.com" },

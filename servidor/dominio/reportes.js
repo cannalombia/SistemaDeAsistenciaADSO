@@ -49,4 +49,18 @@ function removeReport(reports, report) {
     return { before, removed: report };
 }
 
-module.exports = { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport };
+function pruneOldestArchivedReports(reports, limit) {
+    const required = Math.max(0, reports.length - limit + 1);
+    const candidates = reports
+        .filter(report => reportStatus(report) === "archived")
+        .sort((left, right) => String(left.archivedAt || left.createdAt).localeCompare(String(right.archivedAt || right.createdAt)))
+        .slice(0, required);
+
+    if (candidates.length < required) return null;
+
+    const removals = [];
+    for (const candidate of candidates) removals.push(removeReport(reports, candidate));
+    return removals;
+}
+
+module.exports = { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport, pruneOldestArchivedReports };

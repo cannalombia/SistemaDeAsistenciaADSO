@@ -92,7 +92,7 @@ async function waitFor(predicate, message) {
     }
 }
 
-async function createFixture(reportsInput = [report(REPORT_A, "A"), report(REPORT_B, "B")]) {
+async function createFixture(reportsInput = [report(REPORT_A, "A"), report(REPORT_B, "B")], fixtureOptions = {}) {
     const auditRecords = reportsInput.map((item, index) => auditEntry(`audit-${index}-base`, item.id));
     const repository = controlledRepository();
     let internalReports = null;
@@ -109,15 +109,15 @@ async function createFixture(reportsInput = [report(REPORT_A, "A"), report(REPOR
             repository,
             adminPassword: "admin123",
             instructorPassword: "instructor123",
-            apprentices: [],
-            attendanceRecords: [],
+            apprentices: fixtureOptions.apprentices || [],
+            attendanceRecords: fixtureOptions.attendanceRecords || [],
             managedUsers: [],
             csvUsers: [],
             programs: [],
             trainingState: { fichas: [], horarios: [], ambientes: [], attendanceClosures: [] },
             reports: reportsInput,
             reportsFile: null,
-            reportsRetentionLimit: 10,
+            reportsRetentionLimit: fixtureOptions.reportsRetentionLimit || 10,
             auditRecords,
             auditFile: null,
             excuses: [],
@@ -321,14 +321,99 @@ async function concurrentDeletesOfSameReport() {
     }
 }
 
+function archivedReport(id, ficha, archivedAt) {
+    return { ...report(id, ficha), status: "archived", archivedAt, archivedBy: "Administrador" };
+}
+
+function retentionFixtureOptions() {
+    const apprentice = { id: "retention-student", document: "100", name: "Aprendiz retención", email: "retention@example.com", role: "Aprendiz", status: "Activo", program: { ficha: "3349882", name: "Software", schedule: "Mañana" }, attendance: [] };
+    return {
+        apprentices: [apprentice],
+        attendanceRecords: [{ identificacion: apprentice.document, nombre: apprentice.name, ficha: "3349882", fecha: "2026-08-01", jornada: "Mañana", estado: "presente", observacion: "", hora_registro: "2026-08-01T12:00:00.000Z" }],
+        reportsRetentionLimit: 2
+    };
+}
+
+async function concurrentReportCreationsApplyRetentionInOrder() {
+    const fixture = await createFixture([
+        archivedReport(REPORT_A, "A", "2026-08-01T10:00:00.000Z"),
+        archivedReport(REPORT_B, "B", "2026-08-02T10:00:00.000Z")
+    ], retentionFixtureOptions());
+    const filters = { from: "2026-08-01", to: "2026-08-01", ficha: "3349882", jornada: "Mañana" };
+    try {
+        const firstCreation = fixture.request("/api/reports", filters, "POST");
+        await waitFor(() => fixture.repository.calls.length === 1, "La primera creación no llegó a saveSnapshot.");
+        const secondCreation = fixture.request("/api/reports", filters, "POST");
+        await delay(50);
+        assert.equal(fixture.repository.calls.length, 1, "La segunda creación ejecutó retención mientras la primera seguía pendiente.");
+
+        fixture.repository.resolve(0);
+        const firstResponse = await firstCreation;
+        const firstBody = await firstResponse.json();
+        await waitFor(() => fixture.repository.calls.length === 2, "La segunda creación no continuó después de confirmar la primera.");
+        fixture.repository.resolve(1);
+        const secondResponse = await secondCreation;
+        const secondBody = await secondResponse.json();
+        const finalReports = await fixture.list();
+        const retentionAudits = reportAudit(fixture.auditRecords).filter(item => item.action === "retention_delete");
+
+        assert.equal(firstResponse.status, 201);
+        assert.equal(secondResponse.status, 201);
+        assert.deepEqual(retentionAudits, [
+            { action: "retention_delete", entityId: REPORT_A },
+            { action: "retention_delete", entityId: REPORT_B }
+        ]);
+        assert.deepEqual(new Set(finalReports.map(item => item.id)), new Set([firstBody.report.id, secondBody.report.id]));
+        assert(finalReports.every(item => item.status === "active"));
+        assert(fixture.auditRecords.some(item => item.action === "create" && item.entityId === firstBody.report.id));
+        assert(fixture.auditRecords.some(item => item.action === "create" && item.entityId === secondBody.report.id));
+        assertDetachedAndStable(fixture.repository.calls[0], fixture);
+        assertDetachedAndStable(fixture.repository.calls[1], fixture);
+        return { first: firstResponse.status, second: secondResponse.status, retentionIds: retentionAudits.map(item => item.entityId), remaining: finalReports.length };
+    } finally {
+        await fixture.close();
+    }
+}
+
+async function mysqlRollbackRestoresRetentionMutation() {
+    const fixture = await createFixture([
+        archivedReport(REPORT_A, "A", "2026-08-01T10:00:00.000Z"),
+        report(REPORT_B, "B")
+    ], retentionFixtureOptions());
+    const filters = { from: "2026-08-01", to: "2026-08-01", ficha: "3349882", jornada: "Mañana" };
+    const initialAudit = clone(reportAudit(fixture.auditRecords));
+    try {
+        const rejectedCreation = fixture.request("/api/reports", filters, "POST");
+        await waitFor(() => fixture.repository.calls.length === 1, "La creación con retención no llegó a saveSnapshot.");
+        fixture.repository.reject(0, "FALLO_RETENCION_SIMULADO");
+        const rejectedResponse = await rejectedCreation;
+        const restoredReports = await fixture.list();
+
+        assert.equal(rejectedResponse.status, 503);
+        assert.deepEqual(statuses(restoredReports), { [REPORT_B]: "active", [REPORT_A]: "archived" });
+        assert.deepEqual(reportAudit(fixture.auditRecords), initialAudit);
+        assertDetachedAndStable(fixture.repository.calls[0], fixture);
+
+        const followingCreation = fixture.request("/api/reports", filters, "POST");
+        await waitFor(() => fixture.repository.calls.length === 2, "La cola no continuó después del rollback de retención.");
+        fixture.repository.resolve(1);
+        assert.equal((await followingCreation).status, 201);
+        return { rejected: rejectedResponse.status, following: 201, restoredStatus: statuses(restoredReports) };
+    } finally {
+        await fixture.close();
+    }
+}
+
 async function main() {
     const case1 = await caseAConfirmsBFails();
     const case2 = await caseAFailsBConfirms();
     const recovery = await errorsDoNotPoisonQueue();
     const differentDeletes = await concurrentDeletesOfDifferentReports();
     const sameDelete = await concurrentDeletesOfSameReport();
-    console.log("OK: mutaciones persistidas serializadas, snapshots independientes, cola recuperable y DELETE concurrente seguro.");
-    console.log(JSON.stringify({ case1, case2, recovery, differentDeletes, sameDelete, mysqlOperationalUsed: false, realFilesWritten: false }));
+    const concurrentRetention = await concurrentReportCreationsApplyRetentionInOrder();
+    const retentionRollback = await mysqlRollbackRestoresRetentionMutation();
+    console.log("OK: mutaciones serializadas, snapshots independientes, DELETE concurrente, retención concurrente y rollback MySQL seguros.");
+    console.log(JSON.stringify({ case1, case2, recovery, differentDeletes, sameDelete, concurrentRetention, retentionRollback, mysqlOperationalUsed: false, realFilesWritten: false }));
 }
 
 main().catch(error => {

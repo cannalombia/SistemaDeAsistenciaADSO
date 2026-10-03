@@ -13,7 +13,7 @@ const { createEmailService } = require("./modulos/correo");
 const { normalizeProgramText: normalizedProgramText, canonicalProgramStatus, displayProgramLevel, validateProgramInput } = require("./dominio/programas");
 const { canonicalRole, canonicalUserStatus, csvValue, registryRowFromUser } = require("./dominio/usuarios");
 const { localDate, dateKey, addDays, rateFor, statusSummary, resolveDashboardRange } = require("./dominio/estadisticas");
-const { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport } = require("./dominio/reportes");
+const { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport, pruneOldestArchivedReports } = require("./dominio/reportes");
 const { createReportPdf } = require("./modulos/reporte_pdf");
 const { readSqlFile, parseUsersSql, createDump } = require("./modulos/sqlfile");
 const { createBackup, readBackupFile } = require("./modulos/respaldo");
@@ -2505,21 +2505,6 @@ function createProjectServer(options = {}) {
         writeJsonFileAtomic(reportsFile, reports);
     }
 
-    function pruneArchivedReports(session) {
-        const removed = [];
-        while (reports.length >= reportsRetentionLimit) {
-            const archived = reports
-                .map((report, index) => ({ report, index }))
-                .filter(({ report }) => reportStatus(report) === "archived")
-                .sort((left, right) => String(left.report.archivedAt || left.report.createdAt).localeCompare(String(right.report.archivedAt || right.report.createdAt)))[0];
-            if (!archived) break;
-            removed.push(reportMetadata(archived.report));
-            reports.splice(archived.index, 1);
-        }
-        if (removed.length) audit(session, "retention_delete", "reporte", removed.map((item) => item.id).join(","), removed, null, { limit: reportsRetentionLimit, count: removed.length });
-        return removed;
-    }
-
     async function handleReports(request, response) {
         const session = requireStaff(request, response);
         if (!session) return;
@@ -2537,11 +2522,15 @@ function createProjectServer(options = {}) {
         const params = new URLSearchParams({ from: body.from, to: body.to, ficha: String(body.ficha || ""), jornada: String(body.jornada || ""), period: "custom" });
         const payload = statisticsPayload(new URL(`/api/statistics?${params}`, "http://localhost"), session);
         if (!payload.distribution.total) return sendJson(response, 400, { ok: false, message: "No hay asistencia guardada en este rango. Registra la asistencia o selecciona otras fechas." });
-        pruneArchivedReports(session);
-        if (reports.length >= reportsRetentionLimit) return sendJson(response, 409, { ok: false, message: `Se alcanzó el límite de ${reportsRetentionLimit} informes activos. Archiva o elimina uno antes de generar otro.` });
+        const removals = pruneOldestArchivedReports(reports, reportsRetentionLimit);
+        if (removals === null) return sendJson(response, 409, { ok: false, message: `Se alcanzó el límite de ${reportsRetentionLimit} informes activos. Archiva o elimina uno antes de generar otro.` });
         const report = { ...payload, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: session.user.name || session.user.username, status: "active" };
         reports.push(report);
         persistReports();
+        if (removals.length) {
+            const removed = removals.map(item => item.before);
+            audit(session, "retention_delete", "reporte", removed.map(item => item.id).join(","), removed, null, { limit: reportsRetentionLimit, count: removed.length });
+        }
         audit(session, "create", "reporte", report.id, null, reportMetadata(report));
         return sendJson(response, 201, { ok: true, report: reportMetadata(report) });
     }
