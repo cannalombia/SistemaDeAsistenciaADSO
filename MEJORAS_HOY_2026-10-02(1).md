@@ -4594,3 +4594,107 @@ intentó resolver dentro de este bloque.
 ======================================================================
 FIN DEL BLOQUE 50 — CONSISTENCIA CONCURRENTE CERRADA
 ======================================================================
+
+======================================================================
+51. ARQUITECTURA BACKEND — EXTRACCIÓN CONTROLADA DE REPORTES
+======================================================================
+
+ESTADO DEL BLOQUE: EN DESARROLLO.
+
+---------------------------------------------------------------------
+51.1 PASO 1 — ESTADO Y METADATOS DE REPORTES
+---------------------------------------------------------------------
+
+Se realizó la primera extracción arquitectónica de bajo riesgo desde
+servidor/servidor.js hacia servidor/dominio/reportes.js.
+
+RESPONSABILIDADES EXTRAÍDAS:
+
+- normalización del estado mediante reportStatus();
+- construcción de metadatos mediante reportMetadata();
+- validación pura de las transiciones active / archived mediante
+  validateReportTransition().
+
+CONTRATOS CONSERVADOS:
+
+- un estado distinto de archived continúa interpretándose como active;
+- los metadatos conservan los mismos campos y valores por defecto;
+- archive solo es válido desde active;
+- restore solo es válido desde archived;
+- la acción desconocida continúa produciendo HTTP 400;
+- la transición incompatible continúa produciendo HTTP 409;
+- los textos y cuerpos de las respuestas HTTP no cambiaron.
+
+El mapeo de los resultados semánticos a HTTP 400/409 permanece en
+servidor/servidor.js. No se movieron handlers completos ni se modificaron
+persistencia, MySQL, PDF, auditoría, concurrencia, rutas o frontend.
+
+---------------------------------------------------------------------
+51.2 PRUEBA UNITARIA DEL DOMINIO
+---------------------------------------------------------------------
+
+Se añadieron casos unitarios a pruebas/prueba_modulos.js para comprobar:
+
+- estado active por defecto;
+- reconocimiento exacto de archived;
+- forma completa de los metadatos activos y archivados;
+- transiciones archive y restore válidas;
+- acción inválida;
+- archivado duplicado;
+- restauración de un reporte activo;
+- compatibilidad de reportes legacy sin status;
+- ausencia de mutaciones sobre el objeto recibido.
+
+---------------------------------------------------------------------
+51.3 BÚSQUEDA DE COMPARACIONES DE ESTADO
+---------------------------------------------------------------------
+
+No quedaron comparaciones directas de report.status con active o archived
+fuera de servidor/dominio/reportes.js.
+
+En servidor/servidor.js permanece la condición
+reportStatus(report) === "archived" dentro de la política de retención.
+No duplica conceptualmente reportStatus(): consume la abstracción extraída
+para seleccionar reportes archivados. Se dejó intacta por pertenecer a la
+retención, fuera del alcance del Paso 1.
+
+También permanecen en el handler las asignaciones report.status =
+"archived" y report.status = "active" que aplican la transición ya
+validada. No son comparaciones ni duplican la normalización de estado.
+
+---------------------------------------------------------------------
+51.4 VALIDACIÓN DEL PASO 1
+---------------------------------------------------------------------
+
+[OK] node --check servidor/dominio/reportes.js.
+[OK] node --check servidor/servidor.js.
+[OK] prueba unitaria del dominio mediante pruebas/prueba_modulos.js.
+[OK] npm run test:reports.
+[OK] npm run test:persistence-concurrency.
+[OK] npm test completo, código de salida 0.
+[OK] git diff --check.
+[OK] sin cambios en la corrección de concurrencia.
+[OK] sin uso ni modificación de MySQL operacional.
+[OK] sin cambios en migraciones, DB_NAME_TEST, frontend o rutas.
+
+---------------------------------------------------------------------
+51.5 COMMIT TÉCNICO DEL PASO 1
+---------------------------------------------------------------------
+
+HASH COMPLETO: d0bb011e42c18b8a0eb59e82c7ad82682c67d74c
+HASH CORTO: d0bb011
+
+MENSAJE:
+
+refactor: extraer estado y metadatos de reportes
+
+ARCHIVOS:
+
+- servidor/dominio/reportes.js;
+- servidor/servidor.js;
+- pruebas/prueba_modulos.js.
+
+RESULTADO:
+
+PASO 1 CERRADO. BLOQUE 51 EN DESARROLLO.
+No se hizo push y no se inició el Paso 2.
