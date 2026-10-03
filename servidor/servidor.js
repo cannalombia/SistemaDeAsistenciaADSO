@@ -13,7 +13,7 @@ const { createEmailService } = require("./modulos/correo");
 const { normalizeProgramText: normalizedProgramText, canonicalProgramStatus, displayProgramLevel, validateProgramInput } = require("./dominio/programas");
 const { canonicalRole, canonicalUserStatus, csvValue, registryRowFromUser } = require("./dominio/usuarios");
 const { localDate, dateKey, addDays, rateFor, statusSummary, resolveDashboardRange } = require("./dominio/estadisticas");
-const { reportStatus, reportMetadata, validateReportTransition } = require("./dominio/reportes");
+const { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport } = require("./dominio/reportes");
 const { createReportPdf } = require("./modulos/reporte_pdf");
 const { readSqlFile, parseUsersSql, createDump } = require("./modulos/sqlfile");
 const { createBackup, readBackupFile } = require("./modulos/respaldo");
@@ -2559,13 +2559,12 @@ function createProjectServer(options = {}) {
             if (!transition.ok) return sendJson(response, 409, { ok: false, message: transition.reason === "already_archived" ? "El informe ya está archivado." : "El informe no está archivado." });
             const before = reportMetadata(report);
             if (action === "archive") {
-                report.status = "archived";
-                report.archivedAt = new Date().toISOString();
-                report.archivedBy = session.user.name || session.user.username;
+                archiveReport(report, {
+                    archivedAt: new Date().toISOString(),
+                    archivedBy: session.user.name || session.user.username
+                });
             } else {
-                report.status = "active";
-                delete report.archivedAt;
-                delete report.archivedBy;
+                restoreReport(report);
             }
             persistReports();
             audit(session, action, "reporte", report.id, before, reportMetadata(report));

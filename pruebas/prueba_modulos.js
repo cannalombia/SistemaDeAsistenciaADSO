@@ -27,7 +27,13 @@ const {
 } = require("../servidor/dominio/programas");
 const { canonicalRole, canonicalUserStatus } = require("../servidor/dominio/usuarios");
 const { rateFor, statusSummary, resolveDashboardRange } = require("../servidor/dominio/estadisticas");
-const { reportStatus, reportMetadata, validateReportTransition } = require("../servidor/dominio/reportes");
+const {
+    reportStatus,
+    reportMetadata,
+    validateReportTransition,
+    archiveReport,
+    restoreReport
+} = require("../servidor/dominio/reportes");
 
 assert.equal(normalizeEmail("  Persona@Ejemplo.COM "), "persona@ejemplo.com");
 assert.equal(normalizeEmail("correo-incompleto"), "");
@@ -132,6 +138,61 @@ assert.deepEqual(validateReportTransition(activeReport, "invalid"), { ok: false,
 assert.deepEqual(validateReportTransition({ ...activeReport, status: "archived" }, "archive"), { ok: false, reason: "already_archived" });
 assert.deepEqual(validateReportTransition(activeReport, "restore"), { ok: false, reason: "not_archived" });
 assert.deepEqual(activeReport, activeReportBefore);
+
+const archivedAt = "2026-08-21T12:00:00.000Z";
+const archivedBy = "Coordinador exacto";
+const mutableReport = JSON.parse(JSON.stringify(activeReport));
+const mutableReportBefore = reportMetadata(mutableReport);
+const untouchedFields = {
+    id: mutableReport.id,
+    createdAt: mutableReport.createdAt,
+    createdBy: mutableReport.createdBy,
+    filters: JSON.parse(JSON.stringify(mutableReport.filters)),
+    distribution: JSON.parse(JSON.stringify(mutableReport.distribution)),
+    students: JSON.parse(JSON.stringify(mutableReport.students)),
+    records: JSON.parse(JSON.stringify(mutableReport.records))
+};
+archiveReport(mutableReport, { archivedAt, archivedBy });
+assert.equal(mutableReport.status, "archived");
+assert.equal(mutableReport.archivedAt, archivedAt);
+assert.equal(mutableReport.archivedBy, archivedBy);
+assert.deepEqual(reportMetadata(mutableReport), {
+    ...mutableReportBefore,
+    status: "archived",
+    archivedAt,
+    archivedBy
+});
+assert.deepEqual({
+    id: mutableReport.id,
+    createdAt: mutableReport.createdAt,
+    createdBy: mutableReport.createdBy,
+    filters: mutableReport.filters,
+    distribution: mutableReport.distribution,
+    students: mutableReport.students,
+    records: mutableReport.records
+}, untouchedFields);
+
+restoreReport(mutableReport);
+assert.equal(mutableReport.status, "active");
+assert.equal(Object.hasOwn(mutableReport, "archivedAt"), false);
+assert.equal(Object.hasOwn(mutableReport, "archivedBy"), false);
+assert.deepEqual(reportMetadata(mutableReport), mutableReportBefore);
+assert.deepEqual({
+    id: mutableReport.id,
+    createdAt: mutableReport.createdAt,
+    createdBy: mutableReport.createdBy,
+    filters: mutableReport.filters,
+    distribution: mutableReport.distribution,
+    students: mutableReport.students,
+    records: mutableReport.records
+}, untouchedFields);
+
+const historicalReport = { ...JSON.parse(JSON.stringify(activeReport)) };
+delete historicalReport.status;
+archiveReport(historicalReport, { archivedAt, archivedBy });
+assert.equal(historicalReport.status, "archived");
+assert.equal(historicalReport.archivedAt, archivedAt);
+assert.equal(historicalReport.archivedBy, archivedBy);
 
 const emailMessage = verificationMessage(
     { name: "Juan <script>", email: "juan@example.com" },

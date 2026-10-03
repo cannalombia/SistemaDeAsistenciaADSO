@@ -29,4 +29,16 @@ function validateReportTransition(report, action) {
     return { ok: true };
 }
 
-module.exports = { reportStatus, reportMetadata, validateReportTransition };
+function archiveReport(report, { archivedAt, archivedBy }) {
+    report.status = "archived";
+    report.archivedAt = archivedAt;
+    report.archivedBy = archivedBy;
+}
+
+function restoreReport(report) {
+    report.status = "active";
+    delete report.archivedAt;
+    delete report.archivedBy;
+}
+
+module.exports = { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport };
