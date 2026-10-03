@@ -32,7 +32,8 @@ const {
     reportMetadata,
     validateReportTransition,
     archiveReport,
-    restoreReport
+    restoreReport,
+    removeReport
 } = require("../servidor/dominio/reportes");
 
 assert.equal(normalizeEmail("  Persona@Ejemplo.COM "), "persona@ejemplo.com");
@@ -193,6 +194,17 @@ archiveReport(historicalReport, { archivedAt, archivedBy });
 assert.equal(historicalReport.status, "archived");
 assert.equal(historicalReport.archivedAt, archivedAt);
 assert.equal(historicalReport.archivedBy, archivedBy);
+
+const removableReport = JSON.parse(JSON.stringify(activeReport));
+const remainingReport = { ...JSON.parse(JSON.stringify(activeReport)), id: "report-remaining" };
+const reportCollection = [removableReport, remainingReport];
+const removal = removeReport(reportCollection, removableReport);
+assert.deepEqual(removal.before, reportMetadata(removableReport));
+assert.equal(removal.removed, removableReport);
+assert.deepEqual(reportCollection, [remainingReport]);
+const collectionBeforeMissingRemoval = JSON.parse(JSON.stringify(reportCollection));
+assert.equal(removeReport(reportCollection, removableReport), null);
+assert.deepEqual(reportCollection, collectionBeforeMissingRemoval);
 
 const emailMessage = verificationMessage(
     { name: "Juan <script>", email: "juan@example.com" },

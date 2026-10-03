@@ -41,4 +41,12 @@ function restoreReport(report) {
     delete report.archivedBy;
 }
 
-module.exports = { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport };
+function removeReport(reports, report) {
+    const index = reports.indexOf(report);
+    if (index === -1) return null;
+    const before = reportMetadata(report);
+    reports.splice(index, 1);
+    return { before, removed: report };
+}
+
+module.exports = { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport };

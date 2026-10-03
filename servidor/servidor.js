@@ -13,7 +13,7 @@ const { createEmailService } = require("./modulos/correo");
 const { normalizeProgramText: normalizedProgramText, canonicalProgramStatus, displayProgramLevel, validateProgramInput } = require("./dominio/programas");
 const { canonicalRole, canonicalUserStatus, csvValue, registryRowFromUser } = require("./dominio/usuarios");
 const { localDate, dateKey, addDays, rateFor, statusSummary, resolveDashboardRange } = require("./dominio/estadisticas");
-const { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport } = require("./dominio/reportes");
+const { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport } = require("./dominio/reportes");
 const { createReportPdf } = require("./modulos/reporte_pdf");
 const { readSqlFile, parseUsersSql, createDump } = require("./modulos/sqlfile");
 const { createBackup, readBackupFile } = require("./modulos/respaldo");
@@ -2573,10 +2573,10 @@ function createProjectServer(options = {}) {
         if (request.method === "DELETE") {
             const body = await readJsonBody(request);
             if (body.confirm !== true) return sendJson(response, 400, { ok: false, message: "Confirma explícitamente la eliminación del informe." });
-            const before = reportMetadata(report);
-            reports.splice(reports.indexOf(report), 1);
+            const removal = removeReport(reports, report);
+            if (!removal) return sendJson(response, 404, { ok: false, message: "No se encontró el informe." });
             persistReports();
-            audit(session, "delete", "reporte", report.id, before, null);
+            audit(session, "delete", "reporte", removal.removed.id, removal.before, null);
             return sendJson(response, 200, { ok: true, message: "Informe eliminado permanentemente." });
         }
         if (!pdf) return sendJson(response, 200, { ok: true, report: { ...report, status: reportStatus(report) } });

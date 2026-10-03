@@ -92,15 +92,15 @@ async function waitFor(predicate, message) {
     }
 }
 
-async function createFixture() {
-    const reportsInput = [report(REPORT_A, "A"), report(REPORT_B, "B")];
-    const auditRecords = [auditEntry("audit-a-base", REPORT_A), auditEntry("audit-b-base", REPORT_B)];
+async function createFixture(reportsInput = [report(REPORT_A, "A"), report(REPORT_B, "B")]) {
+    const auditRecords = reportsInput.map((item, index) => auditEntry(`audit-${index}-base`, item.id));
     const repository = controlledRepository();
     let internalReports = null;
+    const reportIds = new Set(reportsInput.map(item => item.id));
     const originalParse = JSON.parse;
     JSON.parse = function captureInternalReports(source, reviver) {
         const value = originalParse(source, reviver);
-        if (Array.isArray(value) && value.length === 2 && value.some(item => item?.id === REPORT_A) && value.some(item => item?.id === REPORT_B)) internalReports = value;
+        if (Array.isArray(value) && value.length === reportIds.size && value.every(item => reportIds.has(item?.id))) internalReports = value;
         return value;
     };
     let server;
@@ -260,12 +260,75 @@ async function errorsDoNotPoisonQueue() {
     }
 }
 
+async function concurrentDeletesOfDifferentReports() {
+    const fixture = await createFixture();
+    try {
+        const deleteA = fixture.request(`/api/reports/${REPORT_A}`, { confirm: true }, "DELETE");
+        await waitFor(() => fixture.repository.calls.length === 1, "DELETE A no llegó a saveSnapshot.");
+        const deleteB = fixture.request(`/api/reports/${REPORT_B}`, { confirm: true }, "DELETE");
+        await delay(50);
+        assert.equal(fixture.repository.calls.length, 1, "DELETE B se ejecutó mientras DELETE A seguía pendiente.");
+        assert.deepEqual(reportAudit(fixture.auditRecords).filter(item => item.action === "delete"), [{ action: "delete", entityId: REPORT_A }]);
+
+        fixture.repository.resolve(0);
+        const responseA = await deleteA;
+        await waitFor(() => fixture.repository.calls.length === 2, "DELETE B no continuó después de confirmar DELETE A.");
+        fixture.repository.resolve(1);
+        const responseB = await deleteB;
+        const finalReports = await fixture.list();
+
+        assert.equal(responseA.status, 200);
+        assert.equal(responseB.status, 200);
+        assert.deepEqual(finalReports, []);
+        assert.deepEqual(reportAudit(fixture.auditRecords).filter(item => item.action === "delete"), [
+            { action: "delete", entityId: REPORT_A },
+            { action: "delete", entityId: REPORT_B }
+        ]);
+        assertDetachedAndStable(fixture.repository.calls[0], fixture);
+        assertDetachedAndStable(fixture.repository.calls[1], fixture);
+        return { first: responseA.status, second: responseB.status, audits: 2, remaining: finalReports.length };
+    } finally {
+        await fixture.close();
+    }
+}
+
+async function concurrentDeletesOfSameReport() {
+    const fixture = await createFixture([report(REPORT_A, "A")]);
+    try {
+        const firstDelete = fixture.request(`/api/reports/${REPORT_A}`, { confirm: true }, "DELETE");
+        await waitFor(() => fixture.repository.calls.length === 1, "El primer DELETE no llegó a saveSnapshot.");
+        const secondDelete = fixture.request(`/api/reports/${REPORT_A}`, { confirm: true }, "DELETE");
+        await delay(50);
+        assert.equal(fixture.repository.calls.length, 1, "El segundo DELETE comenzó antes de confirmarse el primero.");
+
+        fixture.repository.resolve(0);
+        const firstResponse = await firstDelete;
+        const secondResponse = await secondDelete;
+        const secondBody = await secondResponse.json();
+        const finalReports = await fixture.list();
+        const deleteAudits = reportAudit(fixture.auditRecords).filter(item => item.action === "delete");
+
+        assert.equal(firstResponse.status, 200);
+        assert.equal(secondResponse.status, 404);
+        assert.equal(secondBody.message, "No se encontró el informe.");
+        assert.equal(fixture.repository.calls.length, 1, "El 404 del segundo DELETE intentó persistir otro snapshot.");
+        assert.deepEqual(deleteAudits, [{ action: "delete", entityId: REPORT_A }]);
+        assert.deepEqual(finalReports, []);
+        assertDetachedAndStable(fixture.repository.calls[0], fixture);
+        return { first: firstResponse.status, second: secondResponse.status, audits: deleteAudits.length, remaining: finalReports.length };
+    } finally {
+        await fixture.close();
+    }
+}
+
 async function main() {
     const case1 = await caseAConfirmsBFails();
     const case2 = await caseAFailsBConfirms();
     const recovery = await errorsDoNotPoisonQueue();
-    console.log("OK: mutaciones persistidas serializadas, snapshots independientes y cola recuperable.");
-    console.log(JSON.stringify({ case1, case2, recovery, mysqlOperationalUsed: false, realFilesWritten: false }));
+    const differentDeletes = await concurrentDeletesOfDifferentReports();
+    const sameDelete = await concurrentDeletesOfSameReport();
+    console.log("OK: mutaciones persistidas serializadas, snapshots independientes, cola recuperable y DELETE concurrente seguro.");
+    console.log(JSON.stringify({ case1, case2, recovery, differentDeletes, sameDelete, mysqlOperationalUsed: false, realFilesWritten: false }));
 }
 
 main().catch(error => {
