@@ -13,6 +13,7 @@ const { createEmailService } = require("./modulos/correo");
 const { normalizeProgramText: normalizedProgramText, canonicalProgramStatus, displayProgramLevel, validateProgramInput } = require("./dominio/programas");
 const { canonicalRole, canonicalUserStatus, csvValue, registryRowFromUser } = require("./dominio/usuarios");
 const { localDate, dateKey, addDays, rateFor, statusSummary, resolveDashboardRange } = require("./dominio/estadisticas");
+const { reportStatus, reportMetadata, validateReportTransition } = require("./dominio/reportes");
 const { createReportPdf } = require("./modulos/reporte_pdf");
 const { readSqlFile, parseUsersSql, createDump } = require("./modulos/sqlfile");
 const { createBackup, readBackupFile } = require("./modulos/respaldo");
@@ -2500,16 +2501,6 @@ function createProjectServer(options = {}) {
     const reportsRetentionLimit = options.reportsRetentionLimit == null
         ? boundedInteger(process.env.REPORTS_RETENTION_LIMIT, 500, 10, 5000)
         : boundedInteger(options.reportsRetentionLimit, 500, 2, 5000);
-    const reportStatus = (report) => report.status === "archived" ? "archived" : "active";
-    const reportMetadata = ({ id, createdAt, createdBy, filters, distribution, students, status, archivedAt, archivedBy }) => ({
-        id, createdAt, createdBy,
-        filters: { from: filters.from, to: filters.to, ficha: filters.ficha, jornada: filters.jornada },
-        total: distribution.total, attendance: distribution.attendance, students: students.length,
-        status: status === "archived" ? "archived" : "active",
-        archivedAt: archivedAt || null,
-        archivedBy: archivedBy || null
-    });
-
     function persistReports() {
         writeJsonFileAtomic(reportsFile, reports);
     }
@@ -2563,9 +2554,9 @@ function createProjectServer(options = {}) {
         if (request.method === "PATCH") {
             const body = await readJsonBody(request);
             const action = String(body.action || "").trim().toLowerCase();
-            if (!['archive', 'restore'].includes(action)) return sendJson(response, 400, { ok: false, message: "La acción debe ser archive o restore." });
-            const expectedStatus = action === "archive" ? "active" : "archived";
-            if (reportStatus(report) !== expectedStatus) return sendJson(response, 409, { ok: false, message: action === "archive" ? "El informe ya está archivado." : "El informe no está archivado." });
+            const transition = validateReportTransition(report, action);
+            if (transition.reason === "invalid_action") return sendJson(response, 400, { ok: false, message: "La acción debe ser archive o restore." });
+            if (!transition.ok) return sendJson(response, 409, { ok: false, message: transition.reason === "already_archived" ? "El informe ya está archivado." : "El informe no está archivado." });
             const before = reportMetadata(report);
             if (action === "archive") {
                 report.status = "archived";

@@ -27,6 +27,7 @@ const {
 } = require("../servidor/dominio/programas");
 const { canonicalRole, canonicalUserStatus } = require("../servidor/dominio/usuarios");
 const { rateFor, statusSummary, resolveDashboardRange } = require("../servidor/dominio/estadisticas");
+const { reportStatus, reportMetadata, validateReportTransition } = require("../servidor/dominio/reportes");
 
 assert.equal(normalizeEmail("  Persona@Ejemplo.COM "), "persona@ejemplo.com");
 assert.equal(normalizeEmail("correo-incompleto"), "");
@@ -84,6 +85,53 @@ assert.equal(rateFor(attendance), 50);
 assert.equal(statusSummary(attendance).percentages.ausente, 50);
 const rangeUrl = new URL("http://localhost/api/statistics?from=2026-08-20&to=2026-08-22");
 assert.equal(resolveDashboardRange(rangeUrl, attendance, new Date("2026-08-22T12:00:00")).fromText, "2026-08-20");
+
+const activeReport = {
+    id: "report-active",
+    createdAt: "2026-08-20T12:00:00.000Z",
+    createdBy: "Administrador",
+    filters: { from: "2026-08-01", to: "2026-08-20", ficha: "3349882", jornada: "Mañana", ignored: true },
+    distribution: { total: 4, attendance: 75 },
+    students: [{}, {}],
+    status: "active",
+    records: [{ ignored: true }]
+};
+const activeReportBefore = JSON.parse(JSON.stringify(activeReport));
+assert.equal(reportStatus({}), "active");
+assert.equal(reportStatus(activeReport), "active");
+assert.equal(reportStatus({ status: "archived" }), "archived");
+assert.equal(reportStatus({ status: "ARCHIVED" }), "active");
+assert.deepEqual(reportMetadata(activeReport), {
+    id: "report-active",
+    createdAt: "2026-08-20T12:00:00.000Z",
+    createdBy: "Administrador",
+    filters: { from: "2026-08-01", to: "2026-08-20", ficha: "3349882", jornada: "Mañana" },
+    total: 4,
+    attendance: 75,
+    students: 2,
+    status: "active",
+    archivedAt: null,
+    archivedBy: null
+});
+assert.deepEqual(reportMetadata({ ...activeReport, status: "archived", archivedAt: "2026-08-21T12:00:00.000Z", archivedBy: "Coordinador" }), {
+    id: "report-active",
+    createdAt: "2026-08-20T12:00:00.000Z",
+    createdBy: "Administrador",
+    filters: { from: "2026-08-01", to: "2026-08-20", ficha: "3349882", jornada: "Mañana" },
+    total: 4,
+    attendance: 75,
+    students: 2,
+    status: "archived",
+    archivedAt: "2026-08-21T12:00:00.000Z",
+    archivedBy: "Coordinador"
+});
+assert.deepEqual(validateReportTransition(activeReport, "archive"), { ok: true });
+assert.deepEqual(validateReportTransition({ ...activeReport, status: "archived" }, "restore"), { ok: true });
+assert.deepEqual(validateReportTransition({ ...activeReport, status: undefined }, "archive"), { ok: true });
+assert.deepEqual(validateReportTransition(activeReport, "invalid"), { ok: false, reason: "invalid_action" });
+assert.deepEqual(validateReportTransition({ ...activeReport, status: "archived" }, "archive"), { ok: false, reason: "already_archived" });
+assert.deepEqual(validateReportTransition(activeReport, "restore"), { ok: false, reason: "not_archived" });
+assert.deepEqual(activeReport, activeReportBefore);
 
 const emailMessage = verificationMessage(
     { name: "Juan <script>", email: "juan@example.com" },
