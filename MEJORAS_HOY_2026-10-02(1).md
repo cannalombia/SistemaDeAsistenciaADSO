@@ -4698,3 +4698,119 @@ RESULTADO:
 
 PASO 1 CERRADO. BLOQUE 51 EN DESARROLLO.
 No se hizo push y no se inició el Paso 2.
+
+---------------------------------------------------------------------
+51.6 PASO 2A — ARCHIVADO Y RESTAURACIÓN DE REPORTES
+---------------------------------------------------------------------
+
+Se extrajeron exclusivamente las mutaciones de archivado y restauración
+desde servidor/servidor.js hacia servidor/dominio/reportes.js.
+
+FUNCIONES INCORPORADAS:
+
+- archiveReport(report, { archivedAt, archivedBy });
+- restoreReport(report).
+
+archiveReport() aplica exactamente:
+
+- status = "archived";
+- archivedAt = valor recibido;
+- archivedBy = valor recibido.
+
+restoreReport() aplica exactamente:
+
+- status = "active";
+- eliminación de archivedAt;
+- eliminación de archivedBy.
+
+Las funciones de dominio no conocen Date, sesión, HTTP, persistencia ni
+auditoría. La generación de archivedAt y la resolución de archivedBy
+permanecen en servidor.js.
+
+ORDEN CONSERVADO EN servidor.js:
+
+validar
+→ capturar before
+→ mutar mediante dominio
+→ persistReports()
+→ audit()
+→ responder
+
+También permanecen en servidor.js la autorización, búsqueda del reporte,
+lectura HTTP, normalización de action, validateReportTransition(), códigos
+HTTP, mensajes y construcción de la respuesta.
+
+No se modificaron DELETE manual, retención, generación de reportes,
+statisticsPayload(), createReportPdf(), MySQL, repositorio MySQL,
+migraciones, DB_NAME_TEST, backupData(), applyRestoredData(),
+deferResponseUntilMysqlCommit(), cola de concurrencia, rutas, frontend ni
+infraestructura genérica de auditoría.
+
+---------------------------------------------------------------------
+51.7 PRUEBAS DEL PASO 2A
+---------------------------------------------------------------------
+
+Se ampliaron las pruebas unitarias del dominio para comprobar:
+
+- transición active → archived;
+- archivedAt exacto;
+- archivedBy exacto;
+- transición archived → active;
+- eliminación de archivedAt;
+- eliminación de archivedBy;
+- compatibilidad de un reporte histórico sin status;
+- conservación de todos los demás campos;
+- metadatos before/after idénticos al comportamiento anterior.
+
+REGRESIÓN EJECUTADA:
+
+[OK] node --check servidor/dominio/reportes.js.
+[OK] node --check servidor/servidor.js.
+[OK] prueba unitaria de dominio mediante pruebas/prueba_modulos.js.
+[OK] npm run test:reports.
+[OK] npm run test:persistence-concurrency.
+[OK] npm test completo, código de salida 0.
+[OK] git diff --check.
+
+---------------------------------------------------------------------
+51.8 COMMIT TÉCNICO DEL PASO 2A
+---------------------------------------------------------------------
+
+HASH COMPLETO: 63a320f44354e6880b67cea8093b38573f0aed0c
+HASH CORTO: 63a320f
+
+MENSAJE:
+
+refactor: extraer mutaciones de archivo de reportes
+
+ARCHIVOS:
+
+- servidor/dominio/reportes.js;
+- servidor/servidor.js;
+- pruebas/prueba_modulos.js.
+
+---------------------------------------------------------------------
+51.9 HALLAZGO PENDIENTE — ATOMICIDAD LEGACY DE RETENCIÓN
+---------------------------------------------------------------------
+
+El riesgo de atomicidad legacy detectado durante la auditoría afecta
+exclusivamente al flujo de retención identificado.
+
+- no afecta el diseño ni la implementación del Paso 2A;
+- archivado y restauración conservan su orden actual de mutar,
+  persistReports(), audit() y responder;
+- el hallazgo no se considera solucionado por extraer funciones al dominio;
+- deberá reevaluarse antes de implementar o cerrar el Paso 2C;
+- al cerrar el Bloque 51 se decidirá si se resuelve dentro de 2C o pasa a
+  un Bloque 52 independiente.
+
+El hallazgo queda registrado como PENDIENTE. No se modificó la retención y
+no se abrió el Bloque 52 porque el Bloque 51 continúa en desarrollo.
+
+---------------------------------------------------------------------
+51.10 ESTADO DEL BLOQUE
+---------------------------------------------------------------------
+
+PASO 2A CERRADO.
+BLOQUE 51 EN DESARROLLO.
+No se inició 2B ni 2C y no se hizo push.
