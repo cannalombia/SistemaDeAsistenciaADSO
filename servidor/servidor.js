@@ -2815,13 +2815,19 @@ function createProjectServer(options = {}) {
         sistema: { consultarEstado: handleSystemHealth, consultarAuditoria: handleAudit, consultarNotificaciones: handleNotifications, exportarRespaldo: handleBackupExport, restaurarRespaldo: handleBackupRestore }
     });
 
-    const server = http.createServer(async (request, response) => {
+    const cloneSnapshot = (value) => JSON.parse(JSON.stringify(value));
+    let mutationTail = Promise.resolve();
+
+    function enqueuePersistedMutation(task) {
+        const execution = mutationTail.then(task, task);
+        mutationTail = execution.catch(() => {});
+        return execution;
+    }
+
+    async function handleHttpRequest(request, response) {
         response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS");
         response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-        if (repository && ["POST", "PATCH", "DELETE"].includes(request.method) && String(request.url || "").startsWith("/api/")) {
-            deferResponseUntilMysqlCommit(request, response);
-        }
         if (request.method === "OPTIONS") {
             response.writeHead(204);
             return response.end();
@@ -2838,16 +2844,31 @@ function createProjectServer(options = {}) {
             console.error("Error de API:", error.message);
             return sendJson(response, error.status || 500, { ok: false, message: error.message || "Error interno del servidor." });
         }
+    }
+
+    const server = http.createServer(async (request, response) => {
+        // Las lecturas permanecen concurrentes y pueden observar temporalmente una mutación aún no confirmada.
+        const persistedMutation = repository
+            && ["POST", "PATCH", "DELETE"].includes(request.method)
+            && String(request.url || "").startsWith("/api/");
+        if (!persistedMutation) return handleHttpRequest(request, response);
+        return enqueuePersistedMutation(async () => {
+            const previous = cloneSnapshot(backupData());
+            const completed = deferResponseUntilMysqlCommit(response, previous);
+            await handleHttpRequest(request, response);
+            await completed;
+        });
     });
 
-    function deferResponseUntilMysqlCommit(_request, response) {
-        const previous = JSON.parse(JSON.stringify(backupData()));
+    function deferResponseUntilMysqlCommit(response, previous) {
         const originalWriteHead = response.writeHead.bind(response);
         const originalEnd = response.end.bind(response);
         let statusCode = 200;
         let statusMessage;
         let headers;
         let ended = false;
+        let resolveCompleted;
+        const completed = new Promise((resolve) => { resolveCompleted = resolve; });
         response.writeHead = function deferredWriteHead(status, messageOrHeaders, possibleHeaders) {
             statusCode = status;
             if (typeof messageOrHeaders === "string") {
@@ -2860,22 +2881,39 @@ function createProjectServer(options = {}) {
         response.end = function deferredEnd(chunk, encoding, callback) {
             if (ended) return response;
             ended = true;
-            const flush = () => {
-                if (statusMessage) originalWriteHead(statusCode, statusMessage, headers);
-                else originalWriteHead(statusCode, headers);
-                originalEnd(chunk, encoding, callback);
-            };
-            if (statusCode < 200 || statusCode >= 400) { flush(); return response; }
-            repository.saveSnapshot(backupData()).then(flush).catch((error) => {
-                applyRestoredData(previous);
-                console.error("No se confirmó la operación en MySQL:", error.message);
-                for (const name of response.getHeaderNames()) response.removeHeader(name);
-                const body = JSON.stringify({ ok: false, message: "MySQL rechazó la operación; no se aplicaron cambios. Revisa la conexión y vuelve a intentar." });
-                originalWriteHead(503, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Content-Length": Buffer.byteLength(body) });
-                originalEnd(body, undefined, callback);
+            const flush = (finalStatus = statusCode, finalHeaders = headers, finalChunk = chunk) => new Promise((resolve) => {
+                const finish = () => {
+                    response.off("finish", finish);
+                    response.off("close", finish);
+                    resolve();
+                };
+                response.once("finish", finish);
+                response.once("close", finish);
+                if (finalStatus === statusCode && statusMessage) originalWriteHead(finalStatus, statusMessage, finalHeaders);
+                else originalWriteHead(finalStatus, finalHeaders);
+                originalEnd(finalChunk, encoding, callback);
             });
+            (async () => {
+                if (statusCode < 200 || statusCode >= 400) {
+                    applyRestoredData(previous);
+                    await flush();
+                    return;
+                }
+                try {
+                    const next = cloneSnapshot(backupData());
+                    await repository.saveSnapshot(next);
+                    await flush();
+                } catch (error) {
+                    applyRestoredData(previous);
+                    console.error("No se confirmó la operación en MySQL:", error.message);
+                    for (const name of response.getHeaderNames()) response.removeHeader(name);
+                    const body = JSON.stringify({ ok: false, message: "MySQL rechazó la operación; no se aplicaron cambios. Revisa la conexión y vuelve a intentar." });
+                    await flush(503, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Content-Length": Buffer.byteLength(body) }, body);
+                }
+            })().finally(resolveCompleted);
             return response;
         };
+        return completed;
     }
 
     let emailHealthTimer = null;
