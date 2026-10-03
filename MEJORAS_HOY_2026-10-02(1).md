@@ -4814,3 +4814,122 @@ no se abrió el Bloque 52 porque el Bloque 51 continúa en desarrollo.
 PASO 2A CERRADO.
 BLOQUE 51 EN DESARROLLO.
 No se inició 2B ni 2C y no se hizo push.
+
+---------------------------------------------------------------------
+51.11 PASO 2B — ELIMINACIÓN MANUAL DE REPORTES
+---------------------------------------------------------------------
+
+Se extrajo la mecánica de eliminación manual desde servidor/servidor.js
+hacia servidor/dominio/reportes.js mediante:
+
+removeReport(reports, report)
+
+Antes de definir el retorno se verificó el contrato real del Paso 2A:
+archiveReport() y restoreReport() son comandos de dominio que mutan en sitio,
+no realizan I/O y no devuelven un sobre de resultado con ok/reason ni datos
+HTTP.
+
+removeReport() conserva ese patrón de comando mutante y añade únicamente el
+recibo mínimo que la eliminación necesita:
+
+- si report no pertenece a reports, devuelve null y no modifica la colección;
+- si la eliminación se realiza, devuelve { before, removed };
+- before contiene reportMetadata(report) capturado antes de retirar el objeto;
+- removed contiene la misma instancia retirada de la colección.
+
+No se incorporaron códigos HTTP, sesión, persistencia ni auditoría al dominio.
+No se creó el sobre conceptual { ok, reason, before, after, removed }, porque
+2A no estableció ese estilo de retorno.
+
+El handler conserva:
+
+- autorización;
+- búsqueda inicial por id;
+- HTTP 404 cuando la búsqueda no encuentra el reporte;
+- lectura y validación de confirm === true;
+- persistReports();
+- audit() con action = "delete";
+- código HTTP 200 y mensaje existentes.
+
+También conserva una comprobación defensiva del resultado null. Esta no
+sustituye la búsqueda normal: bajo la cola, un segundo DELETE del mismo id
+vuelve a ejecutar el handler, falla en la búsqueda inicial y no invoca
+removeReport() con una referencia obsoleta.
+
+---------------------------------------------------------------------
+51.12 COBERTURA CONCURRENTE DE DELETE
+---------------------------------------------------------------------
+
+CASO A — DOS REPORTES DIFERENTES:
+
+- estado inicial: reports = [A, B];
+- DELETE A queda pendiente de confirmación del snapshot;
+- DELETE B no inicia su handler hasta que A termina;
+- al confirmar ambos snapshots, las respuestas son HTTP 200 y HTTP 200;
+- se generan exactamente dos auditorías delete, una para A y otra para B;
+- el estado final no contiene A ni B.
+
+CASO B — DOS DELETE SOBRE EL MISMO REPORTE:
+
+- estado inicial: reports = [A];
+- el primer DELETE elimina A, persiste, audita y responde HTTP 200;
+- el segundo DELETE comienza después de confirmarse el primero;
+- la búsqueda normal del handler ya no encuentra A;
+- el segundo DELETE responde HTTP 404 con el mensaje existente;
+- no se solicita un segundo saveSnapshot();
+- no se genera una segunda auditoría delete;
+- el estado final permanece vacío y no se produce error interno.
+
+La prueba unitaria también comprueba directamente el caso defensivo del
+dominio: intentar eliminar un elemento que ya no pertenece a la colección
+devuelve null y deja la colección intacta.
+
+---------------------------------------------------------------------
+51.13 VALIDACIÓN DEL PASO 2B
+---------------------------------------------------------------------
+
+[OK] node --check servidor/dominio/reportes.js.
+[OK] node --check servidor/servidor.js.
+[OK] prueba unitaria de dominio mediante pruebas/prueba_modulos.js.
+[OK] npm run test:reports.
+[OK] npm run test:persistence-concurrency.
+[OK] npm test completo, código de salida 0.
+[OK] git diff --check.
+
+---------------------------------------------------------------------
+51.14 COMMIT TÉCNICO DEL PASO 2B
+---------------------------------------------------------------------
+
+HASH COMPLETO: 16c3ded1b8425b70a6bb8d9c5a421a143c2324f2
+HASH CORTO: 16c3ded
+
+MENSAJE:
+
+refactor: extraer eliminacion de reportes
+
+ARCHIVOS:
+
+- servidor/dominio/reportes.js;
+- servidor/servidor.js;
+- pruebas/prueba_modulos.js;
+- pruebas/prueba_persistencia_concurrente.js.
+
+---------------------------------------------------------------------
+51.15 RETENCIÓN Y HALLAZGO PENDIENTE
+---------------------------------------------------------------------
+
+RETENCIÓN MODIFICADA: NO.
+
+HALLAZGO PENDIENTE — ATOMICIDAD LEGACY DE RETENCIÓN: PENDIENTE.
+
+La extracción de removeReport() no modifica ni corrige el flujo actual de
+retención. El hallazgo deberá reevaluarse antes de implementar o cerrar 2C,
+tal como quedó establecido en 51.9.
+
+---------------------------------------------------------------------
+51.16 ESTADO DEL BLOQUE
+---------------------------------------------------------------------
+
+PASO 2B CERRADO.
+BLOQUE 51 EN DESARROLLO.
+No se inició 2C, no se abrió el Bloque 52 y no se hizo push.
