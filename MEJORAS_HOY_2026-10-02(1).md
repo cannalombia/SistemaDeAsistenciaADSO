@@ -29,26 +29,27 @@ realizada antes de cerrar MySQL, seguridad, Git, empaquetado y
 documentación.
 
 ESTADO MÁS RECIENTE:
-funcionalmente completo dentro del alcance definido.
+desarrollo funcional y arquitectónico principal terminado. El proyecto se
+encuentra en cierre documental, preparación de sustentación y empaquetado final.
 
 CIERRE TÉCNICO ACTUAL:
 - prueba física QR/cámara con celular real: APROBADA;
-- MySQL definitivo: APROBADO Y CERRADO;
+- MySQL como fuente operacional: APROBADO Y CERRADO;
+- arquitectura actual: APTA PARA ENTREGA;
+- Reportes y Bloque 51: CERRADOS;
+- suite automatizada: VERDE;
+- defectos bloqueantes: NINGUNO;
 - Git y GitHub: CONFIGURADOS;
 - colaboración: CONFIGURADA;
-- GitHub Actions: último run publicado en ROJO por dependencia accidental
-  de dos pruebas respecto al .env local;
-- corrección del fallo de CI: IMPLEMENTADA Y VALIDADA LOCALMENTE EN COPIA
-  LIMPIA, todavía pendiente de commit/push según el último estado registrado;
-- ZIP final: PENDIENTE hasta confirmar CI verde;
-- tag final: PENDIENTE hasta aprobar el ZIP.
+- GitHub Actions / CI: CORREGIDA Y VALIDADA EN VERDE;
+- ZIP, tag y release: DIFERIDOS hasta terminar documentación, evidencia y
+  verificación final del paquete.
 
-PENDIENTES PARA EL CIERRE DEFINITIVO:
-- crear y publicar únicamente el commit de corrección de las dos pruebas;
-- confirmar la nueva ejecución de GitHub Actions en verde;
-- regenerar el ZIP final desde el último commit estable;
-- verificar el contenido e integridad del ZIP;
-- crear el tag final de versión sin publicarlo automáticamente.
+ETAPA ACTUAL:
+- consolidar documentación vigente sin borrar el historial;
+- preparar evidencia y material de sustentación;
+- verificar después el paquete final;
+- crear ZIP, tag o release únicamente cuando se autorice esa fase.
 
 
 ======================================================================
@@ -5437,3 +5438,51 @@ dos riesgos residuales conocidos, por sí solos, no obligan a abrir Bloque 52.
 
 BLOQUE 51 — ESTADO FINAL: CERRADO.
 No se abrió el Bloque 52 y no se hizo push.
+
+---------------------------------------------------------------------
+51.34 COMMIT DOCUMENTAL DE CIERRE DEL BLOQUE 51
+---------------------------------------------------------------------
+
+HASH COMPLETO: f366cf8f5d27dabab72b418baac3b8919716db7d
+HASH CORTO: f366cf8
+FECHA Y HORA GIT: 2026-10-04 00:14:16 -0500
+MENSAJE: docs: cerrar bloque 51 de arquitectura de reportes
+
+Esta anotación se realizó después del commit al que identifica y queda sin un
+commit adicional para evitar una cadena documental autorreferencial infinita.
+
+=====================================================================
+CONSOLIDACIÓN DOCUMENTAL DEL CIERRE TÉCNICO GENERAL
+=====================================================================
+
+FECHA: 2026-10-04.
+
+La auditoría técnica general concluyó:
+
+- funcionalidad principal: COMPLETA;
+- arquitectura: APTA PARA ENTREGA;
+- defectos bloqueantes: NINGUNO;
+- decisión: B — CIERRE TÉCNICO;
+- desarrollo funcional y arquitectónico principal: TERMINADO;
+- etapa actual: cierre documental, evidencia y sustentación;
+- ZIP, tag y release: todavía NO iniciados.
+
+DOCUMENTOS CONSOLIDADOS:
+
+- este historial principal actualiza únicamente su resumen vigente y conserva
+  los estados antiguos dentro de sus bloques cronológicos;
+- documentacion/arquitectura/2026-08-22_arquitectura_actual.md refleja Node.js
+  más MySQL, el monolito modular por capas, la evolución gradual hacia Puertos y
+  Adaptadores, la cola de mutaciones, snapshots previous/next, rollback MySQL,
+  dominio final de Reportes y recuperación administrativa OTP en la aplicación.
+
+RIESGOS RESIDUALES CONSERVADOS:
+
+1. rollback de memoria legacy no garantizado si falla persistReports();
+2. GET puede observar temporalmente estado provisional;
+3. Resend permanece en modo de prueba;
+4. los respaldos contienen datos personales y requieren custodia.
+
+Estos riesgos no se presentan como defectos bloqueantes. No se modificaron
+código, frontend, rutas, pruebas, PDF, MySQL, migraciones ni package.json. No se
+abrió el Bloque 52, no se creó ZIP/tag/release y no se hizo push.
