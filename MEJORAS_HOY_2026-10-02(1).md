@@ -5099,3 +5099,177 @@ El Bloque 52 NO se abre todavía.
 PASO 2C CERRADO.
 BLOQUE 51 EN DESARROLLO.
 No se abrió el Bloque 52 y no se hizo push.
+
+---------------------------------------------------------------------
+51.24 EVIDENCIA CRONOLÓGICA DE LOS COMMITS 2C
+---------------------------------------------------------------------
+
+1. COMMIT TÉCNICO
+
+HASH COMPLETO: 369c0e0a6ea7778ceae76001f5c9c9ea3651ffcc
+FECHA Y HORA GIT: 2026-10-03 14:01:11 -0500
+MENSAJE: refactor: extraer retencion segura de reportes
+
+2. COMMIT DOCUMENTAL
+
+HASH COMPLETO: f2d2e3ffe3a629ae0b74f555f006dc854b0b22f5
+FECHA Y HORA GIT: 2026-10-03 14:02:10 -0500
+MENSAJE: docs: registrar paso 2C de reportes
+
+Los dos commits quedan registrados en su orden cronológico real y uno debajo
+del otro. No se reorganizó ni reemplazó contenido histórico anterior.
+
+---------------------------------------------------------------------
+51.25 PASO 3 — CONSTRUCCIÓN DEL SNAPSHOT DE REPORTES
+---------------------------------------------------------------------
+
+Se extrajo en servidor/dominio/reportes.js:
+
+buildReportSnapshot(statistics, { id, createdAt, createdBy })
+
+CONTRATO:
+
+- conserva todos los campos del payload estadístico, incluido ok;
+- incorpora id, createdAt y createdBy ya resueltos;
+- establece status: "active";
+- devuelve un objeto raíz nuevo;
+- conserva las referencias anidadas existentes, igual que la expresión
+  superficial anterior;
+- no modifica el objeto statistics recibido.
+
+El builder no calcula estadísticas, no genera UUID ni fecha, no conoce sesión,
+HTTP, persistencia, auditoría, PDF, MySQL, repositorio, retención ni cola de
+mutaciones.
+
+En servidor/servidor.js se sustituyó únicamente la construcción inline del
+reporte. El orden del flujo permanece:
+
+requireStaff()
+→ readJsonBody()
+→ validar fechas
+→ statisticsPayload()
+→ validar distribución
+→ retención Paso 2C
+→ buildReportSnapshot()
+→ reports.push()
+→ persistReports()
+→ retention_delete
+→ create
+→ HTTP 201
+
+---------------------------------------------------------------------
+51.26 VERIFICACIÓN DE statisticsPayload()
+---------------------------------------------------------------------
+
+CACHÉ: NO EXISTE.
+MEMOIZACIÓN POR FECHAS O FILTROS: NO EXISTE.
+PAYLOAD ALMACENADO Y REUTILIZADO: NO EXISTE.
+OBJETO RAÍZ NUEVO POR LLAMADA: CONFIRMADO.
+REFERENCIAS MUTABLES COMPARTIDAS ENTRE SOLICITUDES: NO EXISTEN.
+MUTACIÓN POSTERIOR AL CÁLCULO ANTES DE PERSISTIR: NO EXISTE.
+
+La comprobación siguió cada estructura mutable del payload:
+
+- resolveDashboardRange() genera un arreglo periods nuevo;
+- attendanceFichas() genera Map, objetos y arreglo nuevos;
+- statusSummary() genera counts, percentages y objeto raíz nuevos;
+- filter(), map(), Array.from(), los literales y nextSessions() generan las
+  colecciones y objetos correspondientes por llamada;
+- GET /api/statistics y POST /api/reports invocan statisticsPayload() por
+  separado y no reciben la misma instancia;
+- después de obtener payload, el POST solo valida distribution.total, ejecuta
+  el preflight de retención y lo entrega al builder antes de persistir.
+
+statisticsPayload() NO fue modificado. No se agregó structuredClone(), copia
+JSON, Object.freeze() ni clon profundo.
+
+---------------------------------------------------------------------
+51.27 SEMÁNTICA DEL SNAPSHOT HISTÓRICO
+---------------------------------------------------------------------
+
+El reporte es un snapshot histórico porque conserva y persiste el payload
+estadístico calculado en el momento de creación. Esto no significa que el
+objeto JavaScript esté deep-frozen.
+
+Se preservó exactamente la semántica superficial anterior: el snapshot tiene
+raíz propia y mantiene las referencias anidadas del payload durante la misma
+solicitud. No se introdujo una nueva garantía de inmutabilidad.
+
+---------------------------------------------------------------------
+51.28 PRUEBAS DEL PASO 3
+---------------------------------------------------------------------
+
+PRUEBA UNITARIA:
+
+- conserva id, createdAt y createdBy exactos;
+- establece status inicial active;
+- conserva todos los campos del payload amplio real, incluido ok;
+- no modifica statistics;
+- devuelve una raíz distinta;
+- conserva deliberadamente las referencias anidadas;
+- recibe identidad, fecha y autor ya resueltos y no depende de sesión.
+
+PRUEBAS DE INTEGRACIÓN Y REGRESIÓN:
+
+[OK] POST /api/reports conserva HTTP 201 y metadatos.
+[OK] El snapshot persistido conserva forma, ok e identidad.
+[OK] Listado, detalle y PDF permanecen sin cambios.
+[OK] Los archivados siguen descargables.
+[OK] El histórico no cambia después de modificar asistencia.
+[OK] La frontera de retención conserva HTTP 409 sin mutación.
+[OK] El orden persistReports → retention_delete → create permanece.
+[OK] La concurrencia MySQL sigue serializada.
+[OK] El rollback MySQL sigue funcionando.
+
+VALIDACIONES EJECUTADAS:
+
+[OK] node --check servidor/dominio/reportes.js.
+[OK] node --check servidor/servidor.js.
+[OK] node --check pruebas/prueba_modulos.js.
+[OK] node --check pruebas/prueba_reportes.js.
+[OK] node --check pruebas/prueba_persistencia_concurrente.js.
+[OK] prueba unitaria mediante node pruebas/prueba_modulos.js.
+[OK] npm run test:reports.
+[OK] npm run test:persistence-concurrency.
+[OK] npm test completo, código de salida 0.
+[OK] git diff --check.
+
+---------------------------------------------------------------------
+51.29 COMMIT TÉCNICO DEL PASO 3
+---------------------------------------------------------------------
+
+HASH COMPLETO: d48e85319cee23f0e66c7f424bb49d98160bc5bf
+HASH CORTO: d48e853
+FECHA Y HORA GIT: 2026-10-03 23:59:37 -0500
+MENSAJE: refactor: extraer construccion de snapshot de reportes
+
+ARCHIVOS:
+
+- servidor/dominio/reportes.js;
+- servidor/servidor.js;
+- pruebas/prueba_modulos.js;
+- pruebas/prueba_reportes.js.
+
+---------------------------------------------------------------------
+51.30 RIESGOS RESIDUALES NO RESUELTOS
+---------------------------------------------------------------------
+
+1. LEGACY:
+   si persistReports() falla después de mutar memoria, el rollback de memoria
+   no está garantizado.
+
+2. GET CONCURRENTE:
+   una lectura puede observar temporalmente estado provisional antes de que
+   una mutación MySQL quede confirmada.
+
+Paso 3 no modificó ni declaró resueltos estos riesgos. La posible caché de
+statisticsPayload() no se registra como riesgo porque la verificación confirmó
+que no existe.
+
+---------------------------------------------------------------------
+51.31 ESTADO DEL PASO Y DEL BLOQUE
+---------------------------------------------------------------------
+
+PASO 3 CERRADO.
+BLOQUE 51 LISTO PARA AUDITORÍA DE CIERRE.
+No se abrió el Bloque 52 y no se hizo push.
