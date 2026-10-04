@@ -4694,6 +4694,13 @@ ARCHIVOS:
 - servidor/servidor.js;
 - pruebas/prueba_modulos.js.
 
+COMMIT DOCUMENTAL:
+
+HASH COMPLETO: f5209833be3bd38422849354518e8de971a047d5
+HASH CORTO: f520983
+FECHA Y HORA GIT: 2026-10-03 09:16:17 -0500
+MENSAJE: docs: registrar paso 1 de arquitectura de reportes
+
 RESULTADO:
 
 PASO 1 CERRADO. BLOQUE 51 EN DESARROLLO.
@@ -4788,6 +4795,13 @@ ARCHIVOS:
 - servidor/dominio/reportes.js;
 - servidor/servidor.js;
 - pruebas/prueba_modulos.js.
+
+COMMIT DOCUMENTAL:
+
+HASH COMPLETO: a6d25ed332e460e7ac4942171e99df9890a775fb
+HASH CORTO: a6d25ed
+FECHA Y HORA GIT: 2026-10-03 13:35:39 -0500
+MENSAJE: docs: registrar paso 2A y hallazgo de retencion
 
 ---------------------------------------------------------------------
 51.9 HALLAZGO PENDIENTE — ATOMICIDAD LEGACY DE RETENCIÓN
@@ -4913,6 +4927,13 @@ ARCHIVOS:
 - servidor/servidor.js;
 - pruebas/prueba_modulos.js;
 - pruebas/prueba_persistencia_concurrente.js.
+
+COMMIT DOCUMENTAL:
+
+HASH COMPLETO: a064e05bad9938670c7e4174a65bbb7d9224ea85
+HASH CORTO: a064e05
+FECHA Y HORA GIT: 2026-10-03 13:42:52 -0500
+MENSAJE: docs: registrar paso 2B de reportes
 
 ---------------------------------------------------------------------
 51.15 RETENCIÓN Y HALLAZGO PENDIENTE
@@ -5272,4 +5293,147 @@ que no existe.
 
 PASO 3 CERRADO.
 BLOQUE 51 LISTO PARA AUDITORÍA DE CIERRE.
+No se abrió el Bloque 52 y no se hizo push.
+
+---------------------------------------------------------------------
+51.32 EVIDENCIA CRONOLÓGICA DE LOS COMMITS DEL PASO 3
+---------------------------------------------------------------------
+
+1. COMMIT TÉCNICO
+
+HASH COMPLETO: d48e85319cee23f0e66c7f424bb49d98160bc5bf
+HASH CORTO: d48e853
+FECHA Y HORA GIT: 2026-10-03 23:59:37 -0500
+MENSAJE: refactor: extraer construccion de snapshot de reportes
+
+2. COMMIT DOCUMENTAL
+
+HASH COMPLETO: 88c5ede36a0c8e33ec05e447610e2a8607163d0b
+HASH CORTO: 88c5ede
+FECHA Y HORA GIT: 2026-10-04 00:00:59 -0500
+MENSAJE: docs: registrar paso 3 de arquitectura de reportes
+
+Los dos commits quedan registrados con sus fechas y horas reales de Git. La
+fecha cambia entre ambos porque se crearon a ambos lados de la medianoche en
+America/Bogota (UTC-05:00).
+
+=====================================================================
+51.33 FIN DEL BLOQUE 51 — ARQUITECTURA BACKEND DE REPORTES CERRADA
+=====================================================================
+
+FECHA Y HORA DE CIERRE: 2026-10-04 00:08:51 -0500
+
+ESTADO: CERRADO.
+
+OBJETIVO ALCANZADO:
+
+Reportes dispone de un dominio explícito y cohesivo. Las reglas de estado,
+metadatos, transiciones, archivado, restauración, eliminación, retención y
+construcción del snapshot dejaron de estar implementadas inline en el
+coordinador HTTP. Estadísticas no fue duplicada: Reportes consume el payload
+calculado por statisticsPayload(). No se introdujeron microservicios, capas de
+repositorio nuevas ni infraestructura innecesaria.
+
+PASOS CERRADOS:
+
+- Paso 1: reportStatus(), reportMetadata() y validateReportTransition().
+- Paso 2A: archiveReport() y restoreReport().
+- Paso 2B: removeReport().
+- Paso 2C: pruneOldestArchivedReports(), con preflight completo y orden de
+  efectos persistReports() → retention_delete → create → HTTP 201.
+- Paso 3: buildReportSnapshot(), conservando el payload estadístico completo,
+  incluido ok, y agregando identidad, fecha, autor y estado inicial.
+
+FUNCIONES FINALES DEL DOMINIO:
+
+- buildReportSnapshot(): crea una raíz nueva sin mutar statistics; no realiza
+  I/O.
+- reportStatus(): normaliza el estado visible; no muta.
+- reportMetadata(): proyecta metadatos; no muta.
+- validateReportTransition(): valida archive/restore; no muta.
+- archiveReport(): muta el reporte recibido a archived.
+- restoreReport(): muta el reporte recibido a active y retira metadatos de
+  archivo.
+- removeReport(): muta la colección únicamente cuando contiene el reporte y
+  devuelve null o { before, removed }.
+- pruneOldestArchivedReports(): realiza preflight, selecciona archivados por
+  archivedAt || createdAt y muta la colección solo si la poda completa es
+  factible.
+
+Ninguna función del dominio conoce request, response, estados HTTP, sesión,
+persistReports(), audit(), PDF, MySQL, repository ni la cola global.
+
+ARQUITECTURA RESULTANTE:
+
+- servidor.js coordina autenticación, autorización, HTTP, lectura del body,
+  cálculo estadístico, UUID/fecha/autor, llamadas al dominio, persistencia,
+  auditoría y respuesta;
+- dominio/reportes.js concentra las reglas cohesivas de Reportes;
+- Reportes consume Estadísticas y no la reimplementa;
+- el flujo histórico permanece statisticsPayload() → buildReportSnapshot() →
+  reports → persistencia → detalle/PDF;
+- el PDF recibe el snapshot persistido y no recalcula estadísticas.
+
+CONTRATOS CONSERVADOS:
+
+- HTTP, rutas, forma de persistencia, listado, detalle y PDF sin cambios;
+- snapshot estable después de modificar asistencia y después de reiniciar;
+- archivados descargables;
+- 409 de retención sin mutaciones parciales;
+- solo archivados se eliminan automáticamente, del más antiguo al más nuevo;
+- una sola persistencia para poda más creación;
+- mutaciones MySQL serializadas, snapshots desacoplados, rollback global y
+  continuidad de la cola conservados.
+
+REGRESIÓN FINAL:
+
+[OK] node --check servidor/dominio/reportes.js.
+[OK] node --check servidor/servidor.js.
+[OK] node --check pruebas/prueba_modulos.js.
+[OK] node --check pruebas/prueba_reportes.js.
+[OK] node --check pruebas/prueba_persistencia_concurrente.js.
+[OK] node pruebas/prueba_modulos.js.
+[OK] npm run test:reports.
+[OK] npm run test:persistence-concurrency.
+[OK] npm test completo, código de salida 0.
+[OK] git diff --check.
+
+COMMITS PRINCIPALES:
+
+La cadena técnica y documental de los Pasos 1, 2A, 2B, 2C y 3 fue comprobada
+contra Git. Cada hash aparece en su sección cronológica correspondiente; los
+commits de 2C y 3 conservan además sus apartados de evidencia conjunta. No se
+añadieron duplicados durante esta auditoría al completar la cadena.
+
+RIESGOS RESIDUALES CONOCIDOS:
+
+1. MEMORIA LEGACY:
+   si persistReports() falla después de mutar reports, el archivo puede
+   conservar el estado previo mientras la memoria conserva estado provisional.
+   El rollback local de memoria no está garantizado y no se declara atomicidad
+   completa entre memoria, disco y auditoría.
+
+2. GET PROVISIONAL:
+   GET continúa fuera de la cola. Una lectura puede observar temporalmente
+   estado provisional mientras una mutación MySQL espera commit o rollback.
+
+DELIBERADAMENTE NO RESUELTO:
+
+- no se añadió rollback legacy general;
+- no se serializaron lecturas GET;
+- no se añadió deep clone, Object.freeze() ni caché;
+- no se modificaron Estadísticas, PDF, frontend, rutas, MySQL, migraciones,
+  repositorio, formato de persistencia ni cola global;
+- no se abrió el Bloque 52.
+
+statisticsPayload() no cachea ni memoiza, produce una raíz nueva por llamada y
+no comparte referencias mutables entre solicitudes. Por tanto, su posible
+caché no se registra como riesgo residual.
+
+REGLA DE REAPERTURA:
+
+El Bloque 51 no debe reabrirse sin evidencia técnica nueva y reproducible. Los
+dos riesgos residuales conocidos, por sí solos, no obligan a abrir Bloque 52.
+
+BLOQUE 51 — ESTADO FINAL: CERRADO.
 No se abrió el Bloque 52 y no se hizo push.
