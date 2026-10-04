@@ -13,7 +13,7 @@ const { createEmailService } = require("./modulos/correo");
 const { normalizeProgramText: normalizedProgramText, canonicalProgramStatus, displayProgramLevel, validateProgramInput } = require("./dominio/programas");
 const { canonicalRole, canonicalUserStatus, csvValue, registryRowFromUser } = require("./dominio/usuarios");
 const { localDate, dateKey, addDays, rateFor, statusSummary, resolveDashboardRange } = require("./dominio/estadisticas");
-const { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport, pruneOldestArchivedReports } = require("./dominio/reportes");
+const { buildReportSnapshot, reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport, pruneOldestArchivedReports } = require("./dominio/reportes");
 const { createReportPdf } = require("./modulos/reporte_pdf");
 const { readSqlFile, parseUsersSql, createDump } = require("./modulos/sqlfile");
 const { createBackup, readBackupFile } = require("./modulos/respaldo");
@@ -2524,7 +2524,7 @@ function createProjectServer(options = {}) {
         if (!payload.distribution.total) return sendJson(response, 400, { ok: false, message: "No hay asistencia guardada en este rango. Registra la asistencia o selecciona otras fechas." });
         const removals = pruneOldestArchivedReports(reports, reportsRetentionLimit);
         if (removals === null) return sendJson(response, 409, { ok: false, message: `Se alcanzó el límite de ${reportsRetentionLimit} informes activos. Archiva o elimina uno antes de generar otro.` });
-        const report = { ...payload, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: session.user.name || session.user.username, status: "active" };
+        const report = buildReportSnapshot(payload, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: session.user.name || session.user.username });
         reports.push(report);
         persistReports();
         if (removals.length) {

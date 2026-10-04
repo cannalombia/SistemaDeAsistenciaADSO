@@ -176,6 +176,13 @@ async function main() {
         assert.equal((await request("/api/reports", filters, "")).status, 403);
         const created = await request("/api/reports", filters); assert.equal(created.status, 201);
         const { report } = await created.json();
+        const createdDetail = await (await request(`/api/reports/${report.id}`)).json();
+        assert.equal(createdDetail.report.ok, true);
+        assert.equal(createdDetail.report.id, report.id);
+        assert.equal(createdDetail.report.createdAt, report.createdAt);
+        assert.equal(createdDetail.report.createdBy, report.createdBy);
+        assert.equal(createdDetail.report.status, "active");
+        for (const key of ["usuario", "filters", "summary", "generatedAt", "distribution", "students", "records", "timeline", "trend", "composition", "weeklyPerformance", "topFichas", "alerts", "nextSessions"]) assert.equal(Object.hasOwn(createdDetail.report, key), true, `Falta el campo persistido ${key}`);
         const pdfResponse = await request(`/api/reports/${report.id}/pdf`); assert.equal(pdfResponse.status, 200); assert.equal(pdfResponse.headers.get("content-type"), "application/pdf");
         const bytes = Buffer.from(await pdfResponse.arrayBuffer()); assert.equal(bytes.subarray(0, 5).toString(), "%PDF-");
         const pdf = await PDFDocument.load(bytes); assert(pdf.getPageCount() >= 3);

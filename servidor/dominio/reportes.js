@@ -1,5 +1,9 @@
 "use strict";
 
+function buildReportSnapshot(statistics, { id, createdAt, createdBy }) {
+    return { ...statistics, id, createdAt, createdBy, status: "active" };
+}
+
 function reportStatus(report) {
     return report.status === "archived" ? "archived" : "active";
 }
@@ -63,4 +67,4 @@ function pruneOldestArchivedReports(reports, limit) {
     return removals;
 }
 
-module.exports = { reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport, pruneOldestArchivedReports };
+module.exports = { buildReportSnapshot, reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport, pruneOldestArchivedReports };

@@ -28,6 +28,7 @@ const {
 const { canonicalRole, canonicalUserStatus } = require("../servidor/dominio/usuarios");
 const { rateFor, statusSummary, resolveDashboardRange } = require("../servidor/dominio/estadisticas");
 const {
+    buildReportSnapshot,
     reportStatus,
     reportMetadata,
     validateReportTransition,
@@ -93,6 +94,44 @@ assert.equal(rateFor(attendance), 50);
 assert.equal(statusSummary(attendance).percentages.ausente, 50);
 const rangeUrl = new URL("http://localhost/api/statistics?from=2026-08-20&to=2026-08-22");
 assert.equal(resolveDashboardRange(rangeUrl, attendance, new Date("2026-08-22T12:00:00")).fromText, "2026-08-20");
+
+const broadStatisticsPayload = {
+    ok: true,
+    usuario: { name: "Administradora", role: "Administrador" },
+    filters: { from: "2026-08-01", to: "2026-08-20", period: "custom", periods: [{ value: "2026-Q3" }], trendDays: 7, ficha: "3349882", jornada: "Mañana", fichas: [{ codigo: "3349882", programa: "Software" }] },
+    summary: { apprentices: 30, instructors: 1, fichas: 1, attendance: 75 },
+    generatedAt: "2026-08-20T11:59:59.000Z",
+    distribution: { total: 4, counts: { presente: 3, tardanza: 0, ausente: 1, justificado: 0 }, percentages: { presente: 75, tardanza: 0, ausente: 25, justificado: 0 }, attendance: 75 },
+    students: [{ identificacion: "100", nombre: "Aprendiz", ficha: "3349882", total: 4, attendance: 75 }],
+    records: [{ fecha: "2026-08-20", jornada: "Mañana", ficha: "3349882", identificacion: "100", estado: "presente" }],
+    timeline: [{ date: "2026-08-20", percentage: 75, total: 4 }],
+    trend: [{ date: "2026-08-20", percentage: 75, total: 4 }],
+    composition: [{ ficha: "3349882", programa: "Software", total: 4, attendance: 75 }],
+    weeklyPerformance: [{ journey: "Mañana", days: [{ day: "Lunes", percentage: 75, total: 4 }] }],
+    topFichas: [{ ficha: "3349882", programa: "Software", total: 4, attendance: 75 }],
+    alerts: [{ type: "info", title: "Estado actual" }],
+    nextSessions: [{ ficha: "3349882", programa: "Software", dia: "Lunes" }]
+};
+const broadStatisticsBefore = JSON.parse(JSON.stringify(broadStatisticsPayload));
+const snapshotIdentity = { id: "report-snapshot", createdAt: "2026-08-20T12:00:00.000Z", createdBy: "Administradora exacta" };
+const reportSnapshot = buildReportSnapshot(broadStatisticsPayload, snapshotIdentity);
+assert.notStrictEqual(reportSnapshot, broadStatisticsPayload);
+assert.equal(reportSnapshot.id, snapshotIdentity.id);
+assert.equal(reportSnapshot.createdAt, snapshotIdentity.createdAt);
+assert.equal(reportSnapshot.createdBy, snapshotIdentity.createdBy);
+assert.equal(reportSnapshot.status, "active");
+assert.equal(reportSnapshot.ok, true);
+for (const key of Object.keys(broadStatisticsPayload)) assert.equal(Object.hasOwn(reportSnapshot, key), true, `Falta el campo estadistico ${key}`);
+assert.strictEqual(reportSnapshot.filters, broadStatisticsPayload.filters);
+assert.strictEqual(reportSnapshot.records, broadStatisticsPayload.records);
+assert.deepEqual(broadStatisticsPayload, broadStatisticsBefore);
+assert.deepEqual(buildReportSnapshot({ ok: true }, { id: "id-resuelto", createdAt: "fecha-resuelta", createdBy: "autor-resuelto" }), {
+    ok: true,
+    id: "id-resuelto",
+    createdAt: "fecha-resuelta",
+    createdBy: "autor-resuelto",
+    status: "active"
+});
 
 const activeReport = {
     id: "report-active",
