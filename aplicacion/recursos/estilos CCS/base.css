@@ -36,8 +36,25 @@ body{
     margin-bottom:30px;
 }
 
-.logo img{
+.logo .sena-logo-video,
+.logo .sena-logo-fallback{
+    display:block;
     width:120px;
+    height:120px;
+    margin:0 auto;
+    object-fit:contain;
+}
+
+.logo .sena-logo-fallback{
+    display:none;
+}
+
+.logo.logo-video-error .sena-logo-video{
+    display:none;
+}
+
+.logo.logo-video-error .sena-logo-fallback{
+    display:block;
 }
 
 .menu{
@@ -199,6 +216,9 @@ body{
 
 @media(prefers-reduced-motion:reduce){
     .logout-svg,.logout-letter{animation:none}
+
+    .logo .sena-logo-video{display:none}
+    .logo .sena-logo-fallback{display:block}
 }
 
 .logout:active{

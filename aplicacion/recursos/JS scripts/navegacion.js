@@ -2,6 +2,35 @@
 (function () {
     "use strict";
 
+    const logoSena = `
+        <div class="logo">
+            <video class="sena-logo-video" autoplay loop muted playsinline preload="auto" poster="logo_sena.png" aria-label="Logo SENA animado">
+                <source src="video%20sena%20logo.mp4" type="video/mp4">
+                <img src="logo_sena.png" alt="Logo SENA">
+            </video>
+            <img class="sena-logo-fallback" src="logo_sena.png" alt="Logo SENA">
+        </div>`;
+
+    function configurarLogoAnimado(sidebar) {
+        const video = sidebar.querySelector(".sena-logo-video");
+        if (!video) return;
+
+        const mostrarFallback = () => video.closest(".logo")?.classList.add("logo-video-error");
+        video.addEventListener("error", mostrarFallback);
+        video.querySelector("source")?.addEventListener("error", mostrarFallback);
+
+        const movimientoReducido = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const sincronizarMovimiento = () => {
+            if (movimientoReducido.matches) {
+                video.pause();
+                return;
+            }
+            video.play().catch(() => {});
+        };
+        movimientoReducido.addEventListener("change", sincronizarMovimiento);
+        sincronizarMovimiento();
+    }
+
     function configurarMenuAdaptable(sidebar) {
         const main = document.querySelector(".main");
         const header = main?.querySelector(".header");
@@ -86,7 +115,7 @@
 
     if (document.body.classList.contains("apprentice-portal")) {
         sidebar.innerHTML = `
-            <div class="logo"><img src="logo_sena.png" alt="Logo SENA"></div>
+            ${logoSena}
             <div class="apprentice-identity">
                 <strong data-auth-name>Aprendiz</strong>
                 <small data-auth-email></small>
@@ -97,12 +126,13 @@
                 <li><button type="button" data-apprentice-section="profile"><i class="fas fa-user-pen" aria-hidden="true"></i>Actualizar datos</button></li>
             </ul>
             <button type="button" class="logout">Cerrar sesión</button>`;
+        configurarLogoAnimado(sidebar);
         configurarMenuAdaptable(sidebar);
         return;
     }
 
     sidebar.innerHTML = `
-        <div class="logo"><img src="logo_sena.png" alt="Logo SENA"></div>
+        ${logoSena}
         <ul class="menu">
             ${enlace("estadisticas.html", "fa-chart-line", "Estadísticas")}
             ${enlace("asistencia.html", "fa-calendar-check", "Asistencia")}
@@ -116,6 +146,7 @@
             <a href="ajustes.html"><i class="fas fa-cog" aria-hidden="true"></i>Configuración</a>
         </div>
         <button type="button" class="logout">Cerrar sesión</button>`;
+    configurarLogoAnimado(sidebar);
     const notificationButton = document.createElement("button");
     notificationButton.type = "button";
     notificationButton.className = "notification app-notification-button";

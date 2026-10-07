@@ -10,6 +10,7 @@ const root = path.join(projectRoot, "aplicacion", "paginas HTML");
 const scriptsRoot = path.join(projectRoot, "aplicacion", "recursos", "JS scripts");
 const stylesRoot = path.join(projectRoot, "aplicacion", "recursos", "estilos CCS");
 const imagesRoot = path.join(projectRoot, "aplicacion", "recursos", "imagenes");
+const videosRoot = path.join(projectRoot, "aplicacion", "recursos", "video");
 const serverFile = path.join(projectRoot, "servidor", "servidor.js");
 const emailModuleFile = path.join(projectRoot, "servidor", "modulos", "correo.js");
 const apiRoutesRoot = path.join(projectRoot, "servidor", "rutas");
@@ -27,7 +28,8 @@ function publicFile(file) {
         ".html": root,
         ".js": scriptsRoot,
         ".css": stylesRoot,
-        ".png": imagesRoot
+        ".png": imagesRoot,
+        ".mp4": videosRoot
     };
     const directory = directories[path.extname(file).toLowerCase()];
     return directory && path.basename(file) === file ? path.join(directory, file) : "";
@@ -180,6 +182,9 @@ check(!appSource.includes('loadData("programs")'), "usuarios.js: programas no de
 check(fs.readFileSync(serverFile, "utf8").includes("pendingCodeRequests") && fs.readFileSync(serverFile, "utf8").includes("emailService.enqueueVerificationCode"), "servidor.js: falta protección contra envíos duplicados o saturación del correo");
 check(fs.existsSync(emailModuleFile) && fs.readFileSync(emailModuleFile, "utf8").includes("deliveryTail"), "correo.js: falta la cola independiente de entrega");
 check(navigationSource.includes('className = "sidebar-overlay"'), "navegacion.js: falta cerrar el menú móvil desde el fondo");
+check(navigationSource.includes('class="sena-logo-video"'), "navegacion.js: falta el logo institucional animado");
+check(navigationSource.includes('poster="logo_sena.png"') && navigationSource.includes('class="sena-logo-fallback"'), "navegacion.js: falta el fallback estático del logo institucional");
+check(fs.existsSync(path.join(videosRoot, "video sena logo.mp4")), "Recursos: falta el video institucional del logo SENA");
 
 for (const [file, markers] of Object.entries(requiredFeatures)) {
     const html = fs.readFileSync(path.join(root, file), "utf8");
@@ -293,6 +298,10 @@ async function emailApiTest() {
         const adminData = await adminResponse.json();
         const adminCookie = adminResponse.headers.get("set-cookie")?.split(";")[0] || "";
         check(adminResponse.status === 200 && adminData.user.role === "Administrador", "API contraseña: no autenticó al administrador");
+
+        const logoVideoResponse = await fetch(`${baseUrl}/video%20sena%20logo.mp4`, { method: "HEAD" });
+        check(logoVideoResponse.status === 200, `Video institucional: respuesta HTTP ${logoVideoResponse.status}`);
+        check(logoVideoResponse.headers.get("content-type") === "video/mp4", "Video institucional: MIME distinto de video/mp4");
         check((adminResponse.headers.get("set-cookie") || "").includes("HttpOnly"), "API contraseña: la sesión no usa cookie HttpOnly");
 
         const adminProfileResponse = await fetch(`${baseUrl}/api/auth/profile`, { headers: { Cookie: adminCookie } });

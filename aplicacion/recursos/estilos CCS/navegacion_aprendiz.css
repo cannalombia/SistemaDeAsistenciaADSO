@@ -140,7 +140,17 @@ body.dark-mode .program-details p{border-color:#324650;color:#d3dde1}
     border-bottom:1px solid rgba(255,255,255,.12);
 }
 
-.sidebar .logo img{
+.sidebar .logo .sena-logo-video{
+    -webkit-mask-image:radial-gradient(ellipse closest-side at center,black 65%,rgba(0,0,0,.95) 75%,transparent 100%);
+    mask-image:radial-gradient(ellipse closest-side at center,black 65%,rgba(0,0,0,.95) 75%,transparent 100%);
+    -webkit-mask-repeat:no-repeat;
+    mask-repeat:no-repeat;
+    -webkit-mask-size:100% 100%;
+    mask-size:100% 100%;
+}
+
+.sidebar .logo .sena-logo-video,
+.sidebar .logo .sena-logo-fallback{
     filter:drop-shadow(0 8px 14px rgba(0,0,0,.20));
 }
 
@@ -345,7 +355,11 @@ body.dark-mode .app-menu-toggle{
         padding-bottom:10px;
     }
 
-    .settings-page .sidebar .logo img{width:80px}
+    .settings-page .sidebar .logo .sena-logo-video,
+    .settings-page .sidebar .logo .sena-logo-fallback{
+        width:80px;
+        height:80px;
+    }
     .settings-page .menu{min-height:0}
     .settings-page .menu li{margin-bottom:5px}
     .settings-page .menu a,
