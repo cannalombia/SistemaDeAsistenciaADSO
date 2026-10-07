@@ -5486,3 +5486,766 @@ RIESGOS RESIDUALES CONSERVADOS:
 Estos riesgos no se presentan como defectos bloqueantes. No se modificaron
 código, frontend, rutas, pruebas, PDF, MySQL, migraciones ni package.json. No se
 abrió el Bloque 52, no se creó ZIP/tag/release y no se hizo push.
+
+---------------------------------------------------------------------
+COMMIT DOCUMENTAL DE CONSOLIDACIÓN
+---------------------------------------------------------------------
+
+HASH COMPLETO: 84e5003e39d0388a262c8e2c8eb126754e15ece4
+HASH CORTO: 84e5003
+FECHA Y HORA GIT: 2026-10-04 00:32:42 -0500
+MENSAJE: docs: consolidar cierre tecnico y arquitectura actual
+
+RESUMEN:
+
+- se corrigió el resumen vigente del historial principal sin borrar estados
+  históricos;
+- se actualizó la arquitectura real de Node.js + MySQL, capas, cola,
+  snapshots, rollback, Reportes y recuperación OTP;
+- se conservaron los cuatro riesgos residuales y su carácter no bloqueante.
+
+Esta anotación identifica el commit que la precede y queda sin otro commit para
+evitar una cadena documental autorreferencial.
+
+---------------------------------------------------------------------
+51.35 CERTIFICACIÓN FINAL DEL PASO 2C — EVIDENCIA RECUPERADA
+---------------------------------------------------------------------
+
+FECHA DE VERIFICACIÓN: 2026-10-04.
+
+FRONTERA 409 — TRES ELIMINACIONES REQUERIDAS Y DOS ARCHIVADOS:
+
+- fixture observado: seis reportes, límite cuatro, dos archivados y cuatro
+  activos;
+- required: 3;
+- archived disponibles: 2;
+- resultado de pruneOldestArchivedReports(): null;
+- invocaciones de pruneOldestArchivedReports(): 1;
+- invocaciones directas de removeReport(): 0;
+- colección en memoria: sin cambios;
+- HTTP observado por la prueba de integración existente: 409;
+- persistencias observadas: 0;
+- auditorías retention_delete: 0;
+- auditorías create: 0.
+
+La invocación directa se midió con cobertura precisa del runtime de Node.js
+sobre la función léxica removeReport(). No se modificó el contrato productivo,
+el algoritmo de retención, el código fuente ni se añadieron dependencias.
+
+FALLO LEGACY DE persistReports():
+
+- ejecución aislada en un fixture bajo el directorio temporal del sistema;
+- archivos operativos reales tocados: 0;
+- intentos dirigidos de persistencia: 1;
+- fallo simulado: FALLO_LEGACY_SIMULADO;
+- HTTP observado: 500;
+- respuestas HTTP 201: 0;
+- auditorías retention_delete: 0;
+- auditorías create: 0;
+- archivo temporal persistido: conservó el estado anterior;
+- memoria legacy: conservó la poda y el reporte provisional.
+
+La última observación mantiene expresamente el riesgo legacy ya documentado:
+no existe rollback local E ni atomicidad completa memoria/disco/auditoría. No
+se declara resuelto y no se cambió el diseño.
+
+REGRESIÓN REPETIDA DESPUÉS DE RECUPERAR LA EVIDENCIA:
+
+[OK] node --check servidor/dominio/reportes.js — código de salida 0.
+[OK] node --check servidor/servidor.js — código de salida 0.
+[OK] node --check pruebas/prueba_modulos.js — código de salida 0.
+[OK] node --check pruebas/prueba_reportes.js — código de salida 0.
+[OK] node --check pruebas/prueba_persistencia_concurrente.js — código de
+salida 0.
+[OK] node pruebas/prueba_modulos.js — código de salida 0.
+[OK] npm run test:reports — código de salida 0.
+[OK] npm run test:persistence-concurrency — código de salida 0.
+[OK] npm test completo — código de salida 0.
+
+DECISIÓN:
+
+PASO 2C — CERTIFICADO.
+
+Esta certificación registra evidencia reproducible y no altera reglas de
+negocio, diseño productivo, código, pruebas ni historial Git. Queda en disco
+sin commit.
+
+---------------------------------------------------------------------
+51.36 CIERRE DE EVIDENCIA PERMANENTE DEL PASO 2C
+---------------------------------------------------------------------
+
+FECHA Y HORA DE VERIFICACIÓN: 2026-10-04 21:39:21 -0500.
+
+La revisión formal posterior detectó que las dos verificaciones críticas
+registradas en 51.35 habían sido ejecutadas mediante scripts efímeros y no
+formaban parte permanente de la suite. Esa carencia documental y reproducible
+queda cerrada mediante pruebas incorporadas en:
+
+- pruebas/prueba_reportes.js.
+
+PRUEBA PERMANENTE DE FRONTERA 409:
+
+- escenario: seis reportes, límite cuatro, tres eliminaciones requeridas, dos
+  reportes archived y cuatro reportes active;
+- la cobertura precisa de Node.js se activa antes del primer require() de
+  servidor.js y servidor/dominio/reportes.js;
+- pruneOldestArchivedReports() llamadas: 1;
+- removeReport() llamadas: 0, observado directamente por cobertura de función;
+- HTTP: 409;
+- colección: intacta;
+- persistReports(): 0;
+- auditorías retention_delete: 0;
+- auditorías create: 0;
+- resultado: APROBADO.
+
+No se cambió la exportación de removeReport(), su enlace léxico interno, el
+algoritmo B+D ni ningún archivo productivo. La instrumentación pertenece
+exclusivamente a la prueba.
+
+PRUEBA PERMANENTE DE FALLO LEGACY:
+
+- almacenamiento: fixture y directorio temporal sena-retention-*;
+- almacenamiento operativo utilizado: NO;
+- escenario: retención factible, poda aplicada y nuevo reporte provisional
+  agregado antes de persistir;
+- fallo forzado: FALLO_LEGACY_SIMULADO durante renameSync dirigido únicamente
+  al archivo temporal de reportes;
+- HTTP: 500;
+- HTTP 201: 0;
+- auditorías retention_delete: 0;
+- auditorías create: 0;
+- disco: conserva el estado anterior;
+- memoria: conserva la poda y el nuevo reporte provisional;
+- resultado: APROBADO.
+
+La prueba confirma el riesgo legacy conocido. No se implementó rollback E y
+no se modificó el comportamiento actual.
+
+REGRESIÓN POSTERIOR A LA INCORPORACIÓN PERMANENTE:
+
+[OK] node --check pruebas/prueba_modulos.js — código de salida 0.
+[OK] node --check pruebas/prueba_reportes.js — código de salida 0.
+[OK] node pruebas/prueba_reportes.js, ejecución aislada inicial — código de
+salida 0.
+[OK] node pruebas/prueba_modulos.js — código de salida 0.
+[OK] npm run test:reports — código de salida 0.
+[OK] npm run test:persistence-concurrency — código de salida 0.
+[OK] npm test completo — código de salida 0.
+
+RESULTADO:
+
+- las dos evidencias forman parte permanente de la suite;
+- archivos productivos modificados: NINGUNO;
+- riesgo legacy: CONSERVADO;
+- Paso 2C: LISTO PARA REVALIDACIÓN FORMAL;
+- Bloque 51: NO se declara cerrado en esta sección.
+
+=====================================================================
+51.37 AUDITORÍA COMPLETA DE CIERRE FORMAL DEL BLOQUE 51
+ARQUITECTURA BACKEND DE REPORTES
+=====================================================================
+
+FECHA Y HORA DE REVALIDACIÓN: 2026-10-06 16:19:24 -0500.
+
+ALCANCE Y RESTRICCIONES DE PROCESO
+
+Esta auditoría revalida exclusivamente el cierre del Bloque 51 sobre el código
+presente en disco. No abre trabajo funcional o arquitectónico posterior.
+
+- Tecnología confirmada para Blue Magic V5: Node.js.
+- git add ejecutado: NO.
+- git commit ejecutado: NO.
+- git push ejecutado: NO.
+- Bloque 52 abierto: NO.
+- funcionalidad nueva: NO.
+- refactor nuevo: NO.
+- archivos productivos modificados por esta auditoría: NINGUNO.
+- modificación realizada: únicamente esta entrega documental.
+
+FUENTES PRIMARIAS REVISADAS
+
+1. servidor/dominio/reportes.js, líneas 1 a 70.
+2. servidor/servidor.js, líneas 2500 a 2575: colección, persistencia y handlers
+   de Reportes.
+3. servidor/servidor.js, líneas 2801 a 2896: cola de mutaciones, snapshots,
+   commit MySQL, rollback y liberación de la respuesta.
+4. pruebas/prueba_modulos.js: contratos unitarios del dominio.
+5. pruebas/prueba_reportes.js: integración, snapshot histórico, PDF, ciclo de
+   vida, retención, frontera 409 y fallo legacy.
+6. pruebas/prueba_persistencia_concurrente.js: serialización, commit, rollback,
+   eliminación y retención concurrentes.
+7. historial cronológico y commits ya registrados en las secciones anteriores
+   de este documento.
+
+=====================================================================
+51.37.1 RESULTADO INDIVIDUAL DE CADA PASO
+=====================================================================
+
+PASO 1 — ESTADO, METADATOS Y TRANSICIONES
+
+Funciones auditadas:
+
+- reportStatus(report);
+- reportMetadata(report);
+- validateReportTransition(report, action).
+
+Comprobaciones:
+
+1. reportStatus() concentra la normalización active/archived.
+2. reportMetadata() genera la proyección pública de un reporte y obtiene el
+   estado mediante reportStatus(); no replica su regla.
+3. validateReportTransition() admite únicamente archive y restore, calcula el
+   estado esperado y devuelve razones semánticas estables:
+   invalid_action, already_archived y not_archived.
+4. Los códigos HTTP 400 y 409 y sus mensajes permanecen en servidor.js.
+5. Ninguna de las tres funciones conoce request, response, sesión,
+   persistencia, MySQL, auditoría ni sistema de archivos.
+
+Evidencia:
+
+- definición única de las tres funciones en servidor/dominio/reportes.js;
+- usos de coordinación en servidor.js sin implementación equivalente inline;
+- pruebas unitarias y de integración aprobadas.
+
+RESULTADO INDIVIDUAL DEL PASO 1: REVALIDADO Y APROBADO.
+
+PASO 2A — ARCHIVADO Y RESTAURACIÓN
+
+Funciones auditadas:
+
+- archiveReport(report, identity);
+- restoreReport(report).
+
+Comprobaciones:
+
+1. archiveReport() modifica exclusivamente status, archivedAt y archivedBy del
+   reporte recibido.
+2. restoreReport() establece status active y elimina archivedAt y archivedBy.
+3. La validación de la transición ocurre antes de aplicar la mutación.
+4. La identidad, fecha, autorización, persistencia, auditoría y respuesta HTTP
+   son responsabilidad de servidor.js, no del dominio.
+5. Archivado y restauración conservan los contratos HTTP y de auditoría.
+
+Evidencia:
+
+- PATCH ejecuta validateReportTransition() antes de archiveReport() o
+  restoreReport();
+- persistReports() ocurre después de la mutación;
+- audit() recibe before y la metadata posterior;
+- prueba de Reportes verifica archivado, restauración, permisos y auditoría.
+
+RESULTADO INDIVIDUAL DEL PASO 2A: REVALIDADO Y APROBADO.
+
+PASO 2B — ELIMINACIÓN
+
+Función auditada:
+
+- removeReport(reports, report).
+
+Comprobaciones:
+
+1. Busca pertenencia por identidad de objeto mediante indexOf().
+2. Si el reporte no pertenece a la colección, devuelve null y no muta.
+3. Si pertenece, captura before mediante reportMetadata(), elimina exactamente
+   una posición con splice() y devuelve { before, removed }.
+4. No persiste, no audita y no construye una respuesta HTTP.
+5. La confirmación explícita body.confirm === true continúa en servidor.js.
+
+Evidencia:
+
+- DELETE valida confirmación antes de llamar removeReport();
+- persistReports(), audit delete y HTTP 200 ocurren después de una eliminación
+  válida;
+- pruebas de Reportes y concurrencia cubren eliminación confirmada, ausencia,
+  eliminaciones diferentes y doble eliminación del mismo reporte.
+
+RESULTADO INDIVIDUAL DEL PASO 2B: REVALIDADO Y APROBADO.
+
+PASO 2C — RETENCIÓN SEGURA B + D
+
+Función auditada:
+
+- pruneOldestArchivedReports(reports, limit).
+
+Comprobaciones:
+
+1. Calcula required antes de mutar:
+   Math.max(0, reports.length - limit + 1).
+2. Selecciona únicamente reportes cuyo estado normalizado es archived.
+3. Ordena por archivedAt || createdAt, del más antiguo al más reciente.
+4. Limita la selección a la cantidad exacta required.
+5. Si candidates.length < required, devuelve null antes de cualquier splice().
+6. Si la poda completa es factible, elimina cada candidato mediante
+   removeReport() y devuelve los recibos de eliminación.
+7. El handler convierte null en HTTP 409 antes de crear o persistir un reporte.
+8. En el camino exitoso, poda y creación se incluyen en una sola llamada a
+   persistReports(); retention_delete y create se auditan después.
+
+EVIDENCIA PERMANENTE — FRONTERA 409:
+
+- colección inicial: seis reportes;
+- límite: cuatro;
+- eliminaciones requeridas: tres;
+- reportes archived disponibles: dos;
+- reportes active: cuatro;
+- llamadas a pruneOldestArchivedReports(): 1;
+- llamadas a removeReport(): 0, comprobadas mediante cobertura precisa del
+  runtime iniciada antes de cargar servidor.js y dominio/reportes.js;
+- HTTP observado: 409;
+- colección y archivo: intactos;
+- llamadas a persistReports(): 0;
+- auditorías retention_delete: 0;
+- auditorías create: 0;
+- resultado: APROBADO.
+
+EVIDENCIA PERMANENTE — FALLO LEGACY:
+
+- fixture aislado en directorio temporal sena-retention-*;
+- datos operativos reales utilizados: NO;
+- preflight: factible;
+- poda y reporte nuevo: aplicados provisionalmente en memoria;
+- fallo dirigido de persistReports(): FALLO_LEGACY_SIMULADO;
+- intentos de persistencia: 1;
+- HTTP observado: 500;
+- HTTP 201 observado: 0;
+- auditorías retention_delete: 0;
+- auditorías create: 0;
+- disco temporal: conserva el estado anterior;
+- memoria legacy: conserva la poda y el reporte provisional;
+- resultado: APROBADO como reproducción permanente de la limitación conocida,
+  no como afirmación de rollback legacy.
+
+RESULTADO INDIVIDUAL DEL PASO 2C: REVALIDADO, CERTIFICADO Y APROBADO.
+
+PASO 3 — CONSTRUCCIÓN DEL SNAPSHOT
+
+Función auditada:
+
+- buildReportSnapshot(statistics, identity).
+
+Comprobaciones:
+
+1. Devuelve una raíz nueva mediante spread de statistics.
+2. Conserva todo el payload estadístico, incluido ok.
+3. Agrega id, createdAt, createdBy y status active.
+4. No muta la raíz statistics recibida.
+5. No genera UUID, fecha ni autor; recibe esos valores desde servidor.js.
+6. No calcula estadísticas ni conoce retención, HTTP, sesión, persistencia,
+   auditoría, PDF o MySQL.
+7. Mantiene deliberadamente referencias anidadas; no se declara deep clone ni
+   deep immutability.
+8. statisticsPayload() produce estructuras nuevas por llamada y el payload del
+   POST no se modifica entre su cálculo y buildReportSnapshot().
+9. El PDF recibe el reporte persistido y no recalcula statisticsPayload().
+
+Evidencia:
+
+- pruebas unitarias comprueban raíz nueva, conservación del payload y ausencia
+  de mutación de la entrada;
+- integración comprueba que modificar asistencia después de crear el reporte
+  no altera su snapshot histórico;
+- reinicio conserva el snapshot;
+- el PDF se genera desde el reporte encontrado en la colección persistida.
+
+RESULTADO INDIVIDUAL DEL PASO 3: REVALIDADO Y APROBADO.
+
+=====================================================================
+51.37.2 DOMINIO FINAL — MATRIZ DE LAS OCHO FUNCIONES
+=====================================================================
+
+Propiedades comunes confirmadas para las ocho funciones:
+
+- conocen HTTP, request, response o códigos HTTP: NO;
+- conocen sesión o autorización: NO;
+- conocen persistReports() o el formato de persistencia: NO;
+- conocen MySQL, repository o transacciones: NO;
+- conocen audit() o el formato de auditoría: NO;
+- realizan I/O de red, disco, base de datos o consola: NO.
+
+1. buildReportSnapshot(statistics, { id, createdAt, createdBy })
+
+- propósito: construir el snapshot inicial del reporte;
+- muta statistics: NO;
+- muta identity: NO;
+- salida: objeto raíz nuevo con el payload completo más identidad y status;
+- referencias anidadas: se conservan de forma deliberada;
+- realiza I/O: NO.
+
+2. reportStatus(report)
+
+- propósito: normalizar el estado visible;
+- muta report: NO;
+- salida: archived solo cuando report.status === "archived"; active en los
+  demás casos;
+- realiza I/O: NO.
+
+3. reportMetadata(report)
+
+- propósito: proyectar metadata pública para listado, respuestas y auditoría;
+- muta report: NO;
+- salida: objeto nuevo; también crea un objeto filters nuevo;
+- dependencias internas: reportStatus();
+- realiza I/O: NO.
+
+4. validateReportTransition(report, action)
+
+- propósito: validar semánticamente archive/restore;
+- muta report: NO;
+- muta action: NO;
+- salida: { ok: true } o { ok: false, reason };
+- dependencias internas: reportStatus();
+- realiza I/O: NO.
+
+5. archiveReport(report, { archivedAt, archivedBy })
+
+- propósito: aplicar la transición a archived;
+- muta report: SÍ;
+- campos mutados: status, archivedAt y archivedBy;
+- muta identity: NO;
+- salida contractual: undefined;
+- realiza I/O: NO.
+
+6. restoreReport(report)
+
+- propósito: aplicar la transición a active;
+- muta report: SÍ;
+- cambios: asigna status active y elimina archivedAt y archivedBy;
+- salida contractual: undefined;
+- realiza I/O: NO.
+
+7. removeReport(reports, report)
+
+- propósito: eliminar un reporte perteneciente a la colección;
+- muta reports: NO si el reporte no pertenece; SÍ si pertenece;
+- muta report: NO directamente;
+- salida: null o { before, removed };
+- dependencias internas: reportMetadata();
+- realiza I/O: NO.
+
+8. pruneOldestArchivedReports(reports, limit)
+
+- propósito: preflight y poda completa de archivados más antiguos;
+- muta reports: NO cuando la poda completa es infactible; SÍ cuando es
+  factible y required es mayor que cero;
+- muta limit: NO;
+- salida: null o arreglo de recibos de eliminación;
+- dependencias internas: reportStatus() y removeReport();
+- realiza I/O: NO.
+
+CONCLUSIÓN DE LA MATRIZ:
+
+El archivo servidor/dominio/reportes.js constituye un dominio sin dependencias
+de infraestructura. Las mutaciones que contiene son mutaciones explícitas de
+los datos de dominio recibidos, no efectos de I/O.
+
+=====================================================================
+51.37.3 AUDITORÍA DE DUPLICACIONES
+=====================================================================
+
+Búsquedas realizadas sobre servidor/**/*.js:
+
+1. Definiciones de las ocho funciones por nombre.
+2. Usos de las ocho funciones.
+3. Asignaciones y eliminaciones de status, archivedAt y archivedBy.
+4. reports.splice(), reports.push(), retention_delete y orden basado en
+   archivedAt || createdAt.
+
+Resultado observado:
+
+- cada una de las ocho funciones se define una sola vez;
+- todas las definiciones están en servidor/dominio/reportes.js;
+- servidor.js importa y llama las funciones, pero no reimplementa sus reglas;
+- la única eliminación reports.splice() está dentro de removeReport();
+- la única ordenación por archivedAt || createdAt está dentro de
+  pruneOldestArchivedReports();
+- las asignaciones de archivedAt/archivedBy y su eliminación están únicamente
+  dentro de archiveReport()/restoreReport();
+- reports.push(report) en servidor.js es coordinación de la colección después
+  de construir el snapshot, no una duplicación de buildReportSnapshot();
+- audit retention_delete, persistReports() y respuestas HTTP son efectos de
+  aplicación deliberadamente externos al dominio;
+- statisticsPayload() permanece como fuente única del cálculo estadístico y
+  Reportes consume su resultado sin duplicar fórmulas.
+
+CONFIRMACIÓN EXPLÍCITA:
+
+NO EXISTEN IMPLEMENTACIONES FUNCIONALES EQUIVALENTES DUPLICADAS DE LAS OCHO
+FUNCIONES EN servidor.js NI EN OTRO ARCHIVO DE servidor/.
+
+=====================================================================
+51.37.4 FLUJO REAL OBSERVADO DEL POST /api/reports
+=====================================================================
+
+FLUJO DENTRO DEL HANDLER, CONFIRMADO PASO A PASO:
+
+1. requireStaff(request, response): exige sesión de personal; si falla, el
+   flujo termina sin continuar.
+2. readJsonBody(request): lee el cuerpo JSON.
+3. localDate(body.from) y localDate(body.to): validan presencia y formato; si
+   fallan, se devuelve HTTP 400.
+4. Se construyen URLSearchParams con from, to, ficha, jornada y period custom.
+5. statisticsPayload(): calcula un payload estadístico nuevo para la solicitud.
+6. payload.distribution.total: si es cero, se devuelve HTTP 400 antes de
+   retención, construcción, mutación, persistencia o auditoría.
+7. pruneOldestArchivedReports(): ejecuta el preflight completo y, solo si es
+   factible, aplica la poda exacta.
+8. Si la función devuelve null, se responde HTTP 409 antes de
+   buildReportSnapshot(), reports.push(), persistReports() y audit().
+9. servidor.js genera crypto.randomUUID(), new Date().toISOString() y el autor
+   tomado de la sesión.
+10. buildReportSnapshot(payload, identity): construye el reporte inicial.
+11. reports.push(report): agrega el reporte a la colección en memoria.
+12. persistReports(): realiza una única persistencia que incluye tanto la poda
+    factible como el nuevo reporte.
+13. Si removals.length > 0, audit retention_delete registra los reportes
+    retirados después de persistReports().
+14. audit create registra el reporte nuevo después de persistReports().
+15. reportMetadata(report) genera la proyección pública.
+16. sendJson prepara HTTP 201 con el reporte creado.
+
+ORDEN REAL DEL CAMINO EXITOSO DEL HANDLER:
+
+requireStaff()
+→ readJsonBody()
+→ validación de fechas
+→ statisticsPayload()
+→ validación de distribución
+→ pruneOldestArchivedReports()
+→ buildReportSnapshot()
+→ reports.push()
+→ persistReports()
+→ audit retention_delete, si corresponde
+→ audit create
+→ HTTP 201 preparado
+
+ENVOLVENTE MYSQL PARA POST/PATCH/DELETE DE /api/:
+
+1. enqueuePersistedMutation() serializa la solicitud.
+2. cloneSnapshot(backupData()) captura previous.
+3. deferResponseUntilMysqlCommit() difiere la respuesta al cliente.
+4. handleHttpRequest() ejecuta el handler anterior.
+5. Si el handler produce un estado menor que 200 o mayor o igual que 400,
+   applyRestoredData(previous) restaura memoria y se libera esa respuesta.
+6. Si el handler produce éxito, cloneSnapshot(backupData()) captura next.
+7. repository.saveSnapshot(next) intenta confirmar la transacción MySQL.
+8. Si confirma, se libera al cliente el HTTP 201 preparado.
+9. Si falla, applyRestoredData(previous) restaura memoria y se devuelve HTTP
+   503; la cola queda disponible para la siguiente solicitud.
+
+CONCLUSIONES DEL FLUJO:
+
+- el 409 de retención infactible ocurre antes de cualquier mutación del flujo
+  de creación;
+- poda y creación usan una sola persistencia dentro del handler;
+- las auditorías ocurren después de persistReports();
+- en operación MySQL, la respuesta de éxito no llega al cliente antes del
+  commit de repository.saveSnapshot(next);
+- el PDF no participa en POST y se genera posteriormente desde el snapshot
+  persistido localizado por id.
+
+=====================================================================
+51.37.5 REGRESIÓN FORMAL EJECUTADA COMANDO POR COMANDO
+=====================================================================
+
+Fecha de ejecución: 2026-10-06.
+
+1. Comando: node --check servidor/dominio/reportes.js
+   Exit code: 0
+   Resultado: APROBADO.
+
+2. Comando: node --check servidor/servidor.js
+   Exit code: 0
+   Resultado: APROBADO.
+
+3. Comando: node --check pruebas/prueba_modulos.js
+   Exit code: 0
+   Resultado: APROBADO.
+
+4. Comando: node --check pruebas/prueba_reportes.js
+   Exit code: 0
+   Resultado: APROBADO.
+
+5. Comando: node --check pruebas/prueba_persistencia_concurrente.js
+   Exit code: 0
+   Resultado: APROBADO.
+
+6. Comando: node pruebas/prueba_modulos.js
+   Exit code: 0
+   Resultado: APROBADO.
+   Evidencia principal: lógica de usuarios, utilidades, dominio, correo, CSV y
+   compatibilidad de datos validados.
+
+7. Comando: npm run test:reports
+   Exit code: 0
+   Resultado: APROBADO.
+   Evidencia principal: frontera 409, fallo legacy reproducido, persistencia
+   única, orden de auditoría, QR, filtros, snapshot, reinicio, PDF, archivado,
+   restauración, eliminación, permisos, auditoría y retención.
+
+8. Comando: npm run test:persistence-concurrency
+   Exit code: 0
+   Resultado: APROBADO.
+   Evidencia principal: mutaciones serializadas, snapshots independientes,
+   eliminaciones concurrentes, retención concurrente, rollback y continuidad
+   de la cola.
+
+9. Comando: npm test
+   Exit code: 0
+   Resultado: APROBADO.
+   Alcance: suite completa declarada en package.json, incluidos módulos, HTTP,
+   recuperación administrativa, MySQL, cierre de asistencia, proyecto,
+   Reportes, concurrencia, URL pública, base principal, SQLFILE, respaldos,
+   formación, auditoría y escala.
+
+10. Comando: git diff --check
+    Exit code: 0
+    Resultado: APROBADO.
+    Observación: se emitieron únicamente advertencias CRLF/LF para base.css,
+    navegacion_aprendiz.css y prueba_reportes.js; no son errores del diff.
+
+Los mensajes FALLO_LEGACY_SIMULADO, FALLO_A_SIMULADO, FALLO_B_SIMULADO,
+FALLO_CONTROLADO y FALLO_RETENCION_SIMULADO observados durante las pruebas son
+fallos inyectados deliberadamente para comprobar los caminos de error. No
+representan fallos de la regresión; los procesos finalizaron con exit code 0.
+
+RESULTADO GLOBAL DE REGRESIÓN: APROBADO.
+
+=====================================================================
+51.37.6 DECISIÓN FORMAL — RESPUESTAS INDIVIDUALES A A J
+=====================================================================
+
+A. ¿El Paso 1 quedó revalidado?
+
+RESPUESTA: SÍ.
+JUSTIFICACIÓN: reportStatus(), reportMetadata() y validateReportTransition()
+tienen definición única en el dominio, no realizan I/O, no mutan sus entradas y
+conservan en servidor.js el mapeo HTTP y la coordinación.
+
+B. ¿El Paso 2A quedó revalidado?
+
+RESPUESTA: SÍ.
+JUSTIFICACIÓN: archiveReport() y restoreReport() concentran únicamente las
+mutaciones de estado y metadata de archivo. Autorización, identidad,
+persistencia, auditoría y HTTP permanecen fuera del dominio y sus pruebas pasan.
+
+C. ¿El Paso 2B quedó revalidado?
+
+RESPUESTA: SÍ.
+JUSTIFICACIÓN: removeReport() comprueba pertenencia, no muta si no encuentra el
+reporte y, si lo encuentra, elimina exactamente uno y devuelve un recibo usado
+por persistencia y auditoría externas.
+
+D. ¿El Paso 2C quedó revalidado?
+
+RESPUESTA: SÍ.
+JUSTIFICACIÓN: el preflight impide poda parcial en el 409, selecciona solo
+archivados en orden oldest first y conserva el diseño B+D. Las evidencias
+permanentes de frontera y fallo legacy se ejecutaron con exit code 0.
+
+E. ¿El Paso 3 quedó revalidado?
+
+RESPUESTA: SÍ.
+JUSTIFICACIÓN: buildReportSnapshot() crea una raíz nueva, conserva el payload
+completo, agrega identidad y estado y no asume responsabilidades de generación
+de identidad, estadísticas, persistencia, auditoría, HTTP o PDF.
+
+F. ¿Queda evidencia exigida pendiente para cerrar el Bloque 51?
+
+RESPUESTA: NO.
+JUSTIFICACIÓN: existen pruebas permanentes para dominio, ciclo de vida,
+retención, frontera 409, fallo legacy, snapshot histórico, PDF y concurrencia;
+además, la regresión completa fue repetida en esta auditoría.
+
+G. ¿Se encontró un defecto nuevo bloqueante?
+
+RESPUESTA: NO.
+JUSTIFICACIÓN: las búsquedas estáticas, la inspección del flujo y todos los
+comandos de regresión terminaron sin un fallo no esperado. Las dos limitaciones
+conocidas permanecen documentadas y no se reclasifican como defectos nuevos.
+
+H. ¿El dominio de Reportes está separado de HTTP e infraestructura?
+
+RESPUESTA: SÍ.
+JUSTIFICACIÓN: las ocho funciones reciben datos ordinarios, solo devuelven o
+mutan datos de dominio y no importan ni llaman HTTP, sesión, persistencia,
+MySQL, auditoría, PDF, sistema de archivos o cola de mutaciones.
+
+I. ¿Se conservó el comportamiento externo compatible?
+
+RESPUESTA: SÍ.
+JUSTIFICACIÓN: rutas, permisos, códigos HTTP, mensajes, listado, detalle, PDF,
+persistencia, auditoría, snapshot histórico y política de retención están
+cubiertos por la prueba de integración y la suite completa aprobada.
+
+J. ¿La regresión completa está verde y permite el cierre formal?
+
+RESPUESTA: SÍ.
+JUSTIFICACIÓN: las cinco comprobaciones de sintaxis, las tres ejecuciones
+específicas, npm test completo y git diff --check terminaron con exit code 0.
+Por tanto, el Bloque 51 puede permanecer cerrado formalmente.
+
+=====================================================================
+51.37.7 LIMITACIONES CONOCIDAS
+=====================================================================
+
+1. MEMORIA LEGACY
+
+Si persistReports() falla después de aplicar mutaciones, el archivo puede
+conservar el estado anterior mientras la memoria conserva la poda y el reporte
+provisional. No existe rollback local E ni se declara atomicidad completa entre
+memoria, archivo y auditoría en modo legacy.
+
+Estado: limitación reproducida y conservada; no resuelta ni ocultada.
+
+2. GET PROVISIONAL DURANTE MUTACIÓN MYSQL
+
+Las lecturas GET permanecen fuera de la cola global. Una lectura puede observar
+temporalmente estado provisional mientras una mutación espera confirmación o
+rollback de repository.saveSnapshot().
+
+Estado: limitación conocida y aceptada; no modificada por el Bloque 51.
+
+Estas limitaciones no invalidan las garantías comprobadas del Bloque 51 y no
+obligan por sí solas a abrir un bloque nuevo.
+
+=====================================================================
+51.37.8 VERIFICACIONES CERRADAS
+=====================================================================
+
+- statisticsPayload() no utiliza caché.
+- statisticsPayload() no utiliza memoización por fechas o filtros.
+- statisticsPayload() devuelve una raíz nueva por llamada.
+- no se observaron referencias mutables compartidas entre solicitudes.
+- GET /api/statistics y POST /api/reports realizan invocaciones separadas.
+- el payload del POST no se muta después de calcularse y antes del snapshot.
+- buildReportSnapshot() conserva el campo ok y el payload completo.
+- no se declara deep clone ni deep immutability.
+- el snapshot histórico sobrevive cambios posteriores de asistencia.
+- el snapshot histórico sobrevive reinicio.
+- el PDF consume el reporte persistido y no recalcula estadísticas.
+- el 409 de retención infactible no ejecuta removeReport(), persistencia ni
+  auditorías.
+- la poda factible y la creación utilizan una sola persistencia.
+- retention_delete y create ocurren después de persistReports().
+- las mutaciones MySQL permanecen serializadas.
+- el rollback MySQL restaura previous y la cola continúa operativa.
+- no existen duplicaciones funcionales de las ocho reglas de dominio.
+- no se encontraron defectos nuevos bloqueantes.
+
+=====================================================================
+51.37.9 VEREDICTO Y DETENCIÓN
+=====================================================================
+
+RESULTADO DE LA AUDITORÍA: APROBADO.
+
+BLOQUE 51 — CERRADO FORMALMENTE.
+
+La entrega exigida de la auditoría de cierre queda completa con resultados
+individuales de los Pasos 1, 2A, 2B, 2C y 3; matriz de las ocho funciones;
+confirmación de duplicaciones; flujo POST real; regresión comando por comando;
+respuestas A a J; limitaciones y verificaciones cerradas.
+
+No se ejecutó git add, git commit ni git push. No se abrió el Bloque 52. No se
+añadió funcionalidad ni se realizó un refactor.
+
+DETENERSE.
