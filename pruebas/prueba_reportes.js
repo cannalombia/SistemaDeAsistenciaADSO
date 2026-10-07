@@ -1,8 +1,35 @@
 const assert = require("node:assert/strict");
 const fs = require("fs");
+const inspector = require("node:inspector");
 const path = require("path");
-const { createProjectServer } = require("../servidor/servidor");
 const { PDFDocument } = require("../servidor/vendor/pdf-lib.min.js");
+let createProjectServer;
+
+async function startDomainFunctionCoverage(functionNames) {
+    const session = new inspector.Session();
+    session.connect();
+    const post = (method, params = {}) => new Promise((resolve, reject) => {
+        session.post(method, params, (error, result) => error ? reject(error) : resolve(result));
+    });
+    await post("Profiler.enable");
+    await post("Profiler.startPreciseCoverage", { callCount: true, detailed: true });
+    return async function takeDomainFunctionCoverage() {
+        try {
+            const coverage = await post("Profiler.takePreciseCoverage");
+            const reportDomain = coverage.result.find(item => String(item.url).replace(/\\/g, "/").endsWith("/servidor/dominio/reportes.js"));
+            assert.ok(reportDomain, "No se encontró cobertura precisa de servidor/dominio/reportes.js.");
+            const calls = Object.fromEntries(functionNames.map((name) => {
+                const entry = reportDomain.functions.find(item => item.functionName === name);
+                assert.ok(entry, `No se encontró la función ${name} en la cobertura precisa.`);
+                return [name, entry.ranges[0].count];
+            }));
+            return calls;
+        } finally {
+            try { await post("Profiler.stopPreciseCoverage"); } catch (_) { /* sesión ya detenida */ }
+            session.disconnect();
+        }
+    };
+}
 
 function storedReport(id, status, createdAt, archivedAt) {
     return {
@@ -43,7 +70,7 @@ async function createRetentionFixture(reports, reportsRetentionLimit) {
     return { reportsFile, auditRecords, request, close };
 }
 
-async function testRetentionBoundaryAndOrder() {
+async function testRetentionBoundaryAndOrder(takeDomainFunctionCoverage) {
     const filters = { from: "2026-08-01", to: "2026-08-01", ficha: "3349882", jornada: "Mañana" };
     const blockedReports = [
         storedReport("archived-1", "archived", "2026-07-01T10:00:00.000Z", "2026-08-01T10:00:00.000Z"),
@@ -64,9 +91,12 @@ async function testRetentionBoundaryAndOrder() {
             return originalRename.call(fs, source, destination);
         };
         const response = await blocked.request("/api/reports", filters);
+        const calls = await takeDomainFunctionCoverage();
         const body = await response.json();
         assert.equal(response.status, 409);
         assert.equal(body.message, "Se alcanzó el límite de 4 informes activos. Archiva o elimina uno antes de generar otro.");
+        assert.equal(calls.pruneOldestArchivedReports, 1);
+        assert.equal(calls.removeReport, 0);
         assert.equal(blockedPersistCalls, 0);
         assert.deepEqual(await (await blocked.request("/api/reports")).json(), beforeList);
         assert.equal(fs.readFileSync(blocked.reportsFile, "utf8"), beforeFile);
@@ -103,11 +133,49 @@ async function testRetentionBoundaryAndOrder() {
         ordered.auditRecords.push = originalAuditPush;
         await ordered.close();
     }
+
+    const legacyFailure = await createRetentionFixture([
+        storedReport("archived-before-failure", "archived", "2026-07-01T10:00:00.000Z", "2026-08-01T10:00:00.000Z"),
+        storedReport("active-before-failure", "active", "2026-07-02T10:00:00.000Z")
+    ], 2);
+    const legacyBeforeFile = fs.readFileSync(legacyFailure.reportsFile, "utf8");
+    let legacyPersistCalls = 0;
+    let legacyResponse;
+    try {
+        fs.renameSync = function failLegacyReportPersistence(source, destination) {
+            if (path.resolve(String(destination)) === path.resolve(legacyFailure.reportsFile)) {
+                legacyPersistCalls += 1;
+                throw Object.assign(new Error("FALLO_LEGACY_SIMULADO"), { code: "EIO" });
+            }
+            return originalRename.call(fs, source, destination);
+        };
+        legacyResponse = await legacyFailure.request("/api/reports", filters);
+    } finally {
+        fs.renameSync = originalRename;
+    }
+    try {
+        const legacyHistory = await (await legacyFailure.request("/api/reports")).json();
+        const reportAudits = legacyFailure.auditRecords.filter(item => item.entity === "reporte" && ["retention_delete", "create"].includes(item.action));
+        assert.equal(legacyPersistCalls, 1);
+        assert.equal(legacyResponse.status, 500);
+        assert.notEqual(legacyResponse.status, 201);
+        assert.deepEqual(reportAudits, []);
+        assert.equal(fs.readFileSync(legacyFailure.reportsFile, "utf8"), legacyBeforeFile);
+        assert.equal(legacyHistory.reports.length, 2);
+        assert.equal(legacyHistory.reports.some(item => item.id === "archived-before-failure"), false);
+        assert.equal(legacyHistory.reports.some(item => item.id === "active-before-failure"), true);
+        assert.equal(legacyHistory.reports.some(item => !["archived-before-failure", "active-before-failure"].includes(item.id)), true);
+    } finally {
+        await legacyFailure.close();
+    }
+    console.log("OK: frontera 3/2 con pruneOldestArchivedReports=1 y removeReport=0; fallo legacy temporal con HTTP 500, disco intacto, cero auditorías y memoria provisional.");
     console.log("OK: preflight sin mutación, persistencia única y orden persistReports → retention_delete → create validados.");
 }
 
 async function main() {
-    await testRetentionBoundaryAndOrder();
+    const takeDomainFunctionCoverage = await startDomainFunctionCoverage(["pruneOldestArchivedReports", "removeReport"]);
+    ({ createProjectServer } = require("../servidor/servidor"));
+    await testRetentionBoundaryAndOrder(takeDomainFunctionCoverage);
     const directory = fs.mkdtempSync(path.join(require("os").tmpdir(), "sena-reports-"));
     const reportsFile = path.join(directory, "reports.json");
     const apprentices = Array.from({ length: 36 }, (_, i) => ({ id: `test-${i}`, document: String(123456780 + i), name: i === 0 ? "María José Muñoz Rodríguez con nombre largo de prueba" : `Aprendiz de prueba ${i}`, email: `test${i}@example.com`, role: "Aprendiz", status: "Activo", program: { ficha: i < 35 ? "3349882" : "3349883", name: "Desarrollo de software", schedule: "Mañana" }, attendance: [] }));
