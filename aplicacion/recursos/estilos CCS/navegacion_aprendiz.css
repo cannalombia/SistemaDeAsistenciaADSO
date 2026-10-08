@@ -346,32 +346,6 @@ body.dark-mode .app-menu-toggle{
         width:270px;
         height:100dvh;
         min-height:100vh;
-        padding:10px 16px;
-    }
-
-    .settings-page .sidebar .logo{
-        flex:0 0 auto;
-        margin-bottom:10px;
-        padding-bottom:10px;
-    }
-
-    .settings-page .sidebar .logo .sena-logo-video,
-    .settings-page .sidebar .logo .sena-logo-fallback{
-        width:80px;
-        height:80px;
-    }
-    .settings-page .menu{min-height:0}
-    .settings-page .menu li{margin-bottom:5px}
-    .settings-page .menu a,
-    .settings-page .settings a{
-        min-height:42px;
-        padding:9px 14px;
-    }
-
-    .settings-page .logout{
-        flex:0 0 auto;
-        min-height:50px;
-        margin-top:10px;
     }
 
     .settings-page .settings-main{
