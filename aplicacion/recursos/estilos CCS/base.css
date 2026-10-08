@@ -45,6 +45,15 @@ body{
     object-fit:contain;
 }
 
+.logo .sena-logo-video{
+    opacity:0;
+    transition:opacity 160ms ease;
+}
+
+.logo .sena-logo-video.is-ready{
+    opacity:1;
+}
+
 .logo .sena-logo-fallback{
     display:none;
 }
@@ -216,9 +225,7 @@ body{
 
 @media(prefers-reduced-motion:reduce){
     .logout-svg,.logout-letter{animation:none}
-
-    .logo .sena-logo-video{display:none}
-    .logo .sena-logo-fallback{display:block}
+    .logo .sena-logo-video{transition:none}
 }
 
 .logout:active{

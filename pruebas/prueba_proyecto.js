@@ -95,6 +95,7 @@ const appSource = ["aplicacion.js", "asistencia.js", "estadisticas.js", "program
     .join("\n");
 const authSource = fs.readFileSync(path.join(scriptsRoot, "autenticacion.js"), "utf8");
 const navigationSource = fs.readFileSync(path.join(scriptsRoot, "navegacion.js"), "utf8");
+const baseStyles = fs.readFileSync(path.join(stylesRoot, "base.css"), "utf8");
 const crudSource = fs.readFileSync(path.join(scriptsRoot, "usuarios.js"), "utf8");
 const operationalApprentices = path.join(projectRoot, "datos", "aprendices.json");
 const sampleApprentices = path.join(projectRoot, "datos", "ejemplos", "aprendices.ejemplo.json");
@@ -183,7 +184,11 @@ check(fs.readFileSync(serverFile, "utf8").includes("pendingCodeRequests") && fs.
 check(fs.existsSync(emailModuleFile) && fs.readFileSync(emailModuleFile, "utf8").includes("deliveryTail"), "correo.js: falta la cola independiente de entrega");
 check(navigationSource.includes('className = "sidebar-overlay"'), "navegacion.js: falta cerrar el menú móvil desde el fondo");
 check(navigationSource.includes('class="sena-logo-video"'), "navegacion.js: falta el logo institucional animado");
-check(navigationSource.includes('poster="logo_sena.png"') && navigationSource.includes('class="sena-logo-fallback"'), "navegacion.js: falta el fallback estático del logo institucional");
+check(!navigationSource.includes('poster="logo_sena.png"'), "navegacion.js: el PNG no debe mostrarse como poster antes del video");
+check(navigationSource.includes('class="sena-logo-fallback"') && navigationSource.includes('classList.add("logo-video-error")'), "navegacion.js: falta el fallback estático ante un error real del video");
+check(navigationSource.includes('preload="auto"') && navigationSource.includes("loadeddata") && navigationSource.includes('classList.add("is-ready")'), "navegacion.js: el video debe revelarse únicamente cuando tenga un frame disponible");
+check(/\.logo \.sena-logo-video\s*\{[^}]*opacity:0;[^}]*transition:opacity 160ms ease;/s.test(baseStyles), "base.css: falta ocultar y revelar suavemente el video durante la carga");
+check(/\.logo \.sena-logo-video\.is-ready\s*\{[^}]*opacity:1;/s.test(baseStyles), "base.css: falta el estado visible del logo animado");
 check(fs.existsSync(path.join(videosRoot, "video sena logo.mp4")), "Recursos: falta el video institucional del logo SENA");
 
 for (const [file, markers] of Object.entries(requiredFeatures)) {

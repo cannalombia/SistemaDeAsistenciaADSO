@@ -4,9 +4,8 @@
 
     const logoSena = `
         <div class="logo">
-            <video class="sena-logo-video" autoplay loop muted playsinline preload="auto" poster="logo_sena.png" aria-label="Logo SENA animado">
+            <video class="sena-logo-video" autoplay loop muted playsinline preload="auto" aria-label="Logo SENA animado">
                 <source src="video%20sena%20logo.mp4" type="video/mp4">
-                <img src="logo_sena.png" alt="Logo SENA">
             </video>
             <img class="sena-logo-fallback" src="logo_sena.png" alt="Logo SENA">
         </div>`;
@@ -15,17 +14,37 @@
         const video = sidebar.querySelector(".sena-logo-video");
         if (!video) return;
 
-        const mostrarFallback = () => video.closest(".logo")?.classList.add("logo-video-error");
+        const logo = video.closest(".logo");
+        const mostrarVideo = () => {
+            if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && !logo?.classList.contains("logo-video-error")) {
+                video.classList.add("is-ready");
+            }
+        };
+        const mostrarFallback = () => {
+            video.classList.remove("is-ready");
+            logo?.classList.add("logo-video-error");
+        };
+
+        if (!video.canPlayType("video/mp4")) {
+            mostrarFallback();
+            return;
+        }
+
+        ["loadeddata", "canplay", "playing"].forEach((evento) => {
+            video.addEventListener(evento, mostrarVideo, { once:true });
+        });
         video.addEventListener("error", mostrarFallback);
         video.querySelector("source")?.addEventListener("error", mostrarFallback);
+        mostrarVideo();
 
         const movimientoReducido = window.matchMedia("(prefers-reduced-motion: reduce)");
         const sincronizarMovimiento = () => {
             if (movimientoReducido.matches) {
                 video.pause();
+                mostrarVideo();
                 return;
             }
-            video.play().catch(() => {});
+            video.play().then(mostrarVideo).catch(() => {});
         };
         movimientoReducido.addEventListener("change", sincronizarMovimiento);
         sincronizarMovimiento();
