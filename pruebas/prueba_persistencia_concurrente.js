@@ -404,6 +404,37 @@ async function mysqlRollbackRestoresRetentionMutation() {
     }
 }
 
+async function qrGenerationDoesNotWaitForMysqlSnapshot() {
+    const fixture = await createFixture([], {
+        apprentices: [{
+            id: "qr-student",
+            document: "100200300",
+            name: "Aprendiz QR",
+            email: "qr@example.com",
+            role: "Aprendiz",
+            status: "Activo",
+            program: { ficha: "3349882", name: "Software", schedule: "Mañana" },
+            attendance: []
+        }]
+    });
+    try {
+        const responsePromise = fixture.request("/api/attendance/qr", { ficha: "3349882", jornada: "Mañana" }, "POST");
+        await delay(75);
+        if (fixture.repository.calls.length) fixture.repository.resolve(0);
+        const response = await responsePromise;
+        const body = await response.json();
+
+        assert.equal(response.status, 201);
+        assert.equal(fixture.repository.calls.length, 0, "La generación temporal del QR intentó guardar un snapshot en MySQL.");
+        assert.match(body.image, /^data:image\/png;base64,/);
+        assert.match(body.url, /[?&]token=[a-f0-9]{64}$/);
+        assert(body.remainingMs > 0 && body.remainingMs <= 60000);
+        return { status: response.status, mysqlSnapshots: fixture.repository.calls.length, remainingMs: body.remainingMs };
+    } finally {
+        await fixture.close();
+    }
+}
+
 async function main() {
     const case1 = await caseAConfirmsBFails();
     const case2 = await caseAFailsBConfirms();
@@ -412,8 +443,9 @@ async function main() {
     const sameDelete = await concurrentDeletesOfSameReport();
     const concurrentRetention = await concurrentReportCreationsApplyRetentionInOrder();
     const retentionRollback = await mysqlRollbackRestoresRetentionMutation();
-    console.log("OK: mutaciones serializadas, snapshots independientes, DELETE concurrente, retención concurrente y rollback MySQL seguros.");
-    console.log(JSON.stringify({ case1, case2, recovery, differentDeletes, sameDelete, concurrentRetention, retentionRollback, mysqlOperationalUsed: false, realFilesWritten: false }));
+    const qrGeneration = await qrGenerationDoesNotWaitForMysqlSnapshot();
+    console.log("OK: mutaciones serializadas, snapshots independientes, DELETE concurrente, retención concurrente, rollback MySQL y QR temporal seguros.");
+    console.log(JSON.stringify({ case1, case2, recovery, differentDeletes, sameDelete, concurrentRetention, retentionRollback, qrGeneration, mysqlOperationalUsed: false, realFilesWritten: false }));
 }
 
 main().catch(error => {

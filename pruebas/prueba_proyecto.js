@@ -94,6 +94,7 @@ const appSource = ["aplicacion.js", "asistencia.js", "estadisticas.js", "program
     .map((file) => fs.readFileSync(path.join(scriptsRoot, file), "utf8"))
     .join("\n");
 const authSource = fs.readFileSync(path.join(scriptsRoot, "autenticacion.js"), "utf8");
+const attendanceQrSource = fs.readFileSync(path.join(scriptsRoot, "asistencia_qr.js"), "utf8");
 const navigationSource = fs.readFileSync(path.join(scriptsRoot, "navegacion.js"), "utf8");
 const baseStyles = fs.readFileSync(path.join(stylesRoot, "base.css"), "utf8");
 const crudSource = fs.readFileSync(path.join(scriptsRoot, "usuarios.js"), "utf8");
@@ -111,6 +112,9 @@ check(authSource.includes('window.location.replace(destinationFor(serverUser, re
 check(authSource.includes('window.location.replace(destinationFor(result.user, requestedDestination()))'), "auth.js: el código verificado debe dirigir según el rol del usuario");
 check(authSource.includes('const LOCAL_APP_ORIGIN = "http://localhost:3000"'), "auth.js: falta asegurar el servidor local correcto");
 check(authSource.includes('[404, 405].includes(response.status)'), "auth.js: falta detectar servidores que rechazan la API");
+check(attendanceQrSource.includes("new AbortController()"), "asistencia_qr.js: falta limitar la espera de la API");
+check(attendanceQrSource.includes("El servidor tardó demasiado en responder."), "asistencia_qr.js: falta informar el timeout del QR");
+check(attendanceQrSource.includes("Reintentando en 5 segundos"), "asistencia_qr.js: falta la recuperación controlada del QR");
 if (usesOperationalData) {
     const activeApprentices = csvUsers.filter((item) => item.rol === "aprendiz" && item.estado === "activo");
     check(apprenticeData.length === activeApprentices.length, "Datos: los perfiles de aprendices no coinciden con el directorio activo");

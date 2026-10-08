@@ -2828,9 +2828,12 @@ function createProjectServer(options = {}) {
 
     const server = http.createServer(async (request, response) => {
         // Las lecturas permanecen concurrentes y pueden observar temporalmente una mutación aún no confirmada.
+        const requestPath = new URL(request.url || "/", "http://localhost").pathname;
+        const isEphemeralQrGeneration = request.method === "POST" && requestPath === "/api/attendance/qr";
         const persistedMutation = repository
             && ["POST", "PATCH", "DELETE"].includes(request.method)
-            && String(request.url || "").startsWith("/api/");
+            && requestPath.startsWith("/api/")
+            && !isEphemeralQrGeneration;
         if (!persistedMutation) return handleHttpRequest(request, response);
         return enqueuePersistedMutation(async () => {
             const previous = cloneSnapshot(backupData());

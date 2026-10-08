@@ -1,10 +1,20 @@
 (() => {
     "use strict";
+    const API_TIMEOUT_MS = 12000;
     async function api(url, body) {
-        const response = await fetch(url, { method: body ? "POST" : "GET", credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || "No se pudo completar la solicitud.");
-        return data;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+        try {
+            const response = await fetch(url, { method: body ? "POST" : "GET", credentials: "same-origin", headers: { "Content-Type": "application/json" }, signal: controller.signal, ...(body ? { body: JSON.stringify(body) } : {}) });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "No se pudo completar la solicitud.");
+            return data;
+        } catch (error) {
+            if (error.name === "AbortError") throw new Error("El servidor tardó demasiado en responder.");
+            throw error;
+        } finally {
+            clearTimeout(timeout);
+        }
     }
     const result = document.getElementById("qr-result");
     if (result) {
@@ -57,6 +67,7 @@
             tick();
         } catch (error) {
             if (current === version && modal.open) {
+                console.error("No fue posible generar el QR de asistencia:", error);
                 status.textContent = `${error.message} Reintentando en 5 segundos…`;
                 timer = setTimeout(generate, 5000);
             }
@@ -80,7 +91,10 @@
             if (!fichas.length) { status.textContent = "No hay fichas con aprendices activos."; return; }
             selectJourney();
             generate();
-        } catch (error) { status.textContent = error.message; }
+        } catch (error) {
+            console.error("No fue posible cargar las fichas para el QR:", error);
+            status.textContent = error.message;
+        }
     });
     ficha.addEventListener("change", () => { selectJourney(); generate(); });
     jornada.addEventListener("change", generate);
