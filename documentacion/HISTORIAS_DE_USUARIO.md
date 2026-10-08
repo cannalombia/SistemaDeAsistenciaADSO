@@ -93,13 +93,14 @@ para disponer de una interfaz coherente, reconocible y accesible.
 - El logo animado aparece en el menú lateral de gestión y en el portal del aprendiz.
 - El video se reproduce automáticamente, en silencio, en bucle y sin controles.
 - El logo conserva un tamaño estable y no altera la posición del menú lateral.
+- Durante la carga normal se conserva el fondo azul del sidebar y el video aparece solo cuando existe un frame disponible.
 - Si el MP4 falla, se muestra el PNG institucional como fallback.
-- Si el usuario prefiere movimiento reducido, se oculta el video y se muestra el fallback estático.
+- Si el usuario prefiere movimiento reducido, se pausa el video disponible sin sustituirlo por el PNG.
 - El servidor entrega el recurso con estado HTTP 200 y tipo `video/mp4`.
 
 **IMPLEMENTACIÓN:**
 
-La navegación compartida construye un elemento `video` con poster y fallback PNG, controla errores de carga y respeta `prefers-reduced-motion`. Los estilos mantienen las dimensiones del logo en escritorio y ajustes, y el servidor publica archivos MP4 desde un directorio dedicado con el MIME correspondiente.
+La navegación compartida construye un elemento `video` sin poster, con `preload="auto"` y un fallback PNG oculto. El video conserva su espacio de 120 × 120 píxeles con opacidad cero y se revela en 160 ms al recibir `loadeddata`, `canplay` o `playing`. El PNG solo se activa si el navegador no admite MP4 o el recurso emite un error real. `prefers-reduced-motion` pausa el frame disponible sin mostrar el fallback. El servidor publica el mismo MP4 desde una URL estable para permitir la caché normal del navegador.
 
 **ARCHIVOS RELACIONADOS:**
 
@@ -117,15 +118,18 @@ La navegación compartida construye un elemento `video` con poster y fallback PN
 - `node --check servidor/configuracion/rutas.js` — aprobada el 2026-10-07.
 - `node --check servidor/servidor.js` — aprobada el 2026-10-07.
 - `node --check pruebas/prueba_proyecto.js` — aprobada el 2026-10-07.
-- `node pruebas/prueba_proyecto.js` — aprobada el 2026-10-07; comprobó estructura, fallback, existencia, HTTP 200 y MIME `video/mp4`.
+- `node pruebas/prueba_proyecto.js` — aprobada el 2026-10-07; comprobó ausencia de poster, revelado por estado listo, fallback de error, existencia, HTTP 200 y MIME `video/mp4`.
 - `npm test` — suite completa aprobada el 2026-10-07.
+- Validación visual en 1366 × 768, 1100 × 800, 768 × 800 y 390 × 844 — aprobada el 2026-10-07; ocho módulos navegados repetidamente, autoplay y loop activos, dimensiones estables, sin PNG transitorio, scroll horizontal ni errores de consola.
 
 **COMMITS RELACIONADOS:**
 
 - `0e94a3e` — feat(ui): integra identidad institucional animada
+- `59b126a` — fix(ui): unifica escala visual de configuracion
+- `99b34d1` — Eliminar #002 - fix(ui): flash del PNG antes del logo animado
 
 **ÚLTIMA ACTUALIZACIÓN:** 2026-10-07
 
 **OBSERVACIONES:**
 
-La validación automatizada comprueba estructura, fallback, existencia del recurso, respuesta HTTP y MIME. La reproducción visual en navegadores y dispositivos reales no se declara validada hasta realizar una prueba manual específica.
+La corrección elimina el PNG usado como poster durante la carga normal. La validación visual confirmó fondo azul → video en Estadísticas, Asistencia, Crear usuario, Programa de formación, Fichas, Horario, Ambientes y Configuración. El fallback estático permanece reservado para errores reales de reproducción.
