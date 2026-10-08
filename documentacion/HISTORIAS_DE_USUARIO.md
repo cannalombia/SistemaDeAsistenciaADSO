@@ -133,3 +133,64 @@ La navegación compartida construye un elemento `video` sin poster, con `preload
 **OBSERVACIONES:**
 
 La corrección elimina el PNG usado como poster durante la carga normal. La validación visual confirmó fondo azul → video en Estadísticas, Asistencia, Crear usuario, Programa de formación, Fichas, Horario, Ambientes y Configuración. El fallback estático permanece reservado para errores reales de reproducción.
+
+---
+
+## HU-003 — Generación y renovación confiable del QR de asistencia
+
+**ID:** HU-003
+
+**TÍTULO:** Generación y renovación confiable del QR de asistencia
+
+**HISTORIA:**
+
+Como Administrador o Instructor
+quiero generar y renovar automáticamente el QR de una ficha
+para que los aprendices registren su asistencia con un token vigente.
+
+**ROL:** Administrador / Instructor
+
+**ESTADO:** Validada
+
+**PRIORIDAD:** Alta
+
+**CRITERIOS DE ACEPTACIÓN:**
+
+- `POST /api/attendance/qr` responde 201 con imagen PNG, URL pública, expiración y tiempo restante.
+- La generación temporal del QR no espera ni ejecuta un snapshot completo de MySQL.
+- El token contiene 64 caracteres hexadecimales, vence en 60 segundos y se reemplaza en cada renovación.
+- El modal mantiene una sola imagen, renueva automáticamente y genera un token nuevo al cerrarlo y abrirlo de nuevo.
+- Si la API tarda más de 12 segundos, la interfaz informa el error y reintenta de forma controlada.
+- El registro por QR conserva las validaciones de rol, ficha, expiración, duplicado y token revocado.
+
+**IMPLEMENTACIÓN:**
+
+`servidor/servidor.js` clasifica la creación del token como una operación efímera y entrega su respuesta sin incorporarla a la cola de persistencia MySQL; el registro posterior de asistencia continúa siendo transaccional. `asistencia_qr.js` limita cada solicitud a 12 segundos, registra el error técnico en consola y conserva el reintento visible cada cinco segundos.
+
+**ARCHIVOS RELACIONADOS:**
+
+- `aplicacion/recursos/JS scripts/asistencia_qr.js`
+- `servidor/servidor.js`
+- `pruebas/prueba_persistencia_concurrente.js`
+- `pruebas/prueba_proyecto.js`
+- `pruebas/prueba_reportes.js`
+
+**PRUEBAS:**
+
+- `node --check` sobre frontend, servidor y pruebas modificadas — aprobada el 2026-10-07.
+- `npm run test:persistence-concurrency` — aprobada; respuesta 201, cero snapshots MySQL y cerca de 59,9 segundos restantes.
+- `npm run test:reports` — aprobada; permisos, token, expiración, renovación y duplicados validados.
+- `npm run test:integration` — aprobada; timeout y recuperación controlada presentes.
+- `npm test` — suite completa aprobada el 2026-10-07.
+- Validación visual real — aprobada; QR inicial, dos renovaciones de 60 segundos, una sola imagen, cierre/reapertura con token nuevo y consola sin errores.
+- Validación desde celular físico — no ejecutada por no disponer del dispositivo en este entorno.
+
+**COMMITS RELACIONADOS:**
+
+- `f5643be` — Corregir #004 - fix(api): respuesta del QR de asistencia
+
+**ÚLTIMA ACTUALIZACIÓN:** 2026-10-07
+
+**OBSERVACIONES:**
+
+La causa era la espera innecesaria de `repository.saveSnapshot` antes de finalizar una respuesta que solo crea estado temporal. La ruta `POST /api/attendance/qr/register` permanece dentro de la persistencia MySQL porque sí guarda la asistencia.
