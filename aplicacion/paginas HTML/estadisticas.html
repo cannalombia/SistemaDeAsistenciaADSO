@@ -19,9 +19,50 @@
             <div class="dashboard-title"><span class="eyebrow">CENTRO DE SEGUIMIENTO</span><h1>Estadísticas e informes</h1><p>Bienvenido, <span data-auth-name>Administrador</span>. Cada registro cuenta.</p></div>
             <div class="header-actions"><a class="report-btn secondary" href="asistencia.html"><i class="fas fa-calendar-check" aria-hidden="true"></i> Registrar asistencia</a><button id="generate-qr" class="report-btn primary" type="button">Generar QR</button></div>
         </header>
-        <section class="insight-banner" aria-label="Seguimiento académico"><div><span class="eyebrow">INFORMACIÓN PARA ACOMPAÑAR LA FORMACIÓN</span><h2>De la asistencia a las decisiones.</h2><p>Consulta el avance de tus fichas, identifica ausencias y entrega informes con datos verificables.</p></div><div class="sync-pill"><span></span><div>Conectado a asistencia<small id="dashboard-sync">Consultando registros guardados…</small></div></div></section>
+        <section class="insight-banner insight-banner-live" aria-label="Inteligencia para el seguimiento formativo">
+            <div class="insight-visual" aria-hidden="true">
+                <span class="insight-orb orb-one"></span><span class="insight-orb orb-two"></span>
+                <span class="insight-particle p1"></span><span class="insight-particle p2"></span><span class="insight-particle p3"></span><span class="insight-particle p4"></span><span class="insight-particle p5"></span><span class="insight-particle p6"></span>
+                <svg class="insight-grid" viewBox="0 0 1200 300" preserveAspectRatio="none">
+                    <defs><pattern id="hero-grid-pattern" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M44 0H0V44" fill="none" stroke="currentColor" stroke-width="1"/></pattern></defs>
+                    <rect width="1200" height="300" fill="url(#hero-grid-pattern)"/>
+                    <path class="ambient-line line-a" d="M0 220 C160 120 260 250 410 164 S700 84 830 156 1030 236 1200 88"/>
+                    <path class="ambient-line line-b" d="M0 252 C190 178 292 286 455 202 S760 125 930 202 1060 236 1200 166"/>
+                </svg>
+            </div>
+            <div class="insight-copy">
+                <div class="insight-kicker"><span class="kicker-signal"><i></i><i></i><i></i><i></i></span>INTELIGENCIA PARA EL SEGUIMIENTO FORMATIVO</div>
+                <h2>Asistencia que impulsa<br><span>decisiones inteligentes.</span></h2>
+                <p>Visualiza tendencias, detecta ausencias y genera informes confiables para cada ficha.</p>
+                <div class="insight-actions" aria-label="Accesos del panel">
+                    <button type="button" data-banner-target="#daily-chart"><i class="fas fa-wave-square" aria-hidden="true"></i><span>Seguimiento en tiempo real</span></button>
+                    <button type="button" data-banner-target="#statistics-distribution"><i class="fas fa-bell" aria-hidden="true"></i><span>Alertas de asistencia</span></button>
+                    <button type="button" data-banner-target="#saved-reports"><i class="fas fa-file-lines" aria-hidden="true"></i><span>Reportes verificados</span></button>
+                </div>
+            </div>
+            <div class="insight-data" aria-label="Resumen vivo de asistencia">
+                <div class="insight-trend" aria-hidden="true">
+                    <div id="insight-bars" class="insight-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                    <svg viewBox="0 0 420 128" preserveAspectRatio="none"><path id="insight-trend-path" d="M10 94 C72 98 88 58 142 72 S208 102 254 56 330 64 410 22"/><g id="insight-trend-points"></g></svg>
+                </div>
+                <div class="insight-metrics">
+                    <article class="insight-metric attendance-metric">
+                        <div class="metric-ring" id="insight-attendance-ring" role="img" aria-label="Sin registros de asistencia" style="--metric-progress:0"><span><i class="fas fa-users" aria-hidden="true"></i></span></div>
+                        <div class="metric-copy"><span>Asistencia</span><strong id="insight-attendance">—</strong><small id="insight-attendance-delta">Esperando datos reales</small></div>
+                    </article>
+                    <article class="insight-status" aria-live="polite">
+                        <div class="status-icon"><i class="fas fa-wifi" aria-hidden="true"></i></div>
+                        <div><strong>Conectado al sistema</strong><small id="dashboard-sync">Consultando registros guardados…</small></div><span class="live-dot" title="Conexión activa"></span>
+                    </article>
+                    <article class="insight-metric absence-metric">
+                        <div class="absence-icon"><i class="fas fa-user-clock" aria-hidden="true"></i></div>
+                        <div class="metric-copy"><span>Ausencias</span><strong id="insight-absence">—</strong><small id="insight-absence-detail">Sin registros todavía</small></div>
+                    </article>
+                </div>
+            </div>
+        </section>
         <form id="dashboard-filters" class="report-filters">
-            <div class="filter-title"><strong>Explora un periodo</strong><span>Las estadísticas se actualizan al cambiar los filtros.</span></div>
+            <div class="filter-title"><strong>Explora un periodo</strong><span id="dashboard-auto-note" class="dashboard-auto-note">Vista automática · últimos registros guardados</span></div>
             <div class="filter-controls">
                 <label>Ficha<select id="dashboard-ficha"><option value="">Todas las fichas</option></select></label>
                 <label>Desde<input id="dashboard-date-from" type="date" required aria-label="Fecha inicial"></label>
@@ -41,12 +82,12 @@
                 <div class="stat-copy"><span>Aprendices con registros</span><strong data-dashboard-stat="apprentices">0</strong><small>En el periodo seleccionado</small></div>
                 <div class="stat-footer"><span data-dashboard-comparison="apprentices">Con asistencia guardada</span></div>
             </article>
-            <article class="dashboard-stat-card stat-purple dashboard-animate">
+            <article class="dashboard-stat-card stat-blue dashboard-animate">
                 <span class="stat-icon"><i class="far fa-address-card"></i></span>
                 <div class="stat-copy"><span>Fichas con registros</span><strong data-dashboard-stat="fichas">0</strong><small>En el periodo seleccionado</small></div>
                 <div class="stat-footer"><span>Registros de la consulta</span></div>
             </article>
-            <article class="dashboard-stat-card stat-green dashboard-animate">
+            <article class="dashboard-stat-card stat-purple dashboard-animate">
                 <span class="stat-icon"><i class="far fa-circle-check"></i></span>
                 <div class="stat-copy"><span>Porcentaje de presentes</span><strong data-dashboard-stat="attendance">0%</strong><small>Sobre la asistencia guardada</small></div>
                 <div class="stat-footer"><span data-dashboard-comparison="attendance">Sin comparación histórica</span><canvas data-dashboard-sparkline="attendance" aria-hidden="true"></canvas></div>
@@ -54,23 +95,36 @@
         </section>
 
         <div class="section-heading"><div><span class="eyebrow">PANORAMA DEL PERIODO</span><h2>Así va la asistencia</h2></div><span id="dashboard-scope"></span></div>
-        <section class="analytics-grid">
-            <article class="dashboard-panel timeline-panel"><header class="dashboard-panel-header"><div><h2>Evolución diaria</h2><p>Selecciona un día para ver sus registros.</p></div><span class="chart-key"><i></i> Presentes (%)</span></header><div id="daily-chart" class="daily-chart" aria-label="Asistencia por día"></div><p id="chart-detail" class="chart-detail" aria-live="polite">Los días sin registro se muestran sin porcentaje.</p></article>
-            <article class="dashboard-panel distribution-panel"><header class="dashboard-panel-header"><h2>Distribución de estados</h2></header><div id="statistics-donut" class="statistics-donut" role="img" aria-label="Sin registros"><div><strong id="records-total">0</strong><span>registros</span></div></div><div id="statistics-distribution" class="statistics-distribution"></div></article>
+        <div id="analytics-selection-bar" class="analytics-selection-bar" hidden aria-live="polite">
+            <div><strong>Vista analítica</strong><span id="analytics-selection-chips" class="analytics-selection-chips"></span></div>
+            <button id="analytics-clear-selection" type="button" class="analytics-clear-selection">Limpiar selección</button>
+        </div>
+        <section class="analytics-grid analytics-pro-grid">
+            <article class="dashboard-panel timeline-panel analytics-module">
+                <header class="dashboard-panel-header analytics-module-header"><div><span class="analytics-module-kicker">TENDENCIA TEMPORAL</span><h2>Evolución diaria</h2><p>Asistencia real por día y volumen de registros. Usa el ratón, el tacto o las flechas del teclado.</p></div><span class="chart-key"><i></i> Asistencia (%)</span></header>
+                <div class="analytics-chart-shell"><div id="daily-chart" class="daily-chart-pro" tabindex="0" role="group" aria-label="Evolución diaria de la asistencia; usa flechas para recorrer días y Enter para seleccionar"></div><div id="daily-tooltip" class="analytics-tooltip" role="status" hidden></div></div>
+                <p id="chart-detail" class="chart-detail" aria-live="polite">Los días sin registro se muestran como un hueco, nunca como 0 %.</p>
+            </article>
+            <article class="dashboard-panel distribution-panel analytics-module">
+                <header class="dashboard-panel-header analytics-module-header"><div><span class="analytics-module-kicker">COMPOSICIÓN DEL PERIODO</span><h2>Distribución de estados</h2><p>Selecciona un estado para relacionarlo con los días y las fichas.</p></div></header>
+                <div id="statistics-donut" class="statistics-donut-pro" aria-label="Distribución de estados"></div>
+                <div id="statistics-distribution" class="statistics-distribution-pro" role="group" aria-label="Estados de asistencia"></div>
+                <details class="analytics-formula"><summary>¿Cómo se calcula la asistencia?</summary><p>Presentes ÷ registros guardados × 100. Tardanzas, ausencias y justificados se muestran como estados independientes.</p></details>
+            </article>
         </section>
-        <p class="metric-note">El porcentaje de asistencia corresponde a presentes / registros guardados. Tardanzas y justificaciones se muestran por separado; un día sin registro no es una ausencia.</p>
+        <p class="metric-note analytics-integrity-note">Un día sin registros no se interpreta como ausencia ni como 0 %. Todas las cifras provienen del mismo corte estadístico usado por los informes.</p>
         <section class="dashboard-primary-grid">
-            <article class="dashboard-panel composition-panel dashboard-animate">
-                <header class="dashboard-panel-header"><div><h2>Composición por ficha <i class="far fa-circle-question" title="Distribución de estados por ficha"></i></h2></div><select id="dashboard-composition-limit" aria-label="Cantidad de fichas"><option value="5">Top 5</option><option value="all">Ver todas</option></select></header>
-                <div class="composition-legend"><span><i class="present"></i>Presentes</span><span><i class="late"></i>Tardanzas</span><span><i class="absent"></i>Ausentes</span><span><i class="justified"></i>Justificados</span><strong>Asistencia</strong></div>
-                <div id="dashboard-composition" class="composition-list"></div>
+            <article class="dashboard-panel composition-panel analytics-module">
+                <header class="dashboard-panel-header analytics-module-header composition-header-pro"><div><span class="analytics-module-kicker">COMPARACIÓN OPERATIVA</span><h2>Composición por ficha</h2><p>Compara estados y abre una ficha para recalcular el panel con datos del servidor.</p></div><div class="composition-controls"><label>Orden<select id="dashboard-composition-sort" aria-label="Ordenar fichas"><option value="attendance-desc">Mayor asistencia</option><option value="attendance-asc">Menor asistencia</option><option value="absences">Más ausencias</option><option value="tardiness">Más tardanzas</option></select></label><label>Vista<select id="dashboard-composition-limit" aria-label="Cantidad de fichas"><option value="5">Top 5</option><option value="10">Top 10</option><option value="all">Todas</option></select></label></div></header>
+                <div class="composition-legend composition-legend-pro"><span><i class="present"></i>Presentes</span><span><i class="late"></i>Tardanzas</span><span><i class="absent"></i>Ausentes</span><span><i class="justified"></i>Justificados</span><strong>Asistencia</strong></div>
+                <div id="dashboard-composition" class="composition-list-pro" role="listbox" aria-label="Fichas con registros"></div>
                 <footer class="dashboard-panel-footer"><span id="composition-count">0 fichas con registros</span><a href="asistencia.html">Ir a registrar asistencia <i class="fas fa-arrow-right"></i></a></footer>
             </article>
         </section>
 
         <section class="dashboard-panel student-report-panel"><header class="dashboard-panel-header"><div><span class="eyebrow">SEGUIMIENTO INDIVIDUAL</span><h2>Detalle por aprendiz</h2></div><label class="report-search"><span class="sr-only">Buscar aprendiz</span><input id="statistics-search" type="search" placeholder="Nombre o documento…"></label></header><div class="report-table-wrap"><table class="report-table"><thead><tr><th>Aprendiz</th><th>Ficha</th><th>Presentes</th><th>Tardanzas</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th></tr></thead><tbody id="statistics-students"></tbody></table></div><footer class="report-pagination"><span id="student-count"></span><div><button id="students-prev" class="report-btn secondary" type="button" aria-label="Aprendices anteriores">Anterior</button><button id="students-next" class="report-btn secondary" type="button" aria-label="Aprendices siguientes">Siguiente</button></div></footer></section>
         <section id="saved-reports" class="dashboard-panel saved-reports"><header class="dashboard-panel-header"><div><span class="eyebrow">ARCHIVO DE INFORMES</span><h2>Reportes guardados</h2><p>Cada informe conserva su corte original, aunque la asistencia cambie.</p></div><button id="refresh-reports" type="button" class="report-btn secondary">Actualizar historial</button></header><div class="report-list-tools"><label class="report-search"><span class="sr-only">Buscar informe por ficha, fecha o autor</span><input id="report-search" type="search" placeholder="Buscar por ficha, fecha o autor…"></label><label class="report-status-filter">Estado<select id="report-status"><option value="active">Activos</option><option value="archived">Archivados</option><option value="all">Todos</option></select></label></div><p id="report-retention" class="report-retention"></p><div id="reports-list" class="reports-list" aria-live="polite"></div><footer class="report-pagination"><span id="report-count"></span><div><button id="reports-prev" type="button" class="report-btn secondary">Anteriores</button><button id="reports-next" type="button" class="report-btn secondary">Siguientes</button></div></footer></section>
-        <dialog id="attendance-qr" class="report-preview" aria-labelledby="qr-title" style="max-width:520px"><header><h2 id="qr-title">Asistencia por QR</h2><button id="close-qr" class="report-btn secondary" type="button">Cerrar</button></header><div class="filter-controls"><label>Ficha<select id="qr-ficha"></select></label><label>Jornada<select id="qr-jornada"><option>Mañana</option><option>Tarde</option><option>Noche</option></select></label></div><p>El QR se renueva cada 60 segundos. Para escanear desde un celular, conéctalo a la misma red e inicia sesión como aprendiz en la dirección del QR.</p><img id="qr-image" alt="QR para registrar asistencia" width="320" height="320" hidden style="max-width:100%;height:auto"><p id="qr-status" role="status"></p><a id="qr-link" hidden>Abrir enlace de asistencia</a></dialog>
+        <dialog id="attendance-qr" class="report-preview" aria-labelledby="qr-title" style="max-width:520px"><header><h2 id="qr-title">Asistencia por QR</h2><button id="close-qr" class="report-btn secondary" type="button">Cerrar</button></header><div class="filter-controls"><label>Ficha<select id="qr-ficha"></select></label><label>Jornada<select id="qr-jornada"><option>Mañana</option><option>Tarde</option><option>Noche</option></select></label></div><p>El QR se renueva cada 60 segundos. Para escanear desde un celular, conéctalo a la misma red e inicia sesión como aprendiz en la dirección del QR.</p><img id="qr-image" class="attendance-qr-image" alt="QR para registrar asistencia" width="320" height="320" hidden><p id="qr-status" role="status"></p><a id="qr-link" hidden>Abrir enlace de asistencia</a></dialog>
         <dialog id="report-preview" class="report-preview"><header><div><span class="eyebrow">INFORME GUARDADO</span><h2 id="preview-title">Detalle del informe</h2></div><button id="close-preview" class="report-btn secondary" aria-label="Cerrar informe">Cerrar</button></header><div id="preview-content"></div><footer><a id="preview-pdf" class="report-btn primary">Descargar PDF</a></footer></dialog>
     </main>
 </div>
@@ -80,6 +134,8 @@
 <script src="aplicacion.js"></script>
 <script src="reportes.js"></script>
 <script src="estadisticas_informes.js"></script>
+<script src="estadisticas_banner.js"></script>
+<script src="estadisticas_analitica.js"></script>
 <script src="estadisticas.js"></script>
 <script src="asistencia_qr.js"></script>
 </body>

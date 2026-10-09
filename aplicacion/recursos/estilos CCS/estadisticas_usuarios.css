@@ -320,3 +320,218 @@
 #user-sql-result { overflow-wrap: anywhere; }
 @media(max-width:760px){#panel-sql .user-import-controls{grid-template-columns:1fr}.user-sql-actions{grid-template-columns:1fr 1fr;min-width:0}.user-sql-file-picker{min-height:66px}}
 @media(max-width:480px){.user-sql-actions{grid-template-columns:1fr}}
+
+
+/* === CREATE USER DARK MODE 2026-10-08: cobertura integral === */
+body.dark-mode.create-user-page{
+    --users-ink:#eef5f7;
+    --users-muted:#aebdc4;
+    --users-border:#304650;
+    background:#0c161c;
+    color:#eef5f7;
+    color-scheme:dark;
+}
+body.dark-mode.create-user-page .create-user-main{
+    background:linear-gradient(145deg,#0d171d 0%,#101d24 55%,#0b151b 100%);
+}
+body.dark-mode.create-user-page .create-user-header h1,
+body.dark-mode.create-user-page .user-import-copy h2,
+body.dark-mode.create-user-page .user-panel-heading h2,
+body.dark-mode.create-user-page .user-form-heading h2,
+body.dark-mode.create-user-page .user-directory-person strong,
+body.dark-mode.create-user-page .user-sql-picker-copy strong{
+    color:#eef5f7;
+}
+body.dark-mode.create-user-page .create-user-header p,
+body.dark-mode.create-user-page .create-user-header p strong,
+body.dark-mode.create-user-page .user-import-copy p,
+body.dark-mode.create-user-page .user-import-copy p strong,
+body.dark-mode.create-user-page .user-panel-heading p,
+body.dark-mode.create-user-page .user-form-heading p,
+body.dark-mode.create-user-page .user-file-name,
+body.dark-mode.create-user-page .user-directory-person small,
+body.dark-mode.create-user-page .user-ficha-label,
+body.dark-mode.create-user-page .user-form-actions p{
+    color:#aebdc4;
+}
+body.dark-mode.create-user-page .user-eyebrow{color:#69d77b}
+body.dark-mode.create-user-page .user-sync-status{
+    border:1px solid #2f6740;
+    background:#13291c;
+    color:#91dfa0;
+}
+body.dark-mode.create-user-page .user-sync-status .fa-circle-check{color:#69d77b}
+
+body.dark-mode.create-user-page .user-directory-panel,
+body.dark-mode.create-user-page .user-form-panel,
+body.dark-mode.create-user-page .user-import-panel{
+    border-color:#304650;
+    background:linear-gradient(145deg,#192931,#16242b);
+    box-shadow:0 12px 28px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.025);
+}
+body.dark-mode.create-user-page .user-form-heading,
+body.dark-mode.create-user-page .user-form-actions{
+    border-color:#30434d;
+}
+body.dark-mode.create-user-page .user-import-icon,
+body.dark-mode.create-user-page .user-form-icon{
+    border:1px solid #315b3d;
+    background:#173523;
+    color:#78df8b;
+    box-shadow:none;
+}
+
+body.dark-mode.create-user-page .user-import-tabs [aria-selected="false"]{
+    border:1px solid #344a54;
+    background:#1c2b33;
+    color:#bdcbd1;
+}
+body.dark-mode.create-user-page .user-import-tabs [aria-selected="true"]{
+    background:#075075;
+    color:#fff;
+}
+body.dark-mode.create-user-page .user-file-picker{
+    border-color:#3e7150;
+    background:#152a1d;
+    color:#9ae0a5;
+}
+body.dark-mode.create-user-page .user-file-picker:hover{
+    border-color:#59a86b;
+    background:#193323;
+}
+body.dark-mode.create-user-page .user-sql-file-picker{
+    border-color:#47765a;
+    background:linear-gradient(135deg,#172821,#14241d);
+    box-shadow:none;
+}
+body.dark-mode.create-user-page .user-sql-file-picker:hover{
+    border-color:#61bd74;
+    background:#193123;
+    box-shadow:0 7px 18px rgba(0,0,0,.18);
+}
+body.dark-mode.create-user-page .user-sql-picker-icon{
+    background:#1b3c28;
+    color:#7cdd8d;
+}
+body.dark-mode.create-user-page .user-sql-picker-copy small,
+body.dark-mode.create-user-page .user-sql-picker-arrow,
+body.dark-mode.create-user-page .user-sql-file-name{color:#9eb0b7}
+body.dark-mode.create-user-page .user-sql-file-name.selected{color:#8ddd9a}
+body.dark-mode.create-user-page .user-sql-secondary{
+    border-color:#405965;
+    background:#1a2b33;
+    color:#cae0e8;
+}
+body.dark-mode.create-user-page .user-sql-secondary:hover:not(:disabled){
+    border-color:#54839a;
+    background:#203741;
+    color:#e5f2f6;
+}
+body.dark-mode.create-user-page .user-import-button:disabled{opacity:.42}
+body.dark-mode.create-user-page .user-import-result.loading{background:#182c37;color:#b8d5e0}
+body.dark-mode.create-user-page .user-import-result.success{background:#153522;color:#9be0a7}
+body.dark-mode.create-user-page .user-import-result.error{background:#3a2227;color:#ffabb1}
+
+body.dark-mode.create-user-page .user-directory-search{
+    border-color:#3b515b;
+    background:#132229;
+    color:#9fb1b9;
+}
+body.dark-mode.create-user-page .user-directory-search:focus-within{
+    border-color:#4d9860;
+    box-shadow:0 0 0 3px rgba(83,186,105,.12);
+}
+body.dark-mode.create-user-page .user-directory-search input{
+    background:transparent;
+    color:#eef5f7;
+}
+body.dark-mode.create-user-page .user-directory-search input::placeholder{color:#81949d}
+body.dark-mode.create-user-page .user-directory-table-wrap{
+    border-color:#304650;
+    background:#132129;
+    scrollbar-color:#526670 #132129;
+}
+body.dark-mode.create-user-page .user-directory-table th{
+    border-color:#304650;
+    background:#223740;
+    color:#bdd1c5;
+}
+body.dark-mode.create-user-page .user-directory-table td{
+    border-color:#2d414a;
+    background:#17262e;
+    color:#dce7eb;
+}
+body.dark-mode.create-user-page .user-directory-table tbody tr:nth-child(even) td{background:#16242b}
+body.dark-mode.create-user-page .user-directory-table tbody tr:hover td{background:#1d3038}
+body.dark-mode.create-user-page .user-directory-avatar{
+    background:#173b29;
+    color:#91e09f;
+}
+body.dark-mode.create-user-page .user-role-badge{background:#293942;color:#d2dde2}
+body.dark-mode.create-user-page .user-role-badge.instructor{background:#192f4b;color:#9ac8ff}
+body.dark-mode.create-user-page .user-role-badge.aprendiz{background:#30264a;color:#c7afff}
+body.dark-mode.create-user-page .user-role-badge.administrador,
+body.dark-mode.create-user-page .user-role-badge.coordinador{background:#173923;color:#9ce2a8}
+body.dark-mode.create-user-page .user-status-badge{background:#173523;color:#98dfa4}
+body.dark-mode.create-user-page .user-status-badge.inactive{background:#2a383f;color:#b3c0c6}
+body.dark-mode.create-user-page .user-directory-actions button{
+    border-color:#3b505a;
+    background:#1b2b33;
+    color:#bfd0d7;
+}
+body.dark-mode.create-user-page .user-directory-actions button:hover{
+    border-color:#4b8c5a;
+    background:#193125;
+    color:#85dd95;
+}
+body.dark-mode.create-user-page .user-directory-actions button.danger:hover{
+    border-color:#8b4850;
+    background:#3a2227;
+    color:#ff9ca4;
+}
+body.dark-mode.create-user-page .user-protected-account{
+    background:#26363e;
+    color:#bdcad0;
+}
+body.dark-mode.create-user-page .user-directory-empty{color:#9aabb3!important}
+
+body.dark-mode.create-user-page .user-form-panel .form-group label{color:#ccd8dd}
+body.dark-mode.create-user-page .user-form-panel .form-group input,
+body.dark-mode.create-user-page .user-form-panel .form-group select{
+    border-color:#3b505a;
+    background:#132229;
+    color:#edf4f6;
+}
+body.dark-mode.create-user-page .user-form-panel .form-group input::placeholder{color:#81949d}
+body.dark-mode.create-user-page .user-form-panel .form-group input:focus,
+body.dark-mode.create-user-page .user-form-panel .form-group select:focus{
+    border-color:#4b9b5d;
+    background:#162831;
+    box-shadow:0 0 0 3px rgba(57,181,74,.11);
+}
+body.dark-mode.create-user-page .password-field button{color:#aabac1}
+body.dark-mode.create-user-page .password-field button:hover{background:#21343d;color:#8add98}
+body.dark-mode.create-user-page .user-submit-button{
+    color:#fff;
+    box-shadow:0 8px 20px rgba(0,0,0,.25),0 0 0 1px rgba(108,223,127,.12);
+}
+
+body.dark-mode.create-user-page .user-metric-card{
+    border-color:#3b4e57;
+    background:linear-gradient(145deg,#2b3b44,#26343c);
+    color:#eef5f7;
+    box-shadow:-7px -7px 15px rgba(61,81,91,.55),8px 8px 17px rgba(4,13,18,.75),inset -6px -6px 14px rgba(9,22,28,.55),inset 2px 2px 5px rgba(72,94,104,.3);
+}
+body.dark-mode.create-user-page .user-metric-card:hover,
+body.dark-mode.create-user-page .user-metric-card.active{
+    border-color:#4e6b75;
+    box-shadow:-8px -8px 17px rgba(61,81,91,.58),9px 9px 19px rgba(4,13,18,.78),inset -6px -6px 14px rgba(9,22,28,.55),inset 2px 2px 5px rgba(72,94,104,.34);
+}
+body.dark-mode.create-user-page .user-metric-copy small{color:#d5dfe3}
+body.dark-mode.create-user-page .user-metric-copy strong{color:#f2f7f9}
+body.dark-mode.create-user-page .user-metric-copy>span{color:#aebcc2}
+body.dark-mode.create-user-page .user-metric-action{
+    background:#223139;
+    color:#8ee2ae;
+    box-shadow:inset 2px 2px 5px #101c22,inset -2px -2px 5px #3b4c54;
+}

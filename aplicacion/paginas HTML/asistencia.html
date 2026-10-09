@@ -10,6 +10,7 @@
     <script>document.documentElement.classList.add("auth-pending");</script>
 </head>
 <body class="attendance-page">
+<script>try{if(localStorage.getItem("sena-dark-mode")==="1")document.body.classList.add("dark-mode");}catch(_){}</script>
 <div class="container">
     <aside class="sidebar" data-navegacion-principal></aside>
 
@@ -39,7 +40,7 @@
             </label>
             <label class="attendance-field field-date">
                 <span>Fecha</span>
-                <span class="control-with-icon"><i class="far fa-calendar"></i>
+                <span class="control-with-icon date-control">
                     <input id="attendance-date" type="date" aria-label="Fecha de asistencia">
                 </span>
             </label>
