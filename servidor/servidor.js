@@ -29,6 +29,10 @@ const root = rutasProyecto.raizProyecto;
 const dataDirectory = rutasProyecto.datos;
 const pagesDirectory = rutasProyecto.paginas;
 const publicDirectories = rutasProyecto.directoriosPublicos;
+const buildIdFile = path.join(root, "BUILD_ID.txt");
+const buildId = fs.existsSync(buildIdFile)
+    ? fs.readFileSync(buildIdFile, "utf8").trim()
+    : "development";
 const mimeTypes = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
@@ -991,6 +995,7 @@ function createProjectServer(options = {}) {
             ok: true,
             service: "sistema-asistencia-sena",
             status: "ready",
+            buildId,
             startedAt: serverStartedAt,
             uptimeSeconds: Math.floor(process.uptime()),
             database,

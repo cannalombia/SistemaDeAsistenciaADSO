@@ -8,6 +8,8 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $DataDirectory = Join-Path $ProjectRoot "datos"
 $ServerScript = Join-Path $ProjectRoot "servidor\servidor.js"
+$BuildIdFile = Join-Path $ProjectRoot "BUILD_ID.txt"
+$ExpectedBuildId = if (Test-Path -LiteralPath $BuildIdFile) { (Get-Content -LiteralPath $BuildIdFile -Raw).Trim() } else { "development" }
 $SupervisorLog = Join-Path $DataDirectory "supervisor_servidor.log"
 $ServerOutputLog = Join-Path $DataDirectory "servidor_salida.log"
 $ServerErrorLog = Join-Path $DataDirectory "servidor_errores.log"
@@ -33,6 +35,30 @@ function Get-ProjectHealth {
     return $null
 }
 
+function Get-ListeningNodeProcesses {
+    $result = @()
+    $listeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
+    foreach ($processId in ($listeners.OwningProcess | Sort-Object -Unique)) {
+        $process = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
+        if ($process) { $result += $process }
+    }
+    return @($result)
+}
+
+function Test-CurrentProjectServer {
+    param($Process)
+    if (-not $Process -or $Process.Name -ne "node.exe") { return $false }
+    $commandLine = ([string]$Process.CommandLine).Replace('/', '\').ToLowerInvariant()
+    $expectedScript = ([System.IO.Path]::GetFullPath($ServerScript)).Replace('/', '\').ToLowerInvariant()
+    return $commandLine.Contains($expectedScript)
+}
+
+function Test-AnyProjectServer {
+    param($Process)
+    if (-not $Process -or $Process.Name -ne "node.exe") { return $false }
+    return ([string]$Process.CommandLine) -match "servidor[\\/]servidor\.js"
+}
+
 function Rotate-Log {
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) { return }
@@ -43,11 +69,17 @@ function Rotate-Log {
 }
 
 $health = Get-ProjectHealth
-if ($health) {
+$processes = @(Get-ListeningNodeProcesses)
+$currentProcess = $processes | Where-Object { Test-CurrentProjectServer $_ } | Select-Object -First 1
+$buildMatches = $health -and ([string]$health.buildId -eq $ExpectedBuildId)
+$currentInstanceReady = $health -and $currentProcess -and $buildMatches
+
+if ($currentInstanceReady) {
     if ($StatusOnly) {
         [pscustomobject]@{
             Active = $true
             Url = "http://localhost:$Port/login.html"
+            BuildId = $health.buildId
             StartedAt = $health.startedAt
             EmailReady = $health.email.ready
             EmailProvider = $health.email.provider
@@ -57,26 +89,43 @@ if ($health) {
 }
 
 if ($StatusOnly) {
-    [pscustomobject]@{ Active = $false; Url = "http://localhost:$Port/login.html" } | Format-List
+    $reason = if ($health -and -not $buildMatches) {
+        "Hay otra versión de Blue Magic usando el puerto $Port."
+    } elseif ($health -and -not $currentProcess) {
+        "Blue Magic está activo desde otra carpeta."
+    } else {
+        "La versión actual no está activa."
+    }
+    $detectedBuildId = $null
+    if ($health) { $detectedBuildId = [string]$health.buildId }
+    [pscustomobject]@{
+        Active = $false
+        Url = "http://localhost:$Port/login.html"
+        ExpectedBuildId = $ExpectedBuildId
+        DetectedBuildId = $detectedBuildId
+        Reason = $reason
+    } | Format-List
     exit 1
 }
 
-$listeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
-if ($listeners.Count -gt 0) {
+# Si localhost:3000 pertenece a una copia anterior del mismo proyecto,
+# la cerramos antes de iniciar esta carpeta. Esta validación evita que el
+# navegador siga mostrando HTML/CSS viejos aunque el usuario abra un ZIP nuevo.
+if ($processes.Count -gt 0) {
     $stoppedProjectProcess = $false
-    foreach ($processId in ($listeners.OwningProcess | Sort-Object -Unique)) {
-        $process = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
-        if ($process -and $process.Name -eq "node.exe" -and $process.CommandLine -match "servidor[\\/]servidor\.js") {
-            Stop-Process -Id $processId -Force
+    foreach ($process in $processes) {
+        if (Test-AnyProjectServer $process) {
+            Stop-Process -Id $process.ProcessId -Force
             $stoppedProjectProcess = $true
-            Write-SupervisorLog "Se detuvo el servidor bloqueado (PID $processId) para recuperarlo."
+            $source = if (Test-CurrentProjectServer $process) { "misma carpeta, versión anterior" } else { "otra carpeta/versión" }
+            Write-SupervisorLog "Se detuvo Blue Magic de $source (PID $($process.ProcessId)); se iniciará build $ExpectedBuildId."
         }
     }
     if (-not $stoppedProjectProcess) {
         Write-SupervisorLog "No se pudo iniciar: el puerto $Port está ocupado por otro programa."
         exit 2
     }
-    Start-Sleep -Milliseconds 500
+    Start-Sleep -Milliseconds 650
 }
 
 Rotate-Log -Path $ServerOutputLog
@@ -91,7 +140,7 @@ try {
         -RedirectStandardOutput $ServerOutputLog `
         -RedirectStandardError $ServerErrorLog `
         -PassThru
-    Write-SupervisorLog "Servidor iniciado (PID $($process.Id))."
+    Write-SupervisorLog "Servidor iniciado (PID $($process.Id), build $ExpectedBuildId, raíz $ProjectRoot)."
 } catch {
     Write-SupervisorLog "Error al iniciar el servidor: $($_.Exception.Message)"
     exit 3
@@ -100,8 +149,8 @@ try {
 for ($attempt = 1; $attempt -le 15; $attempt += 1) {
     Start-Sleep -Seconds 1
     $health = Get-ProjectHealth
-    if ($health) {
-        Write-SupervisorLog "Servidor listo en http://localhost:$Port/login.html; correo=$($health.email.provider), disponible=$($health.email.ready)."
+    if ($health -and ([string]$health.buildId -eq $ExpectedBuildId)) {
+        Write-SupervisorLog "Servidor listo en http://localhost:$Port/login.html; build=$($health.buildId); correo=$($health.email.provider), disponible=$($health.email.ready)."
         exit 0
     }
     if ($process.HasExited) {
@@ -110,5 +159,5 @@ for ($attempt = 1; $attempt -le 15; $attempt += 1) {
     }
 }
 
-Write-SupervisorLog "El servidor no respondió después de 15 segundos."
+Write-SupervisorLog "El servidor no respondió con el build esperado $ExpectedBuildId después de 15 segundos."
 exit 5
