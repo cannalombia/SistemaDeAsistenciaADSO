@@ -1054,11 +1054,52 @@ function createProjectServer(options = {}) {
         return session;
     }
 
+    function qrPublicOrigin(request) {
+        if (publicUrl) return publicUrl;
+        const forwardedProto = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim().toLowerCase();
+        const protocol = forwardedProto === "https" ? "https" : "http";
+        const rawHost = String(request.headers.host || "").trim();
+        let origin;
+        try { origin = new URL(`${protocol}://${rawHost || "localhost"}`); }
+        catch (_) { origin = new URL(`${protocol}://localhost`); }
+        const loopback = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+        if (!loopback.has(origin.hostname.toLowerCase())) return origin.origin;
+        const interfaces = Object.values(os.networkInterfaces()).flat().filter(Boolean);
+        const lan = interfaces.find((item) => item.family === "IPv4" && !item.internal && item.address && !item.address.startsWith("169.254."));
+        if (!lan) return origin.origin;
+        const port = origin.port ? `:${origin.port}` : "";
+        return `${protocol}://${lan.address}${port}`;
+    }
+
     function attendanceFichas() {
         const byCode = new Map();
+        const historicalCodes = new Set(
+            sqlData.fichas
+                .filter((ficha) => ficha?.restauradaDesdeHistorico === true)
+                .map((ficha) => String(ficha.numero || "").trim())
+                .filter(Boolean)
+        );
+
+        // La operación diaria parte de las fichas activas configuradas en formación.
+        // Así el administrador puede generar QR para las ocho fichas actuales aunque
+        // todavía no exista un registro de asistencia para el día seleccionado.
+        sqlData.fichas.forEach((ficha) => {
+            const code = String(ficha.numero || "").trim();
+            const status = String(ficha.estado || "Activa").trim().toLowerCase();
+            if (!code || historicalCodes.has(code) || ["inactiva", "inactivo"].includes(status)) return;
+            const program = programRecords.find((item) => String(item.id) === String(ficha.programaId));
+            byCode.set(code, {
+                codigo: code,
+                programa: String(program?.nombre || "Programa de formación"),
+                jornada: String(ficha.jornada || "Por definir")
+            });
+        });
+
+        // Compatibilidad con datos/importaciones donde una ficha válida puede existir
+        // en el perfil del aprendiz antes de ser incorporada al catálogo de formación.
         apprentices.filter(apprenticeIsEnabled).forEach((apprentice) => {
             const code = String(apprentice.program?.ficha || apprentice.program?.code || "").trim();
-            if (!code || byCode.has(code)) return;
+            if (!code || historicalCodes.has(code) || byCode.has(code)) return;
             byCode.set(code, {
                 codigo: code,
                 programa: String(apprentice.program?.name || "Programa de formación"),
@@ -1131,9 +1172,7 @@ function createProjectServer(options = {}) {
         const token = crypto.randomBytes(32).toString("hex");
         const now = Date.now();
         const expiresAt = now + 60000;
-        const base_url = publicUrl ||
-                        `${config.secureCookie ? "https" : "http"}://${request.headers.host}`;
-
+        const base_url = qrPublicOrigin(request);
         const url = new URL("/asistencia_qr.html", base_url);
         url.searchParams.set("token", token);
         const image = await QRCode.toDataURL(url.href, { width: 320, margin: 4, errorCorrectionLevel: "M" });

@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const os = require("node:os");
 const { createProjectServer } = require("../servidor/servidor");
 
 async function main() {
@@ -53,8 +54,17 @@ async function main() {
                 });
                 const data = await qr.json();
                 assert.equal(qr.status, 201, JSON.stringify(data));
-                assert.equal(new URL(data.url).origin, configured ? "https://prueba-publica.lhr.life" : base);
-                assert.equal(new URL(data.url).pathname, "/asistencia_qr.html");
+                const qrUrl = new URL(data.url);
+                if (configured) {
+                    assert.equal(qrUrl.origin, "https://prueba-publica.lhr.life");
+                } else {
+                    const lan = Object.values(os.networkInterfaces()).flat().filter(Boolean)
+                        .find((item) => item.family === "IPv4" && !item.internal && item.address && !item.address.startsWith("169.254."));
+                    assert.equal(qrUrl.port, String(server.address().port));
+                    assert.equal(qrUrl.protocol, "http:");
+                    assert.equal(qrUrl.hostname, lan ? lan.address : "127.0.0.1");
+                }
+                assert.equal(qrUrl.pathname, "/asistencia_qr.html");
                 assert.match(new URL(data.url).searchParams.get("token"), /^[a-f0-9]{64}$/);
                 assert.match(data.image, /^data:image\/png;base64,/);
                 const unauthenticated = await fetch(base + "/api/attendance/qr/register", {

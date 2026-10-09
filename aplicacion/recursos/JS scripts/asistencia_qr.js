@@ -11,6 +11,7 @@
             return data;
         } catch (error) {
             if (error.name === "AbortError") throw new Error("El servidor tardó demasiado en responder.");
+            if (error instanceof TypeError) throw new Error("No fue posible conectar con el servidor. Verifica que el sistema siga activo y vuelve a intentar.");
             throw error;
         } finally {
             clearTimeout(timeout);
@@ -43,8 +44,47 @@
     const link = document.getElementById("qr-link");
     const status = document.getElementById("qr-status");
     let timer, version = 0, fichas = [], generating = false, pending = false;
-    async function generate() {
+
+    function clearTimer() {
         clearInterval(timer);
+        clearTimeout(timer);
+        timer = null;
+    }
+
+    function validateQrPayload(data) {
+        if (!data || typeof data !== "object") throw new Error("El servidor devolvió una respuesta QR inválida.");
+        if (typeof data.image !== "string" || !data.image.startsWith("data:image/png;base64,")) {
+            throw new Error("El servidor no entregó una imagen QR válida.");
+        }
+        if (typeof data.url !== "string") throw new Error("El servidor no entregó el enlace del QR.");
+        try { new URL(data.url); } catch (_) { throw new Error("El enlace del QR no es válido."); }
+        const remainingMs = Number(data.remainingMs);
+        if (!Number.isFinite(remainingMs) || remainingMs <= 0) throw new Error("El QR fue recibido sin tiempo de vigencia válido.");
+        return { ...data, remainingMs };
+    }
+
+    function waitForQrImage(src) {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                cleanup();
+                reject(new Error("La imagen QR tardó demasiado en mostrarse."));
+            }, 3000);
+            const cleanup = () => {
+                clearTimeout(timeout);
+                image.removeEventListener("load", onLoad);
+                image.removeEventListener("error", onError);
+            };
+            const onLoad = () => { cleanup(); resolve(); };
+            const onError = () => { cleanup(); reject(new Error("No fue posible mostrar la imagen QR.")); };
+            image.addEventListener("load", onLoad, { once: true });
+            image.addEventListener("error", onError, { once: true });
+            image.src = src;
+            if (image.complete && image.naturalWidth > 0) onLoad();
+        });
+    }
+
+    async function generate() {
+        clearTimer();
         image.hidden = link.hidden = true;
         const current = ++version;
         if (generating) { pending = true; return; }
@@ -52,9 +92,10 @@
         generating = true;
         status.textContent = "Generando QR…";
         try {
-            const data = await api("/api/attendance/qr", { ficha: ficha.value, jornada: jornada.value });
+            const data = validateQrPayload(await api("/api/attendance/qr", { ficha: ficha.value, jornada: jornada.value }));
             if (current !== version || !modal.open) return;
-            image.src = data.image;
+            await waitForQrImage(data.image);
+            if (current !== version || !modal.open) return;
             link.href = data.url;
             image.hidden = link.hidden = false;
             const deadline = performance.now() + data.remainingMs;
@@ -99,5 +140,5 @@
     ficha.addEventListener("change", () => { selectJourney(); generate(); });
     jornada.addEventListener("change", generate);
     document.getElementById("close-qr").addEventListener("click", () => modal.close());
-    modal.addEventListener("close", () => { ++version; clearInterval(timer); image.hidden = link.hidden = true; });
+    modal.addEventListener("close", () => { ++version; clearTimer(); image.hidden = link.hidden = true; });
 })();
