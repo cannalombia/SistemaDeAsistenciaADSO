@@ -9,6 +9,7 @@ const directoriosPublicos = Object.freeze({
     ".js": path.join(raizProyecto, "aplicacion", "recursos", "JS scripts"),
     ".css": path.join(raizProyecto, "aplicacion", "recursos", "estilos CCS"),
     ".png": path.join(raizProyecto, "aplicacion", "recursos", "imagenes"),
+    ".webp": path.join(raizProyecto, "aplicacion", "recursos", "video"),
     ".mp4": path.join(raizProyecto, "aplicacion", "recursos", "video")
 });
 

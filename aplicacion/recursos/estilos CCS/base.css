@@ -36,18 +36,39 @@ body{
     margin-bottom:30px;
 }
 
-.logo .sena-logo-video,
-.logo .sena-logo-fallback{
-    display:block;
+.sena-logo-stage{
+    position:relative;
+    view-transition-name:sena-logo-session;
     width:120px;
     height:120px;
     margin:0 auto;
+    overflow:hidden;
+}
+
+.logo .sena-logo-video,
+.logo .sena-logo-session-frame,
+.logo .sena-logo-fallback{
+    position:absolute;
+    inset:0;
+    display:block;
+    width:120px;
+    height:120px;
+    margin:0;
     object-fit:contain;
 }
 
+.logo .sena-logo-session-frame{
+    z-index:1;
+    opacity:1;
+    transition:opacity 120ms linear;
+    pointer-events:none;
+}
+
 .logo .sena-logo-video{
+    z-index:2;
     opacity:0;
-    transition:opacity 160ms ease;
+    transition:opacity 120ms linear;
+    will-change:opacity;
 }
 
 .logo .sena-logo-video.is-ready{
@@ -55,15 +76,32 @@ body{
 }
 
 .logo .sena-logo-fallback{
+    z-index:3;
     display:none;
 }
 
-.logo.logo-video-error .sena-logo-video{
+.logo .sena-logo-stage.is-video-ready .sena-logo-session-frame{
+    opacity:0;
+}
+
+.logo.logo-video-error .sena-logo-video,
+.logo.logo-video-error .sena-logo-session-frame{
     display:none;
 }
 
 .logo.logo-video-error .sena-logo-fallback{
     display:block;
+}
+
+@view-transition{
+    navigation:auto;
+}
+
+::view-transition-old(sena-logo-session),
+::view-transition-new(sena-logo-session){
+    animation-duration:90ms;
+    animation-timing-function:linear;
+    mix-blend-mode:normal;
 }
 
 .menu{
@@ -225,7 +263,7 @@ body{
 
 @media(prefers-reduced-motion:reduce){
     .logout-svg,.logout-letter{animation:none}
-    .logo .sena-logo-video{transition:none}
+    .logo .sena-logo-video,.logo .sena-logo-session-frame{transition:none}
 }
 
 .logout:active{
@@ -499,3 +537,26 @@ td{
         transform: scale(1);
     }
 }
+
+
+/* === NOTIFICACIONES · PARIDAD MODO OSCURO 2026-10-08 === */
+body.dark-mode .app-notification-button{
+    border-color:#3b515b!important;
+    background:#182930!important;
+    color:#bcd0d7!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 6px 16px rgba(0,0,0,.18)!important;
+}
+body.dark-mode .app-notification-button:hover,
+body.dark-mode .app-notification-button.has-notifications{
+    border-color:#4d8f60!important;
+    background:#1a3324!important;
+    color:#83df94!important;
+}
+body.dark-mode .notification-badge{border-color:#182930!important;background:#e24a56!important;color:#fff!important}
+body.dark-mode .app-dialog.notification-dialog{border-color:#304751!important;background:#17272f!important;color:#edf5f7!important}
+body.dark-mode .notification-entry{border-color:#304751!important;background:#1a2b33!important;color:#e6eff2!important}
+body.dark-mode .notification-entry:hover{border-color:#48616c!important;background:#20353e!important}
+body.dark-mode .notification-entry p,
+body.dark-mode .notification-entry>i,
+body.dark-mode .notification-empty{color:#aebdc4!important}
+body.dark-mode .notification-empty strong{color:#eef5f7!important}

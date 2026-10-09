@@ -29,6 +29,7 @@ function publicFile(file) {
         ".js": scriptsRoot,
         ".css": stylesRoot,
         ".png": imagesRoot,
+        ".webp": videosRoot,
         ".mp4": videosRoot
     };
     const directory = directories[path.extname(file).toLowerCase()];
@@ -191,9 +192,15 @@ check(navigationSource.includes('class="sena-logo-video"'), "navegacion.js: falt
 check(!navigationSource.includes('poster="logo_sena.png"'), "navegacion.js: el PNG no debe mostrarse como poster antes del video");
 check(navigationSource.includes('class="sena-logo-fallback"') && navigationSource.includes('classList.add("logo-video-error")'), "navegacion.js: falta el fallback estático ante un error real del video");
 check(navigationSource.includes('preload="auto"') && navigationSource.includes("loadeddata") && navigationSource.includes('classList.add("is-ready")'), "navegacion.js: el video debe revelarse únicamente cuando tenga un frame disponible");
-check(/\.logo \.sena-logo-video\s*\{[^}]*opacity:0;[^}]*transition:opacity 160ms ease;/s.test(baseStyles), "base.css: falta ocultar y revelar suavemente el video durante la carga");
+check(/\.logo \.sena-logo-video\s*\{[^}]*opacity:0;[^}]*transition:opacity 120ms linear;/s.test(baseStyles), "base.css: falta ocultar y revelar suavemente el video durante la carga");
 check(/\.logo \.sena-logo-video\.is-ready\s*\{[^}]*opacity:1;/s.test(baseStyles), "base.css: falta el estado visible del logo animado");
 check(fs.existsSync(path.join(videosRoot, "video sena logo.mp4")), "Recursos: falta el video institucional del logo SENA");
+check(navigationSource.includes('class="sena-logo-session-frame"'), "navegacion.js: falta el fotograma puente para continuidad entre páginas");
+check(navigationSource.includes('sena-logo-session-epoch-v2') && navigationSource.includes('targetSessionTime'), "navegacion.js: falta sincronizar la fase del logo durante toda la sesión");
+check(navigationSource.includes('window.addEventListener("pageshow"') && navigationSource.includes('document.visibilityState === "hidden"'), "navegacion.js: falta resincronizar el logo al volver a la página o pestaña");
+check(!navigationSource.includes('video.addEventListener("timeupdate"'), "navegacion.js: no debe reiniciar la fase global desde timeupdate");
+check(baseStyles.includes('view-transition-name:sena-logo-session') && baseStyles.includes('@view-transition'), "base.css: falta continuidad visual entre documentos para el logo");
+check(fs.existsSync(path.join(videosRoot, "logo_sena_video_frame.webp")), "Recursos: falta el fotograma inicial del video para carga continua");
 
 for (const [file, markers] of Object.entries(requiredFeatures)) {
     const html = fs.readFileSync(path.join(root, file), "utf8");
@@ -311,6 +318,11 @@ async function emailApiTest() {
         const logoVideoResponse = await fetch(`${baseUrl}/video%20sena%20logo.mp4`, { method: "HEAD" });
         check(logoVideoResponse.status === 200, `Video institucional: respuesta HTTP ${logoVideoResponse.status}`);
         check(logoVideoResponse.headers.get("content-type") === "video/mp4", "Video institucional: MIME distinto de video/mp4");
+        const logoFrameResponse = await fetch(`${baseUrl}/logo_sena_video_frame.webp`, { method: "HEAD" });
+        check(logoFrameResponse.status === 200, `Fotograma institucional: respuesta HTTP ${logoFrameResponse.status}`);
+        check(logoFrameResponse.headers.get("content-type") === "image/webp", "Fotograma institucional: MIME distinto de image/webp");
+        check(/max-age=31536000/.test(logoFrameResponse.headers.get("cache-control") || ""), "Fotograma institucional: falta cache persistente para continuidad");
+        check(/max-age=31536000/.test(logoVideoResponse.headers.get("cache-control") || ""), "Video institucional: falta cache persistente para continuidad");
         check((adminResponse.headers.get("set-cookie") || "").includes("HttpOnly"), "API contraseña: la sesión no usa cookie HttpOnly");
 
         const adminProfileResponse = await fetch(`${baseUrl}/api/auth/profile`, { headers: { Cookie: adminCookie } });

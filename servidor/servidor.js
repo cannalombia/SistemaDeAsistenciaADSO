@@ -34,6 +34,7 @@ const mimeTypes = {
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".png": "image/png",
+    ".webp": "image/webp",
     ".mp4": "video/mp4"
 };
 
@@ -2729,7 +2730,10 @@ function createProjectServer(options = {}) {
             response.end("Recurso no encontrado");
             return;
         }
-        response.writeHead(200, { "Content-Type": mimeTypes[extension], "Cache-Control": "no-store" });
+        const cacheControl = [".mp4", ".webp"].includes(extension)
+            ? "public, max-age=31536000, immutable"
+            : "no-store";
+        response.writeHead(200, { "Content-Type": mimeTypes[extension], "Cache-Control": cacheControl });
         if (request.method === "HEAD") return response.end();
         fs.createReadStream(file).pipe(response);
     }
