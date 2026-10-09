@@ -150,47 +150,56 @@ para que los aprendices registren su asistencia con un token vigente.
 
 **ROL:** Administrador / Instructor
 
-**ESTADO:** Validada
+**ESTADO:** En corrección — validación técnica aprobada, prueba física pendiente del usuario
 
 **PRIORIDAD:** Alta
 
 **CRITERIOS DE ACEPTACIÓN:**
 
-- `POST /api/attendance/qr` responde 201 con imagen PNG, URL pública, expiración y tiempo restante.
+- `POST /api/attendance/qr` responde 201 con imagen PNG, URL alcanzable desde la red local o `PUBLIC_URL`, expiración y tiempo restante.
 - La generación temporal del QR no espera ni ejecuta un snapshot completo de MySQL.
 - El token contiene 64 caracteres hexadecimales, vence en 60 segundos y se reemplaza en cada renovación.
 - El modal mantiene una sola imagen, renueva automáticamente y genera un token nuevo al cerrarlo y abrirlo de nuevo.
 - Si la API tarda más de 12 segundos, la interfaz informa el error y reintenta de forma controlada.
+- El frontend valida el contrato (`image`, `url`, `remainingMs`) y solo muestra el QR después de que la imagen PNG haya cargado correctamente.
+- El QR mantiene fondo blanco y alto contraste también en modo oscuro.
 - El registro por QR conserva las validaciones de rol, ficha, expiración, duplicado y token revocado.
 
 **IMPLEMENTACIÓN:**
 
-`servidor/servidor.js` clasifica la creación del token como una operación efímera y entrega su respuesta sin incorporarla a la cola de persistencia MySQL; el registro posterior de asistencia continúa siendo transaccional. `asistencia_qr.js` limita cada solicitud a 12 segundos, registra el error técnico en consola y conserva el reintento visible cada cinco segundos.
+`servidor/servidor.js` mantiene la creación del token como operación efímera y, cuando no existe `PUBLIC_URL`, construye el enlace con una IPv4 LAN en lugar de `localhost`. `asistencia_qr.js` limita cada solicitud a 12 segundos, valida el contrato de respuesta, espera la carga real de la imagen PNG antes de mostrarla y conserva el reintento visible cada cinco segundos. `estadisticas_reportes.css` fuerza fondo blanco y elimina filtros sobre el QR para conservar su legibilidad.
 
 **ARCHIVOS RELACIONADOS:**
 
 - `aplicacion/recursos/JS scripts/asistencia_qr.js`
+- `aplicacion/paginas HTML/estadisticas.html`
+- `aplicacion/recursos/estilos CCS/estadisticas_reportes.css`
 - `servidor/servidor.js`
 - `pruebas/prueba_persistencia_concurrente.js`
 - `pruebas/prueba_proyecto.js`
 - `pruebas/prueba_reportes.js`
+- `pruebas/prueba_qr_frontend.js`
+- `pruebas/prueba_public_url.js`
 
 **PRUEBAS:**
 
-- `node --check` sobre frontend, servidor y pruebas modificadas — aprobada el 2026-10-07.
-- `npm run test:persistence-concurrency` — aprobada; respuesta 201, cero snapshots MySQL y cerca de 59,9 segundos restantes.
-- `npm run test:reports` — aprobada; permisos, token, expiración, renovación y duplicados validados.
-- `npm run test:integration` — aprobada; timeout y recuperación controlada presentes.
-- `npm test` — suite completa aprobada el 2026-10-07.
-- Validación visual real — aprobada; QR inicial, dos renovaciones de 60 segundos, una sola imagen, cierre/reapertura con token nuevo y consola sin errores.
-- Validación desde celular físico — no ejecutada por no disponer del dispositivo en este entorno.
+- `node --check` sobre frontend, servidor y pruebas modificadas — aprobada el 2026-10-08.
+- `node pruebas/prueba_qr_frontend.js` — aprobado; contrato frontend, visibilidad de la imagen y salida controlada del estado de carga.
+- Integración HTTP aislada — aprobada; `POST /api/attendance/qr` respondió 201 en ~70 ms con PNG Base64 y `remainingMs` cercano a 60 s.
+- Decodificación técnica del PNG — aprobada con detector QR; el contenido coincide con la URL LAN generada.
+- `node pruebas/prueba_public_url.js` — aprobado; con `PUBLIC_URL` se conserva el origen configurado y sin `PUBLIC_URL` se usa IPv4 LAN cuando está disponible.
+- `node pruebas/prueba_persistencia_concurrente.js` — aprobado; el QR temporal no ejecuta snapshots MySQL.
+- `npm test` — suite completa aprobada el 2026-10-08.
+- La validación manual posterior al commit #004 mostró nuevamente `Generando QR...`; por eso la HU fue reabierta y no se conserva ese resultado como cierre actual.
+- Validación desde celular físico — PENDIENTE DEL USUARIO; no se declara cierre 100 % hasta realizarla.
 
 **COMMITS RELACIONADOS:**
 
 - `f5643be` — Corregir #004 - fix(api): respuesta del QR de asistencia
+- `8c663cf` — Documentar #005 - docs(general): trazabilidad del QR
 
-**ÚLTIMA ACTUALIZACIÓN:** 2026-10-07
+**ÚLTIMA ACTUALIZACIÓN:** 2026-10-08
 
 **OBSERVACIONES:**
 
-La causa era la espera innecesaria de `repository.saveSnapshot` antes de finalizar una respuesta que solo crea estado temporal. La ruta `POST /api/attendance/qr/register` permanece dentro de la persistencia MySQL porque sí guarda la asistencia.
+La exclusión de `repository.saveSnapshot` resolvió una espera real pero no fue evidencia suficiente para cerrar la regresión. La corrección de pre-entrega endurece el contrato frontend, elimina el estado de carga infinito ante datos inválidos, asegura la carga del PNG antes de mostrarlo y evita URLs `localhost` cuando existe una IPv4 LAN. La ruta `POST /api/attendance/qr/register` permanece dentro de la persistencia MySQL porque sí guarda la asistencia. La aprobación física histórica del 01/10 se conserva como antecedente; la revalidación con celular queda pendiente del usuario.

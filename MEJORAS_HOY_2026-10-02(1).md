@@ -6249,3 +6249,118 @@ No se ejecutó git add, git commit ni git push. No se abrió el Bloque 52. No se
 añadió funcionalidad ni se realizó un refactor.
 
 DETENERSE.
+
+=====================================================================
+PRE-ENTREGA — CORRECCIÓN DIRIGIDA DEL QR (2026-10-08)
+=====================================================================
+
+Estado previo:
+- la prueba física del 01/10 permanece como evidencia histórica aprobada;
+- una validación manual posterior al commit #004 volvió a mostrar
+  "Generando QR...", por lo que HU-003 se reabrió.
+
+Cambios mínimos aplicados en la copia de pre-entrega:
+- el frontend valida `image`, `url` y `remainingMs` antes de renderizar;
+- la imagen QR solo se hace visible después de completar su evento `load`;
+- un PNG inválido o una imagen que no carga abandona el estado
+  "Generando QR..." y entra al flujo de error/reintento;
+- `asistencia_qr.js` se sirve con versión en `estadisticas.html` para evitar
+  reutilizar una copia antigua del script durante esta corrección;
+- el QR conserva fondo blanco, zona visual limpia y `filter:none` incluso en
+  modo oscuro;
+- sin `PUBLIC_URL`, el servidor usa una IPv4 LAN disponible para el enlace del
+  QR en lugar de `localhost`; con `PUBLIC_URL`, se respeta el origen configurado.
+
+Evidencia ejecutada:
+- `node pruebas/prueba_qr_frontend.js`: APROBADO;
+- integración HTTP aislada: POST `/api/attendance/qr` = 201 en ~70 ms,
+  imagen `data:image/png;base64,...` y vigencia cercana a 60 s;
+- el PNG generado fue decodificado correctamente por un detector QR y devolvió
+  la misma URL LAN incorporada al código;
+- `node pruebas/prueba_public_url.js`: APROBADO;
+- `node pruebas/prueba_persistencia_concurrente.js`: APROBADO;
+- `npm test`: APROBADO;
+- `git diff --check`: APROBADO.
+
+Pendiente del usuario:
+- escaneo físico con celular en la misma red y confirmación real de asistencia.
+
+Estado HU-003:
+- EN CORRECCIÓN / VALIDACIÓN FÍSICA PENDIENTE DEL USUARIO.
+
+No se ejecutó git add, git commit ni git push.
+
+=====================================================================
+PRE-ENTREGA — MODO OSCURO Y CONTINUIDAD DEL LOGO (2026-10-08)
+=====================================================================
+
+Cambios aplicados:
+- Estadísticas: modo oscuro completado en filtros, indicadores, paneles,
+  gráficas, tablas, informes guardados, botones, diálogos y estados vacíos.
+- Asistencia: modo oscuro completado en filtros, tabla, resumen, leyenda,
+  paginación, campos, acciones y tarjetas de estado.
+- Estadísticas y Asistencia aplican la preferencia oscura al inicio del body
+  para evitar el destello claro antes de que cargue aplicacion.js.
+- El QR conserva fondo blanco y alto contraste en modo oscuro.
+- El video institucional del logo fue optimizado de 1440x1440 (~6,8 MB) a
+  512x512 (~320 KB), manteniendo 24 fps y sin modificar la identidad visual.
+- El loop fue cerrado con una transición final/inicial y el primer/último
+  fotograma quedaron prácticamente equivalentes para reducir el corte visual.
+- navegacion.js conserva una fase temporal del logo en sessionStorage; al
+  cambiar de página, el video se reposiciona en la fase que habría alcanzado
+  si hubiera continuado reproduciéndose, evitando reiniciar visualmente desde
+  el principio en cada módulo.
+- El fallback PNG permanece reservado para error real de reproducción.
+
+Validación ejecutada:
+- node --check aplicacion/recursos/JS scripts/navegacion.js: APROBADO.
+- node pruebas/prueba_proyecto.js: APROBADO.
+- node pruebas/prueba_qr_frontend.js: APROBADO.
+- npm test: APROBADO.
+- git diff --check: APROBADO (solo advertencias de finales de línea del
+  repositorio existente).
+- Video optimizado: 512x512, 24 fps, ~11,54 s, faststart.
+- Diferencia media entre primer y último fotograma del nuevo loop: ~1,46/255,
+  frente a ~7,57/255 del archivo anterior.
+
+No se ejecutó git add, git commit ni git push.
+
+=====================================================================
+AJUSTE FINAL — LOOP Y CONTINUIDAD VISUAL DEL LOGO (2026-10-08)
+=====================================================================
+
+Problema confirmado:
+- cada navegación crea un nuevo elemento <video> porque las páginas son HTML
+  independientes;
+- además, los recursos estáticos se servían con `Cache-Control: no-store`, por
+  lo que el MP4 podía volver a solicitarse al cambiar de módulo;
+- la fase anterior se reescribía cerca del inicio/final y en `pagehide`, lo que
+  podía hacer que una página nueva retomara desde el comienzo en vez de
+  conservar una línea temporal única durante la sesión.
+
+Corrección aplicada:
+- la fase del logo usa un epoch único e inmutable por pestaña/sesión y cada
+  página calcula su `currentTime` a partir de ese reloj común;
+- ya no se reescribe la fase desde `timeupdate` ni al salir de cada página;
+- antes de navegar se captura el último fotograma visible en `sessionStorage` y
+  se usa como puente visual mientras el nuevo elemento de video busca la fase
+  correcta;
+- se añadió un fotograma inicial WebP para la primera carga y fallback visual
+  del puente, sin usar el PNG institucional como poster;
+- se habilitó transición entre documentos para el área del logo cuando el
+  navegador la soporta;
+- MP4 y WebP se sirven con caché persistente e `immutable`, usando versión en la
+  URL para evitar reutilizar una versión anterior del recurso;
+- al volver desde otra pestaña o desde BFCache (`pageshow` / `visibilitychange`)
+  el video vuelve a sincronizarse con la fase de sesión;
+- el MP4 final mantiene 512x512, 24 fps, ~11,54 s y se cerró con una transición
+  temporal suave en el tramo final para reducir el salto de loop.
+
+Validación ejecutada:
+- `node --check` de los archivos JS modificados: APROBADO;
+- `node pruebas/prueba_proyecto.js`: APROBADO;
+- `npm test`: APROBADO;
+- `git diff --check`: APROBADO (solo advertencias preexistentes de finales de
+  línea en el repositorio).
+
+No se ejecutó git add, git commit ni git push.
