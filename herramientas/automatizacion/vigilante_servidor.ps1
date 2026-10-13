@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 $ErrorActionPreference = "Continue"
@@ -15,12 +15,13 @@ try {
     while ($true) {
         try {
             & $EnsureScript | Out-Null
+            if ($LASTEXITCODE -eq 6) { Start-Sleep -Seconds 60 }
         } catch {
             $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             $log = Join-Path $ProjectRoot "datos\supervisor_servidor.log"
             Add-Content -LiteralPath $log -Value "[$timestamp] El vigilante no pudo comprobar el servidor: $($_.Exception.Message)" -Encoding UTF8
         }
-        Start-Sleep -Seconds 60
+        Start-Sleep -Seconds 10
     }
 } finally {
     if ($ownsMutex) { $mutex.ReleaseMutex() }

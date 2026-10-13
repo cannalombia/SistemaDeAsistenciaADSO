@@ -1,0 +1,23 @@
+global
+    log stdout format raw local0
+    maxconn 2048
+
+defaults
+    mode http
+    log global
+    option httplog
+    option forwardfor
+    timeout connect 3s
+    timeout client 30s
+    timeout server 30s
+
+frontend blue_magic_front
+    bind *:3000
+    default_backend blue_magic_nodes
+
+backend blue_magic_nodes
+    balance roundrobin
+    option httpchk GET /api/health/ready
+    http-check expect status 200
+    server node01 127.0.0.1:3001 check inter 2s fall 2 rise 2
+    server node02 127.0.0.1:3002 check inter 2s fall 2 rise 2
