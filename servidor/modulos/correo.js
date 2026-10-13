@@ -57,7 +57,7 @@ function retryAfterMilliseconds(response) {
     return Number.isFinite(date) ? Math.max(0, date - Date.now()) : 0;
 }
 
-function createEmailService(config, { appendHistory = () => {} } = {}) {
+function createEmailService(config, { appendHistory = () => {}, outbox = null } = {}) {
     const provider = config.emailProvider || (config.gmailUser && config.gmailAppPassword ? "gmail" : "resend");
     const gmailTransport = provider === "gmail" && config.gmailUser && config.gmailAppPassword
         ? nodemailer.createTransport({
@@ -78,6 +78,41 @@ function createEmailService(config, { appendHistory = () => {} } = {}) {
         checkedAt: null,
         message: "Validación pendiente."
     };
+    const circuitFailureThreshold = Math.max(2, Math.min(10, Number(config.emailCircuitFailureThreshold) || 5));
+    const circuitResetMs = Math.max(5000, Math.min(5 * 60 * 1000, Number(config.emailCircuitResetMs) || 30000));
+    const circuit = { state: "closed", failures: 0, openedAt: 0, halfOpenProbe: false };
+
+    function circuitSnapshot() {
+        const retryInMs = circuit.state === "open" ? Math.max(0, circuitResetMs - (Date.now() - circuit.openedAt)) : 0;
+        return { state: circuit.state, failures: circuit.failures, threshold: circuitFailureThreshold, resetMs: circuitResetMs, retryInMs };
+    }
+
+    function assertCircuitAllows() {
+        if (circuit.state !== "open") return;
+        if (Date.now() - circuit.openedAt < circuitResetMs) {
+            throw Object.assign(new Error("El proveedor de correo está temporalmente aislado por protección automática. Intenta nuevamente en unos segundos."), {
+                status: 503, retryable: false, errorCode: "circuit_open"
+            });
+        }
+        circuit.state = "half_open";
+        circuit.halfOpenProbe = true;
+    }
+
+    function circuitSucceeded() {
+        circuit.state = "closed";
+        circuit.failures = 0;
+        circuit.openedAt = 0;
+        circuit.halfOpenProbe = false;
+    }
+
+    function circuitFailed() {
+        circuit.failures += 1;
+        if (circuit.state === "half_open" || circuit.failures >= circuitFailureThreshold) {
+            circuit.state = "open";
+            circuit.openedAt = Date.now();
+            circuit.halfOpenProbe = false;
+        }
+    }
 
     async function runWithRetries(operation) {
         let lastError;
@@ -180,19 +215,28 @@ function createEmailService(config, { appendHistory = () => {} } = {}) {
         }
     }
 
-    async function sendCode(user, code, requestId, createMessage) {
+    async function sendCode(user, code, requestId, createMessage, options = {}) {
         const email = normalizeEmail(user.email);
         const from = config.emailFrom || (gmailTransport
             ? `Sistema SENA <${config.gmailUser}>`
             : "Sistema SENA <onboarding@resend.dev>");
         const message = createMessage(user, code, from);
         const startedAt = Date.now();
+        const expiresAt = Number(options.expiresAt) || (Date.now() + 10 * 60 * 1000);
+        if (outbox?.enqueue) {
+            await outbox.enqueue({ requestId, provider, recipient: email, payload: message, expiresAt });
+        }
         try {
+            assertCircuitAllows();
             const delivery = await runWithRetries(() => {
                 if (config.emailSender) return config.emailSender(message);
                 return provider === "gmail" ? sendWithGmail(message) : sendWithResend(message, requestId);
             });
+            circuitSucceeded();
             const providerMessageId = String(delivery.result?.id || delivery.result?.messageId || "");
+            if (outbox?.mark) {
+                try { await outbox.mark(requestId, "sent", { incrementAttempts: delivery.attempts }); } catch (error) { console.error("No se pudo confirmar el outbox de correo:", error.message); }
+            }
             appendHistory({
                 requestId,
                 recipient: maskEmail(email),
@@ -210,6 +254,10 @@ function createEmailService(config, { appendHistory = () => {} } = {}) {
             };
             return delivery.result;
         } catch (error) {
+            circuitFailed();
+            if (outbox?.mark) {
+                try { await outbox.mark(requestId, "failed", { incrementAttempts: error.deliveryAttempts || 1, error: error.message }); } catch (outboxError) { console.error("No se pudo actualizar el outbox fallido:", outboxError.message); }
+            }
             appendHistory({
                 requestId,
                 recipient: maskEmail(email),
@@ -228,6 +276,39 @@ function createEmailService(config, { appendHistory = () => {} } = {}) {
             };
             throw error;
         }
+    }
+
+    async function deliverPreparedOutboxItem(item) {
+        if (!item || !item.payload || !item.requestId) return false;
+        if (Number(item.expiresAt) <= Date.now()) {
+            await outbox?.mark?.(item.requestId, "expired", { error: "El correo caducó antes de ser enviado." });
+            return false;
+        }
+        const startedAt = Date.now();
+        try {
+            assertCircuitAllows();
+            const delivery = await runWithRetries(() => {
+                if (config.emailSender) return config.emailSender(item.payload);
+                return provider === "gmail" ? sendWithGmail(item.payload) : sendWithResend(item.payload, item.requestId);
+            });
+            circuitSucceeded();
+            await outbox?.mark?.(item.requestId, "sent", { incrementAttempts: delivery.attempts });
+            appendHistory({ requestId: item.requestId, recipient: maskEmail(item.recipient), provider, status: "accepted", attempts: delivery.attempts, durationMs: Date.now() - startedAt, recoveredFromOutbox: true });
+            return true;
+        } catch (error) {
+            circuitFailed();
+            await outbox?.mark?.(item.requestId, "failed", { incrementAttempts: error.deliveryAttempts || 1, error: error.message });
+            appendHistory({ requestId: item.requestId, recipient: maskEmail(item.recipient), provider, status: "failed", attempts: error.deliveryAttempts || 1, durationMs: Date.now() - startedAt, errorCode: error.errorCode || "delivery_error", message: error.message, recoveredFromOutbox: true });
+            return false;
+        }
+    }
+
+    async function drainOutbox(limit = 20) {
+        if (!outbox?.listPending) return { processed: 0, sent: 0 };
+        const items = await outbox.listPending(limit);
+        let sent = 0;
+        for (const item of items) if (await deliverPreparedOutboxItem(item)) sent += 1;
+        return { processed: items.length, sent };
     }
 
     async function probe() {
@@ -278,14 +359,15 @@ function createEmailService(config, { appendHistory = () => {} } = {}) {
     }
 
     function getHealth() {
-        return { ...health };
+        return { ...health, circuit: circuitSnapshot() };
     }
 
     return {
         provider,
         testMode,
-        enqueueVerificationCode: (user, code, requestId) => enqueue(() => sendCode(user, code, requestId, verificationMessage)),
-        enqueuePasswordRecoveryCode: (user, code, requestId) => enqueue(() => sendCode(user, code, requestId, passwordRecoveryMessage)),
+        enqueueVerificationCode: (user, code, requestId, options) => enqueue(() => sendCode(user, code, requestId, verificationMessage, options)),
+        enqueuePasswordRecoveryCode: (user, code, requestId, options) => enqueue(() => sendCode(user, code, requestId, passwordRecoveryMessage, options)),
+        drainOutbox,
         probe,
         getHealth
     };

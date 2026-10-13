@@ -104,7 +104,10 @@ function createProjectServer(options = {}) {
         emailMinIntervalMs: options.emailSender && options.emailMinIntervalMs == null
             ? 0
             : boundedInteger(options.emailMinIntervalMs ?? process.env.EMAIL_MIN_INTERVAL_MS, 300, 100, 5000),
-        emailHistoryLimit: boundedInteger(options.emailHistoryLimit ?? process.env.EMAIL_HISTORY_LIMIT, 500, 50, 5000)
+        emailHistoryLimit: boundedInteger(options.emailHistoryLimit ?? process.env.EMAIL_HISTORY_LIMIT, 500, 50, 5000),
+        emailCircuitFailureThreshold: boundedInteger(options.emailCircuitFailureThreshold ?? process.env.EMAIL_CIRCUIT_FAILURE_THRESHOLD, 5, 2, 10),
+        emailCircuitResetMs: boundedInteger(options.emailCircuitResetMs ?? process.env.EMAIL_CIRCUIT_RESET_MS, 30000, 5000, 300000),
+        trustProxy: options.trustProxy ?? process.env.TRUST_PROXY === "1"
     };
     const codes = new Map();
     const sessions = new Map();
@@ -124,7 +127,9 @@ function createProjectServer(options = {}) {
     const emailHistoryFile = options.emailHistoryFile === null
         ? null
         : (options.emailHistoryFile || (persistentRuntime ? path.join(dataDirectory, "historial_envios_correo.json") : null));
-    const storedAuthState = readJsonFile(authStateFile, {});
+    const storedAuthState = options.authState
+        ? JSON.parse(JSON.stringify(options.authState))
+        : readJsonFile(authStateFile, {});
     const nowAtStartup = now();
     for (const item of Array.isArray(storedAuthState.codes) ? storedAuthState.codes : []) {
         const document = String(item.document || "").replace(/\D/g, "");
@@ -165,7 +170,22 @@ function createProjectServer(options = {}) {
     if (!Array.isArray(emailHistory)) emailHistory = [];
     emailHistory = emailHistory.slice(-config.emailHistoryLimit);
     const serverStartedAt = new Date().toISOString();
-    const emailService = createEmailService(config, { appendHistory: appendEmailHistory });
+    const instanceId = String(options.instanceId || process.env.INSTANCE_ID || `${os.hostname()}-${process.pid}`).trim();
+    const serverState = { draining: false };
+    function clientAddress(request) {
+        if (config.trustProxy) {
+            const forwarded = String(request.headers["x-forwarded-for"] || "").split(",")[0].trim();
+            if (forwarded) return forwarded;
+        }
+        return request.socket.remoteAddress || "local";
+    }
+    const configuredBackupDirectory = path.resolve(String(options.backupDirectory || process.env.BACKUP_DIR || path.join(root, "respaldos", "restauraciones")));
+    const outboxAdapter = repository?.enqueueEmailOutbox ? {
+        enqueue: (item) => repository.enqueueEmailOutbox(item),
+        mark: (requestId, status, details) => repository.markEmailOutbox(requestId, status, details),
+        listPending: (limit) => repository.listPendingEmailOutbox(limit)
+    } : null;
+    const emailService = createEmailService(config, { appendHistory: appendEmailHistory, outbox: outboxAdapter });
     const selectedEmailProvider = emailService.provider;
     const resendTestMode = emailService.testMode;
     const adminCredentialsFile = options.adminCredentialsFile || path.join(dataDirectory, "credenciales_administrador.json");
@@ -518,14 +538,54 @@ function createProjectServer(options = {}) {
         return entry;
     }
 
-    function persistAuthState() {
-        writeJsonFileAtomic(authStateFile, {
-            version: 1,
+    let authPersistTail = Promise.resolve();
+
+    function authStateSnapshot() {
+        return {
+            version: 2,
             savedAt: new Date().toISOString(),
             codes: [...codes.entries()].map(([document, item]) => ({ document, ...item })),
             hourlyRequests: [...hourlyRequests.entries()].map(([key, item]) => ({ key, ...item })),
             adminRecovery
-        });
+        };
+    }
+
+    function applyAuthRuntimeState(value) {
+        if (!value || typeof value !== "object") return;
+        const currentTime = now();
+        codes.clear();
+        for (const item of Array.isArray(value.codes) ? value.codes : []) {
+            const document = String(item.document || "").replace(/\D/g, "");
+            const email = normalizeEmail(item.email);
+            if (document && email && /^[a-f0-9]{64}$/i.test(String(item.hash || "")) && Number(item.expiresAt) > currentTime) {
+                codes.set(document, { hash: String(item.hash), email, expiresAt: Number(item.expiresAt), nextSendAt: Number(item.nextSendAt) || currentTime, attempts: boundedInteger(item.attempts, 0, 0, 5) });
+            }
+        }
+        hourlyRequests.clear();
+        for (const item of Array.isArray(value.hourlyRequests) ? value.hourlyRequests : []) {
+            const key = String(item.key || "");
+            if (key && Number(item.windowEndsAt) > currentTime) hourlyRequests.set(key, { count: boundedInteger(item.count, 0, 0, 5), windowEndsAt: Number(item.windowEndsAt) });
+        }
+        const storedRecovery = value.adminRecovery;
+        adminRecovery = storedRecovery && normalizeEmail(storedRecovery.email) && /^[a-f0-9]{64}$/i.test(String(storedRecovery.hash || "")) && Number(storedRecovery.expiresAt) > currentTime
+            ? { hash: String(storedRecovery.hash), email: normalizeEmail(storedRecovery.email), expiresAt: Number(storedRecovery.expiresAt), nextSendAt: Number(storedRecovery.nextSendAt) || currentTime, attempts: boundedInteger(storedRecovery.attempts, 0, 0, recoveryAttemptLimit) }
+            : null;
+    }
+
+    function persistAuthState() {
+        const snapshot = authStateSnapshot();
+        writeJsonFileAtomic(authStateFile, snapshot);
+        if (!repository?.setRuntimeState) return Promise.resolve();
+        const persist = () => repository.setRuntimeState("auth", snapshot);
+        const execution = authPersistTail.then(persist, persist);
+        authPersistTail = execution.catch((error) => console.error("No se pudo compartir el estado de autenticación:", error.message));
+        return execution;
+    }
+
+    async function hydrateAuthStateFromRepository() {
+        if (!repository?.getRuntimeState) return;
+        const shared = await repository.getRuntimeState("auth");
+        if (shared) applyAuthRuntimeState(shared);
     }
 
     function appendEmailHistory(entry) {
@@ -623,19 +683,33 @@ function createProjectServer(options = {}) {
         };
     }
 
-    function createSession(response, user) {
+    async function createSession(response, user) {
         const token = crypto.randomBytes(32).toString("base64url");
         const expiresAt = Date.now() + 8 * 60 * 60 * 1000;
-        sessions.set(token, { user, expiresAt, academicAlertShown: false });
+        const session = { user, expiresAt, academicAlertShown: false };
+        sessions.set(token, session);
+        if (repository?.saveSession) await repository.saveSession(token, session);
         const cookie = `sena_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${8 * 60 * 60}${config.secureCookie ? "; Secure" : ""}`;
         sendJson(response, 200, { ok: true, user }, { "Set-Cookie": cookie });
+    }
+
+    async function hydrateSessionFromRepository(request) {
+        if (!repository?.getSession) return;
+        const token = readCookies(request).sena_session;
+        if (!token) return;
+        const shared = await repository.getSession(token);
+        if (shared) sessions.set(token, shared);
+        else sessions.delete(token);
     }
 
     function currentSession(request) {
         const token = readCookies(request).sena_session;
         const session = token ? sessions.get(token) : null;
         if (!session || session.expiresAt <= Date.now()) {
-            if (token) sessions.delete(token);
+            if (token) {
+                sessions.delete(token);
+                repository?.deleteSession?.(token).catch?.(() => {});
+            }
             return null;
         }
         return { token, ...session };
@@ -720,7 +794,7 @@ function createProjectServer(options = {}) {
         }
 
         const clientKey = crypto.createHash("sha256")
-            .update(`admin-recovery:${request.socket.remoteAddress || "local"}:${account.id}`)
+            .update(`admin-recovery:${clientAddress(request)}:${account.id}`)
             .digest("hex");
         const rate = hourlyRequests.get(clientKey);
         if (rate && rate.windowEndsAt > currentTime && rate.count >= 5) {
@@ -732,13 +806,15 @@ function createProjectServer(options = {}) {
 
         const code = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
         const requestId = crypto.randomUUID();
+        const previousRecovery = adminRecovery ? { ...adminRecovery } : null;
+        const previousRate = rate ? { ...rate } : null;
+        const expiresAt = currentTime + recoveryCodeTtlMs;
         adminRecoveryRequestPending = true;
         try {
-            await emailService.enqueuePasswordRecoveryCode(account, code, requestId);
             adminRecovery = {
                 hash: hashRecoveryCode(email, code),
                 email,
-                expiresAt: currentTime + recoveryCodeTtlMs,
+                expiresAt,
                 nextSendAt: currentTime + recoveryResendDelayMs,
                 attempts: 0
             };
@@ -746,7 +822,15 @@ function createProjectServer(options = {}) {
                 count: rate && rate.windowEndsAt > currentTime ? rate.count + 1 : 1,
                 windowEndsAt: rate && rate.windowEndsAt > currentTime ? rate.windowEndsAt : currentTime + 60 * 60 * 1000
             });
-            persistAuthState();
+            await persistAuthState();
+            try {
+                await emailService.enqueuePasswordRecoveryCode(account, code, requestId, { expiresAt });
+            } catch (error) {
+                adminRecovery = previousRecovery;
+                if (previousRate) hourlyRequests.set(clientKey, previousRate); else hourlyRequests.delete(clientKey);
+                await persistAuthState();
+                throw error;
+            }
             audit(null, "request", "admin_password_recovery", account.id, null, null, {
                 requestId,
                 recipient: maskEmail(email)
@@ -776,7 +860,7 @@ function createProjectServer(options = {}) {
         }
         if (!adminRecovery || adminRecovery.email !== normalizeEmail(account.email) || adminRecovery.expiresAt <= now()) {
             adminRecovery = null;
-            persistAuthState();
+            await persistAuthState();
             audit(null, "reject", "admin_password_recovery", account.id, null, null, { reason: "expired_or_missing" });
             return sendJson(response, 401, { ok: false, message: genericCodeError });
         }
@@ -784,7 +868,7 @@ function createProjectServer(options = {}) {
             adminRecovery.attempts += 1;
             const limitReached = adminRecovery.attempts >= recoveryAttemptLimit;
             if (limitReached) adminRecovery = null;
-            persistAuthState();
+            await persistAuthState();
             audit(null, "reject", "admin_password_recovery", account.id, null, null, {
                 reason: limitReached ? "attempt_limit" : "invalid_code",
                 attempts: limitReached ? recoveryAttemptLimit : adminRecovery.attempts
@@ -800,7 +884,7 @@ function createProjectServer(options = {}) {
 
         const recipient = maskEmail(adminRecovery.email);
         adminRecovery = null;
-        persistAuthState();
+        await persistAuthState();
         account.salt = crypto.randomBytes(16).toString("hex");
         account.passwordHash = crypto.scryptSync(newPassword, account.salt, 64).toString("hex");
         adminCredentials.salt = account.salt;
@@ -813,6 +897,9 @@ function createProjectServer(options = {}) {
                 sessions.delete(token);
                 sessionsInvalidated += 1;
             }
+        }
+        if (repository?.deleteSessionsForUser) {
+            try { sessionsInvalidated += await repository.deleteSessionsForUser(account); } catch (error) { console.error("No se pudieron invalidar todas las sesiones administrativas compartidas:", error.message); }
         }
         audit(null, "reset_password", "admin_password_recovery", account.id, null, null, {
             method: "email_otp",
@@ -839,7 +926,7 @@ function createProjectServer(options = {}) {
         }
 
         const clientKey = crypto.createHash("sha256")
-            .update(`${request.socket.remoteAddress || "local"}:${document}`)
+            .update(`${clientAddress(request)}:${document}`)
             .digest("hex");
         const rate = hourlyRequests.get(clientKey);
         if (rate && rate.windowEndsAt > now && rate.count >= 5) {
@@ -851,13 +938,15 @@ function createProjectServer(options = {}) {
 
         const code = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
         const requestId = crypto.randomUUID();
+        const expiresAt = now + 10 * 60 * 1000;
+        const previousCode = existing ? { ...existing } : null;
+        const previousRate = rate ? { ...rate } : null;
         pendingCodeRequests.add(document);
         try {
-            await emailService.enqueueVerificationCode(user, code, requestId);
             codes.set(document, {
                 hash: hashCode(email, code),
                 email,
-                expiresAt: now + 10 * 60 * 1000,
+                expiresAt,
                 nextSendAt: now + 60 * 1000,
                 attempts: 0
             });
@@ -865,7 +954,15 @@ function createProjectServer(options = {}) {
                 count: rate && rate.windowEndsAt > now ? rate.count + 1 : 1,
                 windowEndsAt: rate && rate.windowEndsAt > now ? rate.windowEndsAt : now + 60 * 60 * 1000
             });
-            persistAuthState();
+            await persistAuthState();
+            try {
+                await emailService.enqueueVerificationCode(user, code, requestId, { expiresAt });
+            } catch (error) {
+                if (previousCode) codes.set(document, previousCode); else codes.delete(document);
+                if (previousRate) hourlyRequests.set(clientKey, previousRate); else hourlyRequests.delete(clientKey);
+                await persistAuthState();
+                throw error;
+            }
 
             const maskedEmail = maskEmail(email);
             const result = { ok: true, message: `Código enviado a ${maskedEmail}. Revisa también la carpeta de spam.` };
@@ -887,22 +984,22 @@ function createProjectServer(options = {}) {
         const pending = codes.get(document);
         if (!pending || pending.expiresAt <= Date.now()) {
             codes.delete(document);
-            persistAuthState();
+            await persistAuthState();
             return sendJson(response, 401, { ok: false, message: "El código venció. Solicita uno nuevo." });
         }
         pending.attempts += 1;
         if (pending.attempts > 5) {
             codes.delete(document);
-            persistAuthState();
+            await persistAuthState();
             return sendJson(response, 429, { ok: false, message: "Demasiados intentos. Solicita un código nuevo." });
         }
         if (!safeEqual(pending.hash, hashCode(pending.email, code))) {
-            persistAuthState();
+            await persistAuthState();
             return sendJson(response, 401, { ok: false, message: "El código no es correcto." });
         }
 
         codes.delete(document);
-        persistAuthState();
+        await persistAuthState();
         const user = codeAccessUser(document);
         if (!user || normalizeEmail(user.email) !== pending.email) return sendJson(response, 404, { ok: false, message: "No se encontró el perfil del usuario." });
         if (!codeAccessUserIsEnabled(user)) return sendJson(response, 403, { ok: false, message: "La cuenta del usuario se encuentra desactivada." });
@@ -984,34 +1081,105 @@ function createProjectServer(options = {}) {
         return sendJson(response, 200, { ok: true, total: auditRecords.length, entries: selected });
     }
 
-    async function handleSystemHealth(_request, response) {
-        const emailHealth = emailService.getHealth();
-        let database = { source: repository ? "mysql" : "legacy", ready: true };
-        if (repository) {
-            try { database = { source: "mysql", ...(await checkDatabase(repository.pool)) }; }
-            catch (error) { return sendJson(response, 503, { ok: false, service: "sistema-asistencia-sena", status: "unavailable", database: { source: "mysql", ready: false, error: error.message } }); }
+    async function databaseHealthPayload() {
+        if (!repository) return { source: "legacy", ready: true, mode: "single-process" };
+        try {
+            return { source: "mysql", ...(await checkDatabase(repository.pool)) };
+        } catch (error) {
+            return { source: "mysql", ready: false, error: error.message };
         }
+    }
+
+    async function storageHealthPayload() {
+        if (!persistentRuntime) return { ready: true, mode: "test-or-memory" };
+        try {
+            await fs.promises.mkdir(configuredBackupDirectory, { recursive: true });
+            await fs.promises.access(configuredBackupDirectory, fs.constants.R_OK | fs.constants.W_OK);
+            return { ready: true, backupDirectory: configuredBackupDirectory };
+        } catch (error) {
+            return { ready: false, backupDirectory: configuredBackupDirectory, error: error.message };
+        }
+    }
+
+    async function handleSystemLiveness(_request, response) {
         return sendJson(response, 200, {
             ok: true,
             service: "sistema-asistencia-sena",
-            status: "ready",
+            status: "alive",
+            instanceId,
             buildId,
+            pid: process.pid,
+            uptimeSeconds: Math.floor(process.uptime())
+        });
+    }
+
+    async function handleSystemReadiness(_request, response) {
+        const database = await databaseHealthPayload();
+        const ready = !serverState.draining && database.ready !== false;
+        return sendJson(response, ready ? 200 : 503, {
+            ok: ready,
+            service: "sistema-asistencia-sena",
+            status: ready ? "ready" : (serverState.draining ? "draining" : "unavailable"),
+            instanceId,
+            buildId,
+            database
+        });
+    }
+
+    async function handleSystemHealth(_request, response) {
+        const emailHealth = emailService.getHealth();
+        const database = await databaseHealthPayload();
+        const storage = await storageHealthPayload();
+        let instances = [];
+        if (repository?.activeInstances) {
+            try { instances = await repository.activeInstances({ maxAgeMs: 30000 }); } catch (_) { /* health remains useful without cluster metadata */ }
+        }
+        const ready = !serverState.draining && database.ready !== false;
+        const degraded = ready && (emailHealth.ready === false || storage.ready === false);
+        const memory = process.memoryUsage();
+        return sendJson(response, ready ? 200 : 503, {
+            ok: ready,
+            service: "sistema-asistencia-sena",
+            status: ready ? (degraded ? "degraded" : "ready") : (serverState.draining ? "draining" : "unavailable"),
+            buildId,
+            instanceId,
+            pid: process.pid,
+            hostName: os.hostname(),
             startedAt: serverStartedAt,
             uptimeSeconds: Math.floor(process.uptime()),
+            memory: {
+                rssMb: Math.round(memory.rss / 1048576),
+                heapUsedMb: Math.round(memory.heapUsed / 1048576),
+                heapTotalMb: Math.round(memory.heapTotal / 1048576)
+            },
             database,
+            storage,
+            resilience: {
+                sharedSessions: Boolean(repository?.saveSession),
+                sharedQr: Boolean(repository?.saveQrToken),
+                distributedMutationLock: Boolean(repository?.withMutationLock),
+                idempotency: Boolean(repository?.saveIdempotency),
+                emailOutbox: Boolean(repository?.enqueueEmailOutbox),
+                activeInstances: instances.length,
+                instances
+            },
             email: {
                 provider: selectedEmailProvider,
                 configured: emailHealth.configured,
                 ready: emailHealth.ready,
                 checkedAt: emailHealth.checkedAt,
-                mode: resendTestMode ? "test" : "production"
+                mode: resendTestMode ? "test" : "production",
+                circuit: emailHealth.circuit || null
             }
         });
     }
 
-    function handleLogout(request, response) {
+    async function handleLogout(request, response) {
         const token = readCookies(request).sena_session;
-        if (token) sessions.delete(token);
+        if (token) {
+            sessions.delete(token);
+            if (repository?.deleteSession) await repository.deleteSession(token);
+        }
         const cookie = `sena_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${config.secureCookie ? "; Secure" : ""}`;
         return sendJson(response, 200, { ok: true }, { "Set-Cookie": cookie });
     }
@@ -1025,14 +1193,17 @@ function createProjectServer(options = {}) {
         return session;
     }
 
-    function handleApprenticeProfile(request, response) {
+    async function handleApprenticeProfile(request, response) {
         const session = requireApprentice(request, response);
         if (!session) return;
         const apprentice = apprentices.find((item) => item.id === session.user.id);
         if (!apprentice) return sendJson(response, 404, { ok: false, message: "No se encontró el perfil." });
         const storedSession = sessions.get(session.token);
         const academicAlert = storedSession?.academicAlertShown ? null : academicAlertFor(apprentice);
-        if (academicAlert && storedSession) storedSession.academicAlertShown = true;
+        if (academicAlert && storedSession) {
+            storedSession.academicAlertShown = true;
+            if (repository?.saveSession) await repository.saveSession(session.token, storedSession);
+        }
         return sendJson(response, 200, { ok: true, apprentice: publicApprentice(apprentice), academicAlert });
     }
 
@@ -1181,9 +1352,11 @@ function createProjectServer(options = {}) {
         const url = new URL("/asistencia_qr.html", base_url);
         url.searchParams.set("token", token);
         const image = await QRCode.toDataURL(url.href, { width: 320, margin: 4, errorCorrectionLevel: "M" });
-        // One active QR per staff session; rotation revokes the previous image.
+        // One active QR per staff session; rotation revokes the previous image in every Node instance.
         for (const [key, item] of attendanceTokens) if (item.owner === session.token) attendanceTokens.delete(key);
-        attendanceTokens.set(token, { ficha, jornada, fecha: dateKey(new Date(now)), expiresAt, owner: session.token });
+        const entry = { ficha, jornada, fecha: dateKey(new Date(now)), expiresAt, owner: session.token };
+        attendanceTokens.set(token, entry);
+        if (repository?.saveQrToken) await repository.saveQrToken(token, entry, session.token);
         return sendJson(response, 201, { ok: true, image, url: url.href, expiresAt, remainingMs: Math.max(0, expiresAt - Date.now()) });
     }
 
@@ -1191,7 +1364,15 @@ function createProjectServer(options = {}) {
         const body = await readJsonBody(request);
         const session = requireApprentice(request, response);
         if (!session) return;
-        const entry = attendanceTokens.get(String(body.token || ""));
+        const qrToken = String(body.token || "");
+        let entry = attendanceTokens.get(qrToken);
+        if (repository?.getQrToken) {
+            const sharedEntry = await repository.getQrToken(qrToken);
+            if (sharedEntry) {
+                entry = sharedEntry;
+                attendanceTokens.set(qrToken, sharedEntry);
+            }
+        }
         if (!entry || entry.expiresAt <= Date.now() || entry.fecha !== dateKey(new Date())) {
             return sendJson(response, 410, { ok: false, message: "QR inexistente o vencido. Escanea el QR actual." });
         }
@@ -1509,9 +1690,14 @@ function createProjectServer(options = {}) {
         adminCredentials.salt = account.salt;
         adminCredentials.passwordHash = account.passwordHash;
         saveAdminAccount();
-        // La sesión que hizo el cambio continúa; las demás sesiones administrativas se cierran.
+        // La sesión que hizo el cambio continúa; las demás sesiones administrativas se cierran también entre instancias.
         for (const [token, storedSession] of sessions) {
             if (token !== session.token && storedSession.user?.id === "admin-sena") sessions.delete(token);
+        }
+        if (repository?.deleteSessionsForUser) {
+            await repository.deleteSessionsForUser(account);
+            const currentStored = sessions.get(session.token);
+            if (currentStored && repository?.saveSession) await repository.saveSession(session.token, currentStored);
         }
         return sendJson(response, 200, { ok: true, message: "Contraseña actualizada correctamente." });
     }
@@ -1742,6 +1928,7 @@ function createProjectServer(options = {}) {
         for (const [token, session] of sessions.entries()) {
             if ((user.id && session.user?.id === user.id) || (user.document && session.user?.document === user.document) || (user.email && normalizeEmail(session.user?.email) === normalizeEmail(user.email))) sessions.delete(token);
         }
+        if (repository?.deleteSessionsForUser) repository.deleteSessionsForUser(user).catch((error) => console.error("No se pudieron invalidar sesiones compartidas:", error.message));
     }
 
     function apprenticeIsEnabled(apprentice) {
@@ -2729,7 +2916,7 @@ function createProjectServer(options = {}) {
         const restored = validateRestoredData(await readBackupFile(request));
         refreshUsersFromCsv();
         const previous = JSON.parse(JSON.stringify(backupData()));
-        const automaticDirectory = options.backupDirectory || path.join(root, "respaldos", "restauraciones");
+        const automaticDirectory = configuredBackupDirectory;
         const automaticName = `Pre_restauracion_${new Date().toISOString().replace(/[:.]/g, "-")}_${crypto.randomUUID().slice(0, 8)}.json`;
         const automaticFile = path.join(automaticDirectory, automaticName);
         const automaticBackup = createBackup(previous);
@@ -2754,7 +2941,15 @@ function createProjectServer(options = {}) {
         codes.clear();
         attendanceTokens.clear();
         for (const token of sessions.keys()) if (token !== session.token) sessions.delete(token);
-        persistAuthState();
+        if (repository?.cleanupRuntime) await repository.cleanupRuntime();
+        if (repository?.deleteSessionsForUser) {
+            // Tras una restauración conservamos únicamente la sesión administrativa que ejecutó la operación.
+            const currentStored = sessions.get(session.token);
+            await repository.pool.query("DELETE FROM app_sessions");
+            await repository.pool.query("DELETE FROM app_qr_tokens");
+            if (currentStored && repository?.saveSession) await repository.saveSession(session.token, currentStored);
+        }
+        await persistAuthState();
         return sendJson(response, 200, {
             ok: true,
             message: "Respaldo restaurado correctamente. Se creó una copia automática del estado anterior y la actualización se aplicó de forma integral.",
@@ -2840,11 +3035,13 @@ function createProjectServer(options = {}) {
             reportes: handleReports,
             consultarReporte: handleReport
         },
-        sistema: { consultarEstado: handleSystemHealth, consultarAuditoria: handleAudit, consultarNotificaciones: handleNotifications, exportarRespaldo: handleBackupExport, restaurarRespaldo: handleBackupRestore }
+        sistema: { consultarEstado: handleSystemHealth, consultarVida: handleSystemLiveness, consultarDisponibilidad: handleSystemReadiness, consultarAuditoria: handleAudit, consultarNotificaciones: handleNotifications, exportarRespaldo: handleBackupExport, restaurarRespaldo: handleBackupRestore }
     });
 
     const cloneSnapshot = (value) => JSON.parse(JSON.stringify(value));
     let mutationTail = Promise.resolve();
+    let sharedStateSyncTail = Promise.resolve();
+    let knownRevision = Math.max(0, Number(options.dataRevision) || 0);
 
     function enqueuePersistedMutation(task) {
         const execution = mutationTail.then(task, task);
@@ -2852,30 +3049,79 @@ function createProjectServer(options = {}) {
         return execution;
     }
 
+    async function syncSharedState(force = false, connection = null) {
+        if (!repository?.getRevision || !repository?.loadState) return;
+        const synchronize = async () => {
+            const source = connection || repository.pool;
+            const revision = await repository.getRevision(source);
+            if (!force && revision === knownRevision) return;
+            const shared = await repository.loadState(source);
+            applyRestoredData(shared);
+            knownRevision = revision;
+        };
+        if (connection) return synchronize();
+        const execution = sharedStateSyncTail.then(synchronize, synchronize);
+        sharedStateSyncTail = execution.catch(() => {});
+        return execution;
+    }
+
+    function validIdempotencyKey(value) {
+        const key = String(value || "").trim();
+        return key.length >= 8 && key.length <= 200 && /^[A-Za-z0-9._:-]+$/.test(key) ? key : "";
+    }
+
+    async function replayIdempotentResponse(request, response, requestPath, connection) {
+        if (!repository?.getIdempotency || requestPath.startsWith("/api/auth/")) return false;
+        const key = validIdempotencyKey(request.headers["idempotency-key"]);
+        if (!key) return false;
+        const stored = await repository.getIdempotency(key, request.method, requestPath, connection || repository.pool);
+        if (!stored) return false;
+        const headers = { ...(stored.headers || {}), "Idempotency-Replayed": "true" };
+        delete headers["set-cookie"];
+        delete headers["Set-Cookie"];
+        delete headers["content-length"];
+        delete headers["Content-Length"];
+        headers["Content-Length"] = Buffer.byteLength(stored.body || "");
+        response.writeHead(stored.statusCode, headers);
+        response.end(stored.body || "");
+        return true;
+    }
+
     async function handleHttpRequest(request, response) {
+        const requestId = String(request.headers["x-request-id"] || crypto.randomUUID()).slice(0, 128);
+        request.blueMagicRequestId = requestId;
+        response.setHeader("X-Request-Id", requestId);
+        response.setHeader("X-Blue-Magic-Instance", instanceId);
         response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, X-Request-Id");
         if (request.method === "OPTIONS") {
             response.writeHead(204);
             return response.end();
         }
-        cleanExpired();
         try {
             const requestUrl = new URL(request.url, "http://localhost");
             const pathname = decodeURIComponent(requestUrl.pathname);
-            if (pathname.startsWith("/api/")) refreshUsersFromCsv();
+            const isApi = pathname.startsWith("/api/");
+            const isHealth = pathname.startsWith("/api/health");
+            if (isApi && !isHealth) {
+                if (!request.__blueMagicSynced) await syncSharedState(false);
+                await hydrateSessionFromRepository(request);
+                if (pathname.startsWith("/api/auth/")) await hydrateAuthStateFromRepository();
+                refreshUsersFromCsv();
+            }
+            cleanExpired();
             if (await atenderApi({ request, response, requestUrl, pathname })) return;
-            if (pathname.startsWith("/api/")) return sendJson(response, 404, { ok: false, message: "Ruta de API no encontrada." });
+            if (isApi) return sendJson(response, 404, { ok: false, message: "Ruta de API no encontrada." });
             return serveStatic(request, response, pathname);
         } catch (error) {
-            console.error("Error de API:", error.message);
-            return sendJson(response, error.status || 500, { ok: false, message: error.message || "Error interno del servidor." });
+            console.error(`[${requestId}] Error de API:`, error.message);
+            if (!response.headersSent) return sendJson(response, error.status || 500, { ok: false, message: error.message || "Error interno del servidor.", requestId });
+            response.destroy(error);
         }
     }
 
     const server = http.createServer(async (request, response) => {
-        // Las lecturas permanecen concurrentes y pueden observar temporalmente una mutación aún no confirmada.
         const requestPath = new URL(request.url || "/", "http://localhost").pathname;
         const isEphemeralQrGeneration = request.method === "POST" && requestPath === "/api/attendance/qr";
         const persistedMutation = repository
@@ -2883,15 +3129,30 @@ function createProjectServer(options = {}) {
             && requestPath.startsWith("/api/")
             && !isEphemeralQrGeneration;
         if (!persistedMutation) return handleHttpRequest(request, response);
+
         return enqueuePersistedMutation(async () => {
-            const previous = cloneSnapshot(backupData());
-            const completed = deferResponseUntilMysqlCommit(response, previous);
-            await handleHttpRequest(request, response);
-            await completed;
+            const execute = async (connection = null) => {
+                if (repository?.getRevision && repository?.loadState) {
+                    await syncSharedState(true, connection);
+                    request.__blueMagicSynced = true;
+                }
+                if (await replayIdempotentResponse(request, response, requestPath, connection)) return;
+                const previous = cloneSnapshot(backupData());
+                const completed = deferResponseUntilMysqlCommit(response, previous, {
+                    connection,
+                    request,
+                    requestPath,
+                    idempotencyKey: validIdempotencyKey(request.headers["idempotency-key"])
+                });
+                await handleHttpRequest(request, response);
+                await completed;
+            };
+            if (repository?.withMutationLock) return repository.withMutationLock(execute);
+            return execute(null);
         });
     });
 
-    function deferResponseUntilMysqlCommit(response, previous) {
+    function deferResponseUntilMysqlCommit(response, previous, context = {}) {
         const originalWriteHead = response.writeHead.bind(response);
         const originalEnd = response.end.bind(response);
         let statusCode = 200;
@@ -2932,14 +3193,32 @@ function createProjectServer(options = {}) {
                 }
                 try {
                     const next = cloneSnapshot(backupData());
-                    await repository.saveSnapshot(next);
+                    let idempotency = null;
+                    if (context.idempotencyKey && repository?.saveIdempotency && !context.requestPath.startsWith("/api/auth/")) {
+                        const responseBody = Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk ?? "");
+                        if (Buffer.byteLength(responseBody) <= 1024 * 1024) {
+                            const combinedHeaders = { ...response.getHeaders(), ...(headers || {}) };
+                            delete combinedHeaders["set-cookie"];
+                            delete combinedHeaders["Set-Cookie"];
+                            delete combinedHeaders["content-length"];
+                            delete combinedHeaders["Content-Length"];
+                            idempotency = {
+                                key: context.idempotencyKey,
+                                method: context.request.method,
+                                requestPath: context.requestPath,
+                                response: { statusCode, headers: combinedHeaders, body: responseBody }
+                            };
+                        }
+                    }
+                    const revision = await repository.saveSnapshot(next, context.connection || undefined, { idempotency });
+                    if (Number.isFinite(Number(revision))) knownRevision = Number(revision);
                     await flush();
                 } catch (error) {
                     applyRestoredData(previous);
                     console.error("No se confirmó la operación en MySQL:", error.message);
                     for (const name of response.getHeaderNames()) response.removeHeader(name);
                     const body = JSON.stringify({ ok: false, message: "MySQL rechazó la operación; no se aplicaron cambios. Revisa la conexión y vuelve a intentar." });
-                    await flush(503, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Content-Length": Buffer.byteLength(body) }, body);
+                    await flush(503, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Content-Length": Buffer.byteLength(body), "X-Blue-Magic-Instance": instanceId }, body);
                 }
             })().finally(resolveCompleted);
             return response;
@@ -2947,18 +3226,54 @@ function createProjectServer(options = {}) {
         return completed;
     }
 
+    // Límites explícitos para evitar sockets y solicitudes colgados indefinidamente.
+    server.requestTimeout = boundedInteger(process.env.HTTP_REQUEST_TIMEOUT_MS, 30000, 5000, 120000);
+    server.headersTimeout = boundedInteger(process.env.HTTP_HEADERS_TIMEOUT_MS, 15000, 5000, Math.max(5000, server.requestTimeout));
+    server.keepAliveTimeout = boundedInteger(process.env.HTTP_KEEPALIVE_TIMEOUT_MS, 5000, 1000, 30000);
+    server.maxRequestsPerSocket = boundedInteger(process.env.HTTP_MAX_REQUESTS_PER_SOCKET, 1000, 50, 10000);
+
     let emailHealthTimer = null;
+    let outboxTimer = null;
+    let runtimeCleanupTimer = null;
+    let heartbeatTimer = null;
+
+    async function publishHeartbeat(ready = !serverState.draining) {
+        if (!repository?.heartbeatInstance) return;
+        await repository.heartbeatInstance({
+            instanceId,
+            buildId,
+            pid: process.pid,
+            hostName: os.hostname(),
+            startedAt: serverStartedAt,
+            ready,
+            metadata: { port: server.address()?.port || null, dataSource: "mysql" }
+        });
+    }
+
     server.on("listening", () => {
         emailService.probe().catch(() => {});
+        emailService.drainOutbox?.().catch((error) => console.error("No se pudo recuperar el outbox de correo:", error.message));
+        repository?.cleanupRuntime?.().catch((error) => console.error("No se pudo limpiar el estado temporal compartido:", error.message));
+        publishHeartbeat(true).catch((error) => console.error("No se pudo publicar el heartbeat:", error.message));
+
         emailHealthTimer = setInterval(() => emailService.probe().catch(() => {}), 5 * 60 * 1000);
+        outboxTimer = setInterval(() => emailService.drainOutbox?.().catch((error) => console.error("Outbox:", error.message)), 30 * 1000);
+        runtimeCleanupTimer = setInterval(() => repository?.cleanupRuntime?.().catch((error) => console.error("Limpieza runtime:", error.message)), 60 * 1000);
+        heartbeatTimer = setInterval(() => publishHeartbeat(!serverState.draining).catch(() => {}), 10 * 1000);
         emailHealthTimer.unref?.();
+        outboxTimer.unref?.();
+        runtimeCleanupTimer.unref?.();
+        heartbeatTimer.unref?.();
     });
     server.on("close", () => {
-        if (emailHealthTimer) clearInterval(emailHealthTimer);
-        emailHealthTimer = null;
+        for (const timer of [emailHealthTimer, outboxTimer, runtimeCleanupTimer, heartbeatTimer]) if (timer) clearInterval(timer);
+        emailHealthTimer = outboxTimer = runtimeCleanupTimer = heartbeatTimer = null;
+        publishHeartbeat(false).catch(() => {});
     });
 
     server.exportDatabaseSql = exportDatabaseSql;
+    server.setDraining = (value) => { serverState.draining = Boolean(value); publishHeartbeat(!serverState.draining).catch(() => {}); };
+    server.instanceId = instanceId;
     return server;
 }
 
@@ -2975,6 +3290,8 @@ async function startApplication() {
             repository = createMysqlRepository(pool);
             if (!(await repository.isActivated())) throw new Error("MySQL todavía no está validado como fuente definitiva. Ejecuta npm run db:cutover y completa la validación final antes de usar --activate.");
             const state = await repository.loadState();
+            const authState = await repository.getRuntimeState?.("auth");
+            const dataRevision = await repository.getRevision?.();
             serverOptions = {
                 repository,
                 csvUsers: state.users,
@@ -2989,8 +3306,12 @@ async function startApplication() {
                 auditFile: null,
                 excuses: state.excuses,
                 excusesFile: null,
+                authState,
+                dataRevision,
                 authStateFile: null,
-                emailHistoryFile: null
+                emailHistoryFile: null,
+                instanceId: process.env.INSTANCE_ID || undefined,
+                backupDirectory: process.env.BACKUP_DIR || undefined
             };
         } catch (error) {
             await pool.end();
@@ -3000,14 +3321,36 @@ async function startApplication() {
     const port = Number(process.env.PORT || 3000);
     const server = createProjectServer(serverOptions);
     let closing = false;
-    const shutdown = async (signal) => {
+    const sockets = new Set();
+    server.on("connection", (socket) => {
+        sockets.add(socket);
+        socket.on("close", () => sockets.delete(socket));
+    });
+    const shutdown = async (signal, exitCode = 0) => {
         if (closing) return;
         closing = true;
-        console.log(`${signal}: cerrando servidor y pool MySQL...`);
+        server.setDraining?.(true);
+        console.log(`${signal}: drenando tráfico, cerrando servidor y pool MySQL...`);
+        const forceTimer = setTimeout(() => {
+            for (const socket of sockets) socket.destroy();
+        }, boundedInteger(process.env.SHUTDOWN_GRACE_MS, 10000, 1000, 30000));
+        forceTimer.unref?.();
+        server.closeIdleConnections?.();
         await new Promise((resolve) => server.listening ? server.close(resolve) : resolve());
+        clearTimeout(forceTimer);
         if (pool) await pool.end();
+        if (exitCode) process.exitCode = exitCode;
     };
-    for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => shutdown(signal).then(() => process.exit(0)).catch((error) => { console.error(error); process.exit(1); }));
+    for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => shutdown(signal, 0).then(() => process.exit(0)).catch((error) => { console.error(error); process.exit(1); }));
+    process.once("unhandledRejection", (reason) => {
+        const error = reason instanceof Error ? reason : new Error(String(reason));
+        console.error("UNHANDLED_REJECTION:", error.stack || error.message);
+        shutdown("unhandledRejection", 1).then(() => process.exit(1)).catch(() => process.exit(1));
+    });
+    process.once("uncaughtException", (error) => {
+        console.error("UNCAUGHT_EXCEPTION:", error.stack || error.message);
+        shutdown("uncaughtException", 1).then(() => process.exit(1)).catch(() => process.exit(1));
+    });
     server.listen(port, "0.0.0.0", () => {
         console.log(`Sistema SENA disponible en http://localhost:${port}/login.html`);
         console.log(`Escuchando en 0.0.0.0:${port}`);

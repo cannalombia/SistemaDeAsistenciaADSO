@@ -5,7 +5,9 @@ function crearRutasSistema(controladores) {
             return true;
         }
         if (request.method !== "GET") return false;
-        if (pathname === "/api/health") await controladores.consultarEstado(request, response);
+        if (pathname === "/api/health/live") await controladores.consultarVida(request, response);
+        else if (pathname === "/api/health/ready") await controladores.consultarDisponibilidad(request, response);
+        else if (pathname === "/api/health") await controladores.consultarEstado(request, response);
         else if (pathname === "/api/audit") await controladores.consultarAuditoria(request, response, requestUrl);
         else if (pathname === "/api/notifications") await controladores.consultarNotificaciones(request, response);
         else if (pathname === "/api/backup") await controladores.exportarRespaldo(request, response);
