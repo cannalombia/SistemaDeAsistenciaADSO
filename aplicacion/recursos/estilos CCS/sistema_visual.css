@@ -940,3 +940,170 @@ body.ui-v72{overflow-x:hidden}
         transform:none;
     }
 }
+
+
+/* ===== Página final QR — D7 visual autorizado ===== */
+body.ui-v72.qr-result-page{
+    min-height:100vh;
+    min-height:100dvh;
+    display:grid;
+    place-items:center;
+    padding:24px;
+    background:
+        radial-gradient(circle at 18% 18%,rgba(57,181,74,.10),transparent 28%),
+        radial-gradient(circle at 84% 82%,rgba(0,59,92,.10),transparent 34%),
+        var(--ui-bg);
+}
+
+body.ui-v72.qr-result-page .qr-result-card{
+    width:min(100%,540px);
+    margin:0;
+    padding:32px;
+    border:1px solid var(--ui-border);
+    border-radius:var(--ui-radius-xl);
+    background:var(--ui-surface);
+    color:var(--ui-text);
+    box-shadow:var(--ui-shadow-md);
+    text-align:center;
+}
+
+.qr-result-mark{
+    display:grid;
+    place-items:center;
+    width:64px;
+    height:64px;
+    margin:0 auto 18px;
+    border:1px solid rgba(57,181,74,.24);
+    border-radius:20px;
+    background:var(--ui-accent-soft);
+    color:var(--ui-accent-strong);
+    font-size:17px;
+    font-weight:850;
+    letter-spacing:.08em;
+    box-shadow:0 10px 24px rgba(57,181,74,.12);
+}
+
+.qr-result-eyebrow{
+    display:block;
+    margin-bottom:8px;
+    color:var(--ui-primary);
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.14em;
+}
+
+.qr-result-card h1{
+    margin:0;
+    color:var(--ui-text);
+    font-size:clamp(26px,5vw,34px);
+    line-height:1.14;
+    letter-spacing:-.025em;
+}
+
+.qr-result-description{
+    max-width:430px;
+    margin:12px auto 22px;
+    color:var(--ui-muted);
+    font-size:14px;
+    line-height:1.65;
+}
+
+.qr-result-status{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    width:100%;
+    padding:16px 18px;
+    border:1px solid var(--ui-border);
+    border-radius:var(--ui-radius-md);
+    background:var(--ui-surface-subtle);
+    color:var(--ui-text);
+    text-align:left;
+}
+
+.qr-result-status-dot{
+    flex:0 0 auto;
+    width:10px;
+    height:10px;
+    margin-top:5px;
+    border-radius:50%;
+    background:var(--ui-accent);
+    box-shadow:0 0 0 5px rgba(57,181,74,.12);
+}
+
+.qr-result-status p{
+    margin:0;
+    color:var(--ui-text);
+    font-size:14px;
+    line-height:1.55;
+}
+
+.qr-result-actions{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-top:22px;
+}
+
+body.ui-v72.qr-result-page #qr-login{
+    text-decoration:none;
+}
+
+.qr-result-back{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:44px;
+    padding:10px 16px;
+    border:1px solid var(--ui-border-strong);
+    border-radius:var(--ui-radius-sm);
+    background:var(--ui-surface);
+    color:var(--ui-primary);
+    font-size:13px;
+    font-weight:750;
+    text-decoration:none;
+    transition:background var(--ui-transition),border-color var(--ui-transition),transform var(--ui-transition);
+}
+
+.qr-result-back:hover{
+    border-color:#9fb6c1;
+    background:var(--ui-primary-soft);
+    transform:translateY(-1px);
+}
+
+body.dark-mode.ui-v72.qr-result-page{
+    background:
+        radial-gradient(circle at 18% 18%,rgba(57,181,74,.08),transparent 28%),
+        radial-gradient(circle at 84% 82%,rgba(0,59,92,.22),transparent 34%),
+        var(--ui-bg);
+}
+
+body.dark-mode.ui-v72.qr-result-page .qr-result-card,
+body.dark-mode.ui-v72.qr-result-page .qr-result-back{
+    border-color:var(--ui-border);
+    background:var(--ui-surface);
+    color:var(--ui-text);
+}
+
+body.dark-mode.ui-v72.qr-result-page .qr-result-eyebrow,
+body.dark-mode.ui-v72.qr-result-page .qr-result-back{
+    color:#9fd4b0;
+}
+
+body.dark-mode.ui-v72.qr-result-page .qr-result-status{
+    border-color:var(--ui-border);
+    background:var(--ui-surface-subtle);
+}
+
+@media(max-width:520px){
+    body.ui-v72.qr-result-page{padding:14px}
+    body.ui-v72.qr-result-page .qr-result-card{padding:25px 18px;border-radius:18px}
+    .qr-result-mark{width:58px;height:58px;border-radius:17px;margin-bottom:16px}
+    .qr-result-description{font-size:13px;margin-bottom:18px}
+    .qr-result-status{padding:14px}
+    .qr-result-actions{align-items:stretch;flex-direction:column}
+    body.ui-v72.qr-result-page #qr-login,
+    .qr-result-back{width:100%}
+}

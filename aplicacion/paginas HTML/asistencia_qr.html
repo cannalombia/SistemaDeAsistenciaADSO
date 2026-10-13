@@ -1,5 +1,29 @@
 <!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="referrer" content="no-referrer"><title>Asistencia por QR | Sistema SENA</title><link rel="stylesheet" href="estilos_generales.css"><link rel="stylesheet" href="estadisticas_reportes.css"></head>
-<body><main class="dashboard-panel" style="max-width:540px;margin:40px auto;padding:24px"><h1>Asistencia por QR</h1><p id="qr-result" role="status">Validando tu asistencia…</p><a id="qr-login" class="report-btn primary" hidden>Iniciar sesión</a><p><a href="aprendiz.html">Volver a mi perfil</a></p></main><script src="asistencia_qr.js"></script></body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>Asistencia por QR | Sistema SENA</title>
+    <link rel="stylesheet" href="estilos_generales.css">
+    <link rel="stylesheet" href="estadisticas_reportes.css">
+</head>
+<body class="ui-v72 qr-result-page">
+<script src="tema_inicial.js"></script>
+<main class="dashboard-panel qr-result-card" aria-labelledby="qr-result-title">
+    <div class="qr-result-mark" aria-hidden="true">QR</div>
+    <span class="qr-result-eyebrow">REGISTRO DE ASISTENCIA</span>
+    <h1 id="qr-result-title">Asistencia por QR</h1>
+    <p class="qr-result-description">Estamos comprobando el código y tu sesión para registrar la asistencia de forma segura.</p>
+    <div class="qr-result-status" aria-live="polite">
+        <span class="qr-result-status-dot" aria-hidden="true"></span>
+        <p id="qr-result" role="status">Validando tu asistencia…</p>
+    </div>
+    <div class="qr-result-actions">
+        <a id="qr-login" class="report-btn primary btn" hidden>Iniciar sesión</a>
+        <a class="qr-result-back" href="aprendiz.html">Volver a mi perfil</a>
+    </div>
+</main>
+<script src="asistencia_qr.js"></script>
+</body>
 </html>
