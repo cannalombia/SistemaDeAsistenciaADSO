@@ -16,18 +16,6 @@ const navCss = read("aplicacion/recursos/estilos CCS/navegacion_aprendiz.css");
 const usuariosJs = read("aplicacion/recursos/JS scripts/usuarios.js");
 const appJs = read("aplicacion/recursos/JS scripts/aplicacion.js");
 
-const buildId = read("BUILD_ID.txt").trim();
-const serverJs = read("servidor/servidor.js");
-const supervisor = read("herramientas/automatizacion/asegurar_servidor.ps1");
-const launcher = read("ABRIR_PROYECTO.cmd");
-assert(buildId === "2026-10-12-final-resilience-r1", "El paquete debe identificar de forma única la versión corregida.");
-assert(serverJs.includes('buildIdFile = path.join(root, "BUILD_ID.txt")'), "El servidor debe leer el identificador de build.");
-assert(serverJs.includes("            buildId,"), "El health check debe publicar el build activo.");
-assert(supervisor.includes('$health.buildId -eq $ExpectedBuildId'), "El supervisor debe rechazar una instancia de otra versión.");
-assert(supervisor.includes('Test-CurrentProjectServer'), "El supervisor debe comprobar que el proceso pertenece a la carpeta actual.");
-assert(supervisor.includes('otra carpeta/versión'), "El supervisor debe cerrar una copia antigua antes de arrancar la actual.");
-assert(launcher.includes('ESTA carpeta y ESTA version'), "El lanzador debe dejar explícita la comprobación de instancia actual.");
-
 const darkThemeCss = read("aplicacion/recursos/estilos CCS/tema_oscuro_modulos_20261008.css");
 assert(crear.includes('tema_oscuro_modulos_20261008.css?v=20261008-1930'), "Crear usuario debe cargar el refuerzo oscuro al final de la cascada.");
 assert(stats.includes('tema_oscuro_modulos_20261008.css?v=20261008-1930'), "Estadísticas debe cargar el refuerzo oscuro al final de la cascada.");

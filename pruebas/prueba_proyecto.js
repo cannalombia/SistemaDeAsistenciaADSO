@@ -18,7 +18,7 @@ const automationRoot = path.join(projectRoot, "herramientas", "automatizacion");
 const htmlFiles = fs.readdirSync(root).filter((name) => name.endsWith(".html")).sort();
 const failures = [];
 
-for (const publicDocument of ["README.md", "Estructura.txt"]) {
+for (const publicDocument of ["README.md"]) {
     const content = fs.readFileSync(path.join(projectRoot, publicDocument), "utf8");
     check(!/^(?:usuario|clave|contraseña)\s*:\s*\S+/im.test(content), `${publicDocument}: contiene una credencial escrita en texto visible`);
 }

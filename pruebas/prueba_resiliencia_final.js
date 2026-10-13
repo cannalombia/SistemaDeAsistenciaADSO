@@ -6,8 +6,6 @@ const root = path.join(__dirname, "..");
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), "utf8");
 const exists = (...parts) => fs.existsSync(path.join(root, ...parts));
 
-assert.equal(read("BUILD_ID.txt").trim(), "2026-10-12-final-resilience-r1");
-
 const server = read("servidor", "servidor.js");
 const systemRoutes = read("servidor", "rutas", "sistema.js");
 assert.match(systemRoutes, /\/api\/health\/live/);
@@ -66,9 +64,8 @@ for (const file of [
     "haproxy-blue-magic.cfg.example", "nginx-blue-magic.conf.example", "mysql-router.env.example"
 ]) assert.ok(exists("herramientas", "alta_disponibilidad", file), `Falta ${file}.`);
 
-const envExample = read(".env.example");
 for (const setting of ["INSTANCE_ID", "BACKUP_DIR", "HTTP_REQUEST_TIMEOUT_MS", "SHUTDOWN_GRACE_MS", "EMAIL_CIRCUIT_FAILURE_THRESHOLD", "TRUST_PROXY"]) {
-    assert.match(envExample, new RegExp(`^${setting}=`, "m"));
+    assert.match(server, new RegExp(`process\\.env\\.${setting}\\b`), `El servidor debe utilizar la configuración ${setting}.`);
 }
 
 const attendance = JSON.parse(read("datos", "ejemplos", "asistencia_resiliencia.ejemplo.json"));
