@@ -53,15 +53,15 @@
             <section class="form-container learner-excuse-card">
                 <h2>Presentar una excusa</h2>
                 <p class="section-description">Solo puede enviarse para una ausencia registrada. Adjunta un soporte PDF, JPG o PNG de máximo 5 MB.</p>
-                <form id="apprentice-excuse-form">
+                <form id="apprentice-excuse-form" class="learner-excuse-form">
                     <div class="form-grid">
                         <div class="form-group"><label for="excuse-date">Fecha de ausencia</label><input id="excuse-date" name="fecha" type="date" required></div>
-                        <div class="form-group"><label for="excuse-support">Soporte</label><input id="excuse-support" name="SOPORTE" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
+                        <div class="form-group"><label for="excuse-support">Soporte</label><input id="excuse-support" class="learner-file-input" name="SOPORTE" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
                         <div class="form-group full-width"><label for="excuse-reason">Motivo</label><textarea id="excuse-reason" name="motivo" minlength="10" maxlength="500" required></textarea></div>
                     </div>
-                    <button type="submit" class="btn"><i class="fas fa-paper-plane"></i> Enviar excusa</button>
+                    <div class="learner-excuse-actions"><button type="submit" class="btn learner-excuse-submit"><i class="fas fa-paper-plane"></i> Enviar excusa</button></div>
                 </form>
-                <div class="attendance-table-wrap"><table><thead><tr><th>Fecha</th><th>Motivo</th><th>Soporte</th><th>Estado</th><th>Respuesta</th></tr></thead><tbody id="apprentice-excuses"><tr><td colspan="5">Cargando excusas…</td></tr></tbody></table></div>
+                <div class="attendance-table-wrap learner-excuse-history"><table><thead><tr><th>Fecha</th><th>Motivo</th><th>Soporte</th><th>Estado</th><th>Respuesta</th></tr></thead><tbody id="apprentice-excuses"><tr><td colspan="5">Cargando excusas…</td></tr></tbody></table></div>
             </section>
         </section>
 
