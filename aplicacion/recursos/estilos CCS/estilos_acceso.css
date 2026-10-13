@@ -1,3 +1,5 @@
+@import url("sistema_visual.css");
+
 /*====================================
         STYLELOGIN.CSS
 ====================================*/
@@ -646,4 +648,61 @@ label{
 .btn-link:hover{
     color:#2f973d;
     text-decoration:underline;
+}
+
+/* ===== CIERRE VISUAL INTERNO — ACCESO ===== */
+body.ui-v72.access-page{
+    background:
+        radial-gradient(circle at 12% 18%,rgba(57,181,74,.10),transparent 28%),
+        radial-gradient(circle at 88% 80%,rgba(0,59,92,.10),transparent 32%),
+        #f4f7f8;
+}
+body.ui-v72.access-page .contenedor{gap:56px}
+body.ui-v72.access-page .login{
+    border:1px solid var(--ui-border);
+    box-shadow:0 24px 65px rgba(22,48,62,.13);
+}
+body.ui-v72.access-page .login h2{
+    color:var(--ui-primary);
+    letter-spacing:-.02em;
+}
+body.ui-v72.access-page .login > p{color:var(--ui-muted)}
+body.ui-v72.access-page label{color:#334650;font-weight:700}
+body.ui-v72.access-page .input{
+    min-height:48px;
+    border-color:var(--ui-border-strong);
+    background:#fff;
+    transition:border-color var(--ui-transition),box-shadow var(--ui-transition),background var(--ui-transition);
+}
+body.ui-v72.access-page .input:focus-within{
+    border-color:var(--ui-accent);
+    box-shadow:0 0 0 3px var(--ui-focus);
+}
+body.ui-v72.access-page .input input{min-height:46px;background:transparent;color:var(--ui-text)}
+body.ui-v72.access-page .auth-tabs{
+    padding:4px;
+    border:1px solid var(--ui-border);
+    border-radius:12px;
+    background:#f3f7f8;
+}
+body.ui-v72.access-page .auth-tab{
+    min-height:42px;
+    border-radius:9px;
+}
+body.ui-v72.access-page .auth-tab.active{
+    background:#fff;
+    color:var(--ui-primary);
+    box-shadow:0 4px 12px rgba(22,48,62,.08);
+}
+body.ui-v72.access-page .btn-login,
+body.ui-v72.access-page .btn-secondary{min-height:48px;border-radius:10px}
+body.ui-v72.access-page .btn-link{min-height:44px}
+body.ui-v72.access-page :where(button,input,a):focus-visible{
+    outline:3px solid var(--ui-focus);
+    outline-offset:3px;
+}
+@media(max-width:600px){
+    body.ui-v72.access-page .contenedor{padding-inline:14px}
+    body.ui-v72.access-page .login{width:100%;padding:26px 20px;border-radius:18px}
+    body.ui-v72.access-page .login h2{font-size:25px}
 }
