@@ -237,7 +237,8 @@ async function smokeTest() {
             "paneles_academicos.css",
             "navegacion_aprendiz.css",
             "estadisticas_usuarios.css",
-            "programas_indicadores.css"
+            "programas_indicadores.css",
+            "sistema_visual.css"
         ];
         for (const file of [...htmlFiles, ...recursosPublicos]) {
             const response = await fetch(`http://127.0.0.1:${port}/${encodeURIComponent(file)}`);

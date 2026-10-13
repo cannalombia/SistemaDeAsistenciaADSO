@@ -20,7 +20,7 @@ const buildId = read("BUILD_ID.txt").trim();
 const serverJs = read("servidor/servidor.js");
 const supervisor = read("herramientas/automatizacion/asegurar_servidor.ps1");
 const launcher = read("ABRIR_PROYECTO.cmd");
-assert(buildId === "2026-10-08-dark-theme-instance-v4", "El paquete debe identificar de forma única la versión corregida.");
+assert(buildId === "2026-10-12-final-resilience-r1", "El paquete debe identificar de forma única la versión corregida.");
 assert(serverJs.includes('buildIdFile = path.join(root, "BUILD_ID.txt")'), "El servidor debe leer el identificador de build.");
 assert(serverJs.includes("            buildId,"), "El health check debe publicar el build activo.");
 assert(supervisor.includes('$health.buildId -eq $ExpectedBuildId'), "El supervisor debe rechazar una instancia de otra versión.");
@@ -57,7 +57,9 @@ assert(baseCss.includes("body.dark-mode .notification-entry"), "El diálogo/list
 assert(usuariosJs.includes('new Date().toLocaleString("es-CO")'), "La fecha/hora de actualización debe seguir generándose en usuarios.js.");
 assert(appJs.includes('fetch("/api/notifications"'), "La carga funcional de notificaciones debe conservarse.");
 
-assert(crear.includes('localStorage.getItem("sena-dark-mode")'), "Crear usuario debe aplicar el tema guardado antes de pintar la vista.");
+assert(crear.includes('src="tema_inicial.js"'), "Crear usuario debe cargar el script temprano de tema antes del contenido principal.");
+const temaInicial = read("aplicacion/recursos/JS scripts/tema_inicial.js");
+assert(temaInicial.includes('localStorage.getItem("sena-dark-mode")'), "El script temprano debe leer el tema guardado.");
 assert(usersCss.includes("CREATE USER DARK MODE 2026-10-08"), "Falta la cobertura integral de modo oscuro para Crear usuario.");
 [
     ".user-directory-panel",
