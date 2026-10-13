@@ -717,3 +717,12 @@ npm.cmd test
 Sistema web de gestión y control de asistencia
 <strong>Repositorio: SistemaDeAsistenciaADSO</strong>
 </div>
+
+
+## Resiliencia final 2026-10-12
+
+Build: `2026-10-12-final-resilience-r1`.
+
+Esta versión incorpora health checks `live/ready/full`, cierre ordenado, supervisor con protección de crash-loop, sesiones y QR compartidos en MySQL, lock distribuido para mutaciones, revisión de estado, idempotencia, outbox/circuit breaker de correo y archivos de ejemplo para dos instancias Node detrás de HAProxy/Nginx.
+
+Después de actualizar una instalación MySQL existente, ejecutar `npm run db:migrate` antes de iniciar el servidor. La guía completa está en `documentacion/CIERRE_FINAL_RESILIENCIA_BLUE_MAGIC_20261012.md`.
