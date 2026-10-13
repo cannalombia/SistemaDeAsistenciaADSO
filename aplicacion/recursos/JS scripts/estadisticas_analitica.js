@@ -73,8 +73,18 @@
             focusIndex: 0,
             hoverIndex: null,
             layout: null,
-            resizeFrame: 0
+            resizeFrame: 0,
+            ambientDayIndex: 0,
+            ambientStatusIndex: 0,
+            ambientFichaIndex: 0,
+            ambientTimer: 0,
+            interactionLockUntil: 0
         };
+
+        const now = () => Date.now();
+        const hasAmbientControl = () => !state.selection.dia && state.hoverIndex === null && now() > state.interactionLockUntil;
+        const markInteraction = () => { state.interactionLockUntil = now() + 14000; };
+        const ambientStatus = () => STATUS_ORDER[state.ambientStatusIndex % STATUS_ORDER.length] || STATUS_ORDER[0];
 
         const svgNs = "http://www.w3.org/2000/svg";
         const createSvg = (name, attributes = {}) => {
@@ -124,6 +134,8 @@
 
         function renderTimeline(animate = false) {
             const days = state.data?.timeline || [];
+            const interactiveDays = days.filter((day) => day.total);
+            const ambientDay = hasAmbientControl() && interactiveDays.length ? interactiveDays[state.ambientDayIndex % interactiveDays.length] : null;
             chart.replaceChildren();
             tooltip.hidden = true;
             state.layout = null;
@@ -200,27 +212,31 @@
 
             days.forEach((day, index) => {
                 if (!day.total || day.percentage === null) return;
-                const point = createSvg("circle", { cx: xFor(index), cy: yFor(day.percentage), r: state.selection.dia === day.date ? 6 : 4 });
+                const isSelectedDay = state.selection.dia === day.date;
+                const isAmbientDay = !isSelectedDay && ambientDay && ambientDay.date === day.date;
+                const point = createSvg("circle", { cx: xFor(index), cy: yFor(day.percentage), r: isSelectedDay || isAmbientDay ? 6 : 4 });
                 point.classList.add("analytics-point");
-                if (state.selection.dia === day.date) point.classList.add("is-selected-day");
+                if (isSelectedDay) point.classList.add("is-selected-day");
+                if (isAmbientDay) point.classList.add("is-ambient-day");
                 if (state.selection.estado && numeric(day.counts?.[state.selection.estado]) > 0) point.classList.add(`state-${state.selection.estado}`, "is-state-match");
                 svg.append(point);
             });
 
-            if (state.selection.dia) {
-                const selectedIndex = days.findIndex((day) => day.date === state.selection.dia);
-                if (selectedIndex >= 0) {
-                    const x = xFor(selectedIndex);
+            if (state.selection.dia || ambientDay) {
+                const guideDay = state.selection.dia ? days.find((day) => day.date === state.selection.dia) : ambientDay;
+                const guideIndex = days.findIndex((day) => day.date === guideDay?.date);
+                if (guideIndex >= 0) {
+                    const x = xFor(guideIndex);
                     const guide = createSvg("line", { x1: x, x2: x, y1: margins.top, y2: baseline });
-                    guide.classList.add("analytics-selected-guide");
+                    guide.classList.add(state.selection.dia ? "analytics-selected-guide" : "analytics-ambient-guide");
                     svg.append(guide);
                 }
             }
 
             chart.append(svg);
             state.layout = { svg, width, height, margins, usableWidth, usableHeight, xFor, yFor, baseline, days };
-            const selected = state.selection.dia ? days.find((day) => day.date === state.selection.dia) : null;
-            updateChartDetail(selected);
+            const selected = state.selection.dia ? days.find((day) => day.date === state.selection.dia) : ambientDay;
+            updateChartDetail(selected || null);
         }
 
         function showTooltip(index, event = null) {
@@ -268,6 +284,7 @@
 
         function renderDistribution(animate = false) {
             const summary = state.data?.distribution;
+            const ambientFocusedStatus = hasAmbientControl() ? ambientStatus() : null;
             donut.replaceChildren();
             distribution.replaceChildren();
             if (!summary?.total) {
@@ -300,6 +317,7 @@
                 segment.style.setProperty("--segment-length", String(length));
                 segment.style.setProperty("--circumference", String(circumference));
                 if (state.selection.estado && state.selection.estado !== status) segment.classList.add("is-dimmed");
+                if (!state.selection.estado && ambientFocusedStatus && ambientFocusedStatus !== status) segment.classList.add("is-dimmed");
                 svg.append(segment);
                 if (animate && !reducedMotion.matches) {
                     windowObject.requestAnimationFrame(() => windowObject.requestAnimationFrame(() => segment.setAttribute("stroke-dasharray", `${length} ${circumference}`)));
@@ -333,6 +351,7 @@
                 const label = create("span", "distribution-label", meta.label);
                 const count = create("strong", "", formatNumber(summary.counts?.[status]));
                 const percentage = create("small", "", formatPercent(summary.percentages?.[status]));
+                if (!state.selection.estado && ambientFocusedStatus === status) button.classList.add("is-ambient-focus");
                 button.append(marker, label, count, percentage);
                 distribution.append(button);
             });
@@ -340,6 +359,7 @@
 
         function renderComposition(animate = false) {
             const items = state.data?.composition || [];
+            const ambientFocusedStatus = hasAmbientControl() ? ambientStatus() : null;
             const sorted = sortComposition(items, compositionSort?.value || "attendance-desc", state.selection.estado);
             const visible = limitComposition(sorted, compositionLimit?.value || "5");
             const render = () => {
@@ -349,13 +369,15 @@
                     empty.append(create("strong", "", "Sin registros por ficha"), create("span", "", "No hay composición disponible para este periodo."));
                     composition.append(empty);
                 } else {
-                    visible.forEach((item) => {
+                    visible.forEach((item, index) => {
                         const row = create("button", "composition-row-pro");
                         row.type = "button";
                         row.dataset.ficha = String(item.ficha || "");
                         row.setAttribute("role", "option");
                         row.setAttribute("aria-selected", String(state.selection.ficha === String(item.ficha || "")));
                         if (state.selection.estado && numeric(item.counts?.[state.selection.estado]) > 0) row.classList.add("is-state-match");
+                        if (!state.selection.ficha && !state.selection.estado && visible.length && index === (state.ambientFichaIndex % visible.length)) row.classList.add("is-ambient-focus");
+                        else if (!state.selection.estado && ambientFocusedStatus && numeric(item.counts?.[ambientFocusedStatus]) > 0 && index === (state.ambientFichaIndex % visible.length)) row.classList.add("is-ambient-focus");
 
                         const identity = create("span", "composition-identity");
                         identity.append(create("strong", "", String(item.ficha || "Sin ficha")), create("small", "", item.programa || "Programa no disponible"));
@@ -425,12 +447,14 @@
         }
 
         chart.addEventListener("pointermove", (event) => {
+            markInteraction();
             const index = pointerIndex(event);
             if (index === null) return;
             showTooltip(index, event);
         });
         chart.addEventListener("pointerleave", () => { tooltip.hidden = true; state.hoverIndex = null; updateChartDetail(state.selection.dia ? state.data?.timeline?.find((day) => day.date === state.selection.dia) : null); });
         chart.addEventListener("click", (event) => {
+            markInteraction();
             const index = pointerIndex(event);
             if (index === null || !state.data?.timeline?.[index]) return;
             state.selection.dia = state.data.timeline[index].date;
@@ -438,6 +462,7 @@
             renderAll(true);
         });
         chart.addEventListener("keydown", (event) => {
+            markInteraction();
             const days = state.data?.timeline || [];
             if (!days.length) return;
             if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -458,6 +483,7 @@
         });
 
         distribution.addEventListener("click", (event) => {
+            markInteraction();
             const button = event.target.closest("[data-status]");
             if (!button) return;
             const status = button.dataset.status;
@@ -466,6 +492,7 @@
         });
 
         composition.addEventListener("click", (event) => {
+            markInteraction();
             const row = event.target.closest("[data-ficha]");
             if (!row) return;
             const ficha = row.dataset.ficha;
@@ -474,6 +501,7 @@
             windowObject.SenaDashboard?.selectFicha?.(ficha);
         });
         composition.addEventListener("keydown", (event) => {
+            markInteraction();
             if (event.key !== "Enter" && event.key !== " ") return;
             const row = event.target.closest("[data-ficha]");
             if (!row) return;
@@ -481,13 +509,13 @@
             row.click();
         });
 
-        compositionSort?.addEventListener("change", () => renderComposition(true));
-        compositionLimit?.addEventListener("change", () => renderComposition(true));
+        compositionSort?.addEventListener("change", () => { markInteraction(); renderComposition(true); });
+        compositionLimit?.addEventListener("change", () => { markInteraction(); renderComposition(true); });
         selectionChips?.addEventListener("click", (event) => {
             const chip = event.target.closest("[data-clear-selection]");
             if (chip) clearSelection(chip.dataset.clearSelection);
         });
-        clearSelectionButton?.addEventListener("click", () => clearSelection("all"));
+        clearSelectionButton?.addEventListener("click", () => { markInteraction(); clearSelection("all"); });
         document.addEventListener("keydown", (event) => {
             if (event.key === "Escape" && !selectionBar?.hidden) clearSelection("all");
         });
@@ -502,6 +530,23 @@
             const active = Boolean(event.detail?.active);
             document.querySelectorAll(".analytics-module").forEach((module) => module.classList.toggle("is-loading", active));
         });
+
+        const advanceAmbientState = () => {
+            if (!state.data || !hasAmbientControl()) return;
+            const interactiveDays = (state.data.timeline || []).filter((day) => day.total);
+            if (!interactiveDays.length) return;
+            state.ambientDayIndex = (state.ambientDayIndex + 1) % interactiveDays.length;
+            state.ambientStatusIndex = (state.ambientStatusIndex + 1) % STATUS_ORDER.length;
+            const visibleItems = limitComposition(sortComposition(state.data.composition || [], compositionSort?.value || "attendance-desc", null), compositionLimit?.value || "5");
+            if (visibleItems.length) state.ambientFichaIndex = (state.ambientFichaIndex + 1) % visibleItems.length;
+            renderAll(false);
+        };
+        if (!reducedMotion.matches && typeof windowObject.setInterval === "function") {
+            state.ambientTimer = windowObject.setInterval(advanceAmbientState, 3200);
+            windowObject.addEventListener("pagehide", () => {
+                if (typeof windowObject.clearInterval === "function") windowObject.clearInterval(state.ambientTimer);
+            }, { once: true });
+        }
 
         if (typeof ResizeObserver === "function") {
             const observer = new ResizeObserver(() => {

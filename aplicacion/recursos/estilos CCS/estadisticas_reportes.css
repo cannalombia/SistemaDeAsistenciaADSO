@@ -396,6 +396,69 @@ body.dark-mode.statistics-page .composition-legend-pro{color:#a9b8c0}body.dark-m
 body.dark-mode.statistics-page .composition-controls label{color:#a3b2ba}body.dark-mode.statistics-page .composition-controls select{border-color:#3b505a;background:#132229;color:#e5eef1}body.dark-mode.statistics-page .composition-row-pro{border-color:#2f424b;background:#142229;color:#e7eff2}body.dark-mode.statistics-page .composition-row-pro:hover,body.dark-mode.statistics-page .composition-row-pro:focus-visible{border-color:#456d55;background:#17282f;box-shadow:none}body.dark-mode.statistics-page .composition-row-pro[aria-selected="true"]{border-color:#3d8a50;background:#14291c}body.dark-mode.statistics-page .composition-identity strong{color:#eef5f7}body.dark-mode.statistics-page .composition-identity small{color:#9cadb5}body.dark-mode.statistics-page .composition-bar-pro{background:#263840}body.dark-mode.statistics-page .composition-rate-pro strong{color:#70d383}body.dark-mode.statistics-page .composition-rate-pro small{color:#9aabb3}
 body.dark-mode.statistics-page .analytics-empty strong{color:#dce8ec}body.dark-mode.statistics-page .analytics-empty{color:#9babb3}body.dark-mode.statistics-page .analytics-module.is-loading::after{background:linear-gradient(100deg,rgba(17,30,37,.82) 20%,rgba(28,45,53,.94) 42%,rgba(17,30,37,.82) 66%);background-size:220% 100%}
 
+.statistics-page .timeline-panel,.statistics-page .distribution-panel,.statistics-page .composition-panel{backdrop-filter:blur(14px)}
+.statistics-page .timeline-panel::after,.statistics-page .distribution-panel::after,.statistics-page .composition-panel::after{content:"";position:absolute;inset:auto -28% -34% auto;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(47,191,97,.16),transparent 68%);opacity:.35;pointer-events:none;filter:blur(6px);animation:analyticsOrbitalFloat 14s ease-in-out infinite}
+.statistics-page .analytics-module-header{row-gap:6px}
+.statistics-page .analytics-module-kicker{font-size:10.5px;letter-spacing:1.35px}
+.statistics-page .timeline-panel .analytics-module-kicker,.statistics-page .composition-panel .analytics-module-kicker{font-size:11px}
+.statistics-page .analytics-module-header h2{font-size:18.5px!important;line-height:1.15;letter-spacing:-.02em}
+.statistics-page .timeline-panel .analytics-module-header h2,.statistics-page .composition-panel .analytics-module-header h2{font-size:20px!important}
+.statistics-page .analytics-module-header p{font-size:11.25px;line-height:1.6;color:#67808e}
+.statistics-page .analytics-chart-shell{box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 16px 30px rgba(0,48,77,.08)}
+.statistics-page .analytics-chart-shell::before{content:"";position:absolute;inset:0;background:linear-gradient(102deg,transparent 12%,rgba(255,255,255,.14) 28%,rgba(47,191,97,.09) 48%,rgba(255,255,255,.13) 68%,transparent 84%);background-size:220% 100%;mix-blend-mode:screen;opacity:.52;pointer-events:none;animation:analyticsScanSweep 9s linear infinite}
+.statistics-page .daily-chart-pro::before{content:"";position:absolute;inset:12px auto 12px 0;width:120px;background:linear-gradient(90deg,rgba(47,191,97,0),rgba(47,191,97,.12),rgba(47,191,97,0));filter:blur(2px);opacity:.55;pointer-events:none;animation:analyticsChartScanner 8.5s linear infinite}
+.statistics-page .analytics-line{stroke-width:3.1;filter:drop-shadow(0 5px 10px rgba(47,191,97,.2))}
+.statistics-page .analytics-area{fill:rgba(47,191,97,.11)}
+.statistics-page .analytics-point{animation:analyticsPointPulse 3.6s ease-in-out infinite}
+.statistics-page .analytics-point.is-ambient-day{filter:drop-shadow(0 0 8px rgba(47,191,97,.55));stroke-width:3}
+.statistics-page .analytics-volume-bar{animation:analyticsBarBreathe 4.2s ease-in-out infinite}
+.statistics-page .analytics-selected-guide,.statistics-page .analytics-ambient-guide{stroke:#0f7c31;stroke-width:1.2;stroke-dasharray:4 5;opacity:.45}
+.statistics-page .analytics-ambient-guide{opacity:.34;animation:analyticsGuidePulse 2.6s ease-in-out infinite}
+.statistics-page .chart-detail{font-size:11.5px!important;color:#45606f}
+.statistics-page .statistics-donut-pro{position:relative;min-height:214px;padding-top:4px}
+.statistics-page .statistics-donut-pro::before{content:"";position:absolute;inset:12px;z-index:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(47,191,97,.08),rgba(63,127,229,.08),rgba(239,89,101,.08),rgba(243,173,36,.08),rgba(47,191,97,.08));filter:blur(14px);opacity:.85;animation:analyticsDonutHalo 11s linear infinite}
+.statistics-page .analytics-donut-svg{position:relative;z-index:1;width:min(204px,100%)}
+.statistics-page .analytics-donut-segment{transition:stroke-dasharray .75s cubic-bezier(.22,.61,.36,1),opacity .22s ease,transform .22s ease;animation:analyticsDonutBreath 5.4s ease-in-out infinite}
+.statistics-page .analytics-donut-segment.state-presente{animation-delay:0s}.statistics-page .analytics-donut-segment.state-tardanza{animation-delay:.4s}.statistics-page .analytics-donut-segment.state-ausente{animation-delay:.8s}.statistics-page .analytics-donut-segment.state-justificado{animation-delay:1.2s}
+.statistics-page .donut-total{font-size:31px}.statistics-page .donut-label{font-size:11px}.statistics-page .donut-attendance{font-size:10.5px}
+.statistics-page .statistics-distribution-pro{gap:9px}
+.statistics-page .distribution-option{position:relative;min-height:46px;padding:8px 10px;overflow:hidden;box-shadow:0 8px 20px rgba(0,48,77,.045)}
+.statistics-page .distribution-option::after{content:"";position:absolute;inset:0 auto 0 -35%;width:45%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);transform:skewX(-18deg);opacity:0;pointer-events:none}
+.statistics-page .distribution-option:hover::after,.statistics-page .distribution-option.is-ambient-focus::after{opacity:1;animation:analyticsOptionSweep 1.25s ease}
+.statistics-page .distribution-option.is-ambient-focus{border-color:#8dc99a;background:linear-gradient(135deg,#f6fcf7,#eef8f1);box-shadow:0 0 0 3px rgba(47,191,97,.06),0 10px 18px rgba(0,48,77,.08)}
+.statistics-page .status-marker{width:26px;height:26px;font-size:8.5px;box-shadow:0 8px 16px rgba(0,48,77,.14)}
+.statistics-page .distribution-label{font-size:11px;font-weight:700}.statistics-page .distribution-option strong{font-size:12.8px}.statistics-page .distribution-option small{font-size:10px}
+.statistics-page .composition-header-pro{align-items:flex-start!important}
+.statistics-page .composition-legend-pro{padding:2px 0 4px;font-size:10px}
+.statistics-page .composition-row-pro{position:relative;overflow:hidden;padding:12px 13px;border-radius:13px;box-shadow:0 10px 22px rgba(0,48,77,.045)}
+.statistics-page .composition-row-pro::after{content:"";position:absolute;inset:0 auto 0 -35%;width:38%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);transform:skewX(-18deg);opacity:0;pointer-events:none}
+.statistics-page .composition-row-pro:hover::after,.statistics-page .composition-row-pro.is-ambient-focus::after{opacity:1;animation:analyticsOptionSweep 1.4s ease}
+.statistics-page .composition-row-pro.is-ambient-focus{border-color:#8dc99a;box-shadow:0 0 0 3px rgba(47,191,97,.06),0 12px 20px rgba(0,48,77,.08)}
+.statistics-page .composition-identity strong{font-size:11.5px}.statistics-page .composition-identity small{font-size:9px}
+.statistics-page .composition-bar-pro{height:26px;position:relative;overflow:hidden}
+.statistics-page .composition-bar-pro::after{content:"";position:absolute;inset:0 auto 0 -35%;width:32%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.24),transparent);transform:skewX(-18deg);pointer-events:none;animation:analyticsBarSweep 4.8s linear infinite}
+.statistics-page .composition-segment-pro{font-size:8.6px}
+.statistics-page .composition-rate-pro strong{font-size:14px}.statistics-page .composition-rate-pro small{font-size:8.6px}
+@keyframes analyticsScanSweep{0%{background-position:220% 0}100%{background-position:-220% 0}}
+@keyframes analyticsChartScanner{0%{transform:translateX(-12%)}100%{transform:translateX(calc(100% + 100px))}}
+@keyframes analyticsPointPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+@keyframes analyticsBarBreathe{0%,100%{opacity:.5}50%{opacity:.82}}
+@keyframes analyticsGuidePulse{0%,100%{opacity:.18}50%{opacity:.42}}
+@keyframes analyticsDonutHalo{0%{transform:rotate(0deg) scale(1)}50%{transform:rotate(180deg) scale(1.04)}100%{transform:rotate(360deg) scale(1)}}
+@keyframes analyticsDonutBreath{0%,100%{opacity:1}50%{opacity:.82}}
+@keyframes analyticsOptionSweep{0%{transform:translateX(-160%) skewX(-18deg)}100%{transform:translateX(360%) skewX(-18deg)}}
+@keyframes analyticsBarSweep{0%{transform:translateX(-160%) skewX(-18deg)}100%{transform:translateX(420%) skewX(-18deg)}}
+@keyframes analyticsOrbitalFloat{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-18px,-14px,0) scale(1.08)}}
+@media(max-width:650px){.statistics-page .analytics-module-kicker{font-size:9.5px}.statistics-page .timeline-panel .analytics-module-header h2,.statistics-page .composition-panel .analytics-module-header h2{font-size:18px!important}.statistics-page .statistics-donut-pro{min-height:198px}.statistics-page .distribution-option{min-height:44px}.statistics-page .composition-rate-pro strong{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.statistics-page .timeline-panel::after,.statistics-page .distribution-panel::after,.statistics-page .composition-panel::after,.statistics-page .analytics-chart-shell::before,.statistics-page .daily-chart-pro::before,.statistics-page .statistics-donut-pro::before,.statistics-page .analytics-point,.statistics-page .analytics-volume-bar,.statistics-page .analytics-donut-segment,.statistics-page .composition-bar-pro::after{animation:none!important}.statistics-page .distribution-option::after,.statistics-page .composition-row-pro::after{display:none!important}}
+body.dark-mode.statistics-page .analytics-module-header p{color:#9cafb8}
+body.dark-mode.statistics-page .analytics-chart-shell{box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 18px 30px rgba(0,0,0,.16)}
+body.dark-mode.statistics-page .analytics-chart-shell::before{background:linear-gradient(102deg,transparent 12%,rgba(255,255,255,.035) 28%,rgba(47,191,97,.08) 48%,rgba(255,255,255,.028) 68%,transparent 84%)}
+body.dark-mode.statistics-page .statistics-donut-pro::before{opacity:.65}
+body.dark-mode.statistics-page .distribution-option{box-shadow:none}body.dark-mode.statistics-page .distribution-option.is-ambient-focus{background:linear-gradient(135deg,#182a31,#16262d);box-shadow:0 0 0 3px rgba(47,191,97,.06)}
+body.dark-mode.statistics-page .composition-row-pro{box-shadow:none}body.dark-mode.statistics-page .composition-row-pro.is-ambient-focus{box-shadow:0 0 0 3px rgba(47,191,97,.06)}
+body.dark-mode.statistics-page .chart-detail{color:#afc0c8}
+
 
 /* === KPI ESTADISTICAS = TARJETAS CREAR USUARIO 2026-10-08 === */
 .statistics-page .dashboard-stat-grid{

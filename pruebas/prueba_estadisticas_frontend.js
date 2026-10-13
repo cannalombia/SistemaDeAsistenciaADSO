@@ -175,7 +175,7 @@ function createHarness(fetchImpl) {
     await new Promise((resolve) => setTimeout(resolve, 25));
 
     assert.equal(latestCalls, 3, "La entrada debe ampliar la búsqueda solo hasta localizar la última asistencia y luego cargar su corte final.");
-    assert.equal(latest.elements["dashboard-date-from"].value, "2026-09-18", "El corte automático debe iniciar seis días antes del último registro.");
+    assert.equal(latest.elements["dashboard-date-from"].value, "2026-09-11", "El corte automático debe iniciar trece días antes del último registro para mostrar dos semanas de actividad.");
     assert.equal(latest.elements["dashboard-date-to"].value, "2026-09-24", "El corte automático debe terminar en la última fecha realmente guardada.");
     assert.match(latest.elements["dashboard-auto-note"].textContent, /últimos registros guardados/i, "La interfaz debe dejar claro que el rango inicial es automático.");
     assert.ok(latest.events.some((event) => event.type === "dashboard:data"), "La carga automática debe publicar los datos al resto de módulos.");

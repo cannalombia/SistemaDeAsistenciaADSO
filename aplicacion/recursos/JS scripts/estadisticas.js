@@ -312,7 +312,7 @@
                 const latest = latestDateFromRecords(data.records);
                 if (!latest) continue;
 
-                const finalFrom = localDateKey(addDays(latest, -6));
+                const finalFrom = localDateKey(addDays(latest, -13));
                 const probeIsFinal = data.filters.from === finalFrom && data.filters.to === latest;
                 const finalData = probeIsFinal
                     ? data
@@ -343,7 +343,7 @@
 
     const today = new Date();
     const sixDaysAgo = addDays(today, -6);
-    dateFrom.value = localDateKey(sixDaysAgo);
+    dateFrom.value = localDateKey(addDays(today, -13));
     dateTo.value = localDateKey(today);
 
     dateFrom.addEventListener("change", () => { state.autoRange = false; periodSelect.value = "custom"; updateAutoNote(); scheduleRefresh(); });
