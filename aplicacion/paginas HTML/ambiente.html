@@ -14,7 +14,8 @@
     <script>document.documentElement.classList.add("auth-pending");</script>
 </head>
 
-<body>
+<body class="ui-v72 environment-page">
+<script src="tema_inicial.js"></script>
 
 <div class="container">
 
@@ -37,8 +38,15 @@
         </header>
 
         <section class="table-container">
+            <div class="ui-section-heading">
+                <div>
+                    <h2>Ambientes registrados</h2>
+                    <p>Consulta capacidad, tipo, estado y zona de cada ambiente.</p>
+                </div>
+            </div>
 
-            <table>
+            <div class="ui-table-scroll">
+            <table aria-label="Listado de ambientes">
 
                 <thead>
                     <tr>
@@ -117,6 +125,8 @@
                 </tbody>
 
             </table>
+            </div>
+            <p class="ui-table-note">Los controles de gestión mantienen la lógica existente del módulo.</p>
 
         </section>
 

@@ -14,7 +14,8 @@
     <script>document.documentElement.classList.add("auth-pending");</script>
 </head>
 
-<body>
+<body class="ui-v72 fichas-page">
+<script src="tema_inicial.js"></script>
 
 <div class="container">
 
@@ -38,10 +39,14 @@
 
         <section class="table-container">
 
-    <h2 style="margin-bottom:20px;">
-        Consultar Ficha
-    </h2>
+    <div class="ui-section-heading">
+        <div>
+            <h2>Consultar ficha</h2>
+            <p>Selecciona una ficha para revisar su información y acciones disponibles.</p>
+        </div>
+    </div>
 
+    <div class="ui-control-panel">
     <div class="form-group">
 
         <label>Seleccione una ficha</label>
@@ -58,8 +63,10 @@
         </select>
 
     </div>
+    </div>
 
-    <table>
+    <div class="ui-table-scroll">
+    <table aria-label="Listado de fichas">
 
         <thead>
 
@@ -81,6 +88,8 @@
         </tbody>
 
     </table>
+    </div>
+    <p class="ui-table-note">La información se conserva en la fuente de formación configurada por el sistema.</p>
 
 </section>
 
