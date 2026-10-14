@@ -43,6 +43,10 @@ for (const [file, expected] of pageClasses) {
 
 const accessCss = read("aplicacion/recursos/estilos CCS/estilos_acceso.css");
 assert(accessCss.includes('@import url("sistema_visual.css");'), "Login debe reutilizar el mismo sistema visual");
+assert(accessCss.includes("max-height:820px"), "Login debe incluir el ajuste para portátiles a 100% de zoom");
+assert(accessCss.includes("height:min(100dvh - 16px,720px)"), "La imagen de acceso debe respetar la altura visible");
+assert(visualCss.includes("DENSIDAD RESPONSIVA DE ESCRITORIO"), "Las vistas internas deben incluir densidad responsiva de escritorio");
+assert(visualCss.includes("body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page)"), "La densidad compacta debe cubrir todas las vistas internas");
 
 
 const themeInitPath = path.join(root, "aplicacion", "recursos", "JS scripts", "tema_inicial.js");

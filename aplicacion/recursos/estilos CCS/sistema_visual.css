@@ -1206,3 +1206,130 @@ body.dark-mode.ui-v72.apprentice-portal .learner-excuse-history{
     body.ui-v72.apprentice-portal .learner-excuse-submit{width:100%}
     body.ui-v72.apprentice-portal .learner-excuse-history{margin-top:20px;padding-top:18px}
 }
+
+/* ===== DENSIDAD RESPONSIVA DE ESCRITORIO =====
+   En portátiles con poca altura mantiene todas las vistas utilizables a 100% de zoom. */
+@media (min-width:1101px) and (max-height:820px){
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page){
+        --ui-control-height:40px;
+        --ui-control-height-lg:44px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .sidebar{
+        width:224px;
+        padding:12px 14px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .logo{
+        margin-bottom:12px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .sena-logo-stage,
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .logo .sena-logo-video,
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .logo .sena-logo-session-frame,
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .logo .sena-logo-fallback{
+        width:82px;
+        height:82px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .menu li{
+        margin-bottom:4px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .menu a,
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .settings a{
+        min-height:40px;
+        gap:10px;
+        padding:9px 11px;
+        font-size:13px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .sidebar > .settings + .logout{
+        margin-top:7px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .logout{
+        min-height:44px;
+        margin-top:9px;
+        padding-inline:12px;
+        font-size:12px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .main{
+        min-width:0;
+        padding:16px 20px 24px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .header{
+        min-height:72px;
+        gap:14px;
+        margin-bottom:14px;
+        padding:14px 18px;
+        border-radius:16px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .header h1{
+        font-size:clamp(22px,2vw,27px);
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .header p{
+        margin-top:3px;
+        font-size:12px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .header-right{
+        gap:12px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .cards{
+        gap:14px;
+        margin-bottom:16px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .card{
+        padding:18px;
+        border-radius:16px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .card h2{
+        margin:10px 0;
+        font-size:30px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .table-container{
+        padding:16px;
+        border-radius:16px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .form-container{
+        padding:18px;
+        border-radius:16px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .form-group{
+        margin-bottom:12px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) thead th,
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) tbody td{
+        padding:10px 11px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .ui-section-heading{
+        margin-bottom:13px;
+    }
+
+    body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .ui-control-panel{
+        gap:9px;
+        margin-bottom:13px;
+        padding:12px;
+    }
+
+    body.ui-v72.apprentice-portal .learner-excuse-card{
+        padding:18px 20px;
+    }
+
+    body.ui-v72.apprentice-portal .learner-excuse-form .form-group{
+        margin-bottom:12px;
+    }
+}

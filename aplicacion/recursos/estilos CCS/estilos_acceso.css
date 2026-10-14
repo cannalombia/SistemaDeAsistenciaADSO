@@ -706,3 +706,136 @@ body.ui-v72.access-page :where(button,input,a):focus-visible{
     body.ui-v72.access-page .login{width:100%;padding:26px 20px;border-radius:18px}
     body.ui-v72.access-page .login h2{font-size:25px}
 }
+
+/* ===== ACCESO RESPONSIVO PARA PORTÁTILES A 100% =====
+   Conserva la legibilidad sin depender del zoom del navegador. */
+body.ui-v72.access-page .imagen{
+    min-width:0;
+    padding-left:clamp(20px,4vw,50px);
+}
+
+body.ui-v72.access-page .imagen img{
+    width:min(58vw,900px);
+    max-width:100%;
+    max-height:calc(100dvh - 20px);
+    object-fit:contain;
+}
+
+@media (min-width:1101px) and (max-height:820px){
+    body.ui-v72.access-page{
+        overflow:hidden;
+    }
+
+    body.ui-v72.access-page .contenedor{
+        min-height:100vh;
+        min-height:100dvh;
+        gap:clamp(28px,4vw,56px);
+        padding:10px clamp(36px,7vw,96px);
+    }
+
+    body.ui-v72.access-page .login{
+        flex:0 0 360px;
+        width:360px;
+        padding:24px 28px;
+        border-radius:20px;
+    }
+
+    body.ui-v72.access-page .logo{
+        width:68px;
+        margin-bottom:12px;
+    }
+
+    body.ui-v72.access-page .login h2{
+        margin-bottom:7px;
+        font-size:26px;
+        line-height:1.15;
+        white-space:nowrap;
+    }
+
+    body.ui-v72.access-page .login > p{
+        margin-bottom:16px;
+        font-size:13px;
+        line-height:20px;
+    }
+
+    body.ui-v72.access-page .auth-status{
+        margin-bottom:12px;
+        padding:9px 11px;
+    }
+
+    body.ui-v72.access-page .auth-tabs{
+        margin-bottom:14px;
+    }
+
+    body.ui-v72.access-page .auth-tab{
+        height:36px;
+        min-height:36px;
+        font-size:12px;
+    }
+
+    body.ui-v72.access-page label{
+        margin-top:10px;
+        margin-bottom:6px;
+        font-size:13px;
+    }
+
+    body.ui-v72.access-page .input{
+        height:42px;
+        min-height:42px;
+        margin-bottom:6px;
+    }
+
+    body.ui-v72.access-page .input input{
+        min-height:40px;
+        font-size:14px;
+    }
+
+    body.ui-v72.access-page .btn-login,
+    body.ui-v72.access-page .btn-secondary{
+        height:44px;
+        min-height:44px;
+        font-size:14px;
+    }
+
+    body.ui-v72.access-page .btn-link{
+        min-height:34px;
+        margin-top:8px;
+        font-size:12px;
+    }
+
+    body.ui-v72.access-page .imagen{
+        align-self:stretch;
+        padding-left:0;
+    }
+
+    body.ui-v72.access-page .imagen img{
+        width:auto;
+        height:min(100dvh - 16px,720px);
+        max-width:100%;
+        max-height:calc(100dvh - 16px);
+    }
+}
+
+@media (min-width:1101px) and (max-height:640px){
+    body.ui-v72.access-page .login{
+        padding:18px 24px;
+    }
+
+    body.ui-v72.access-page .logo{
+        width:58px;
+        margin-bottom:8px;
+    }
+
+    body.ui-v72.access-page .login h2{
+        font-size:23px;
+    }
+
+    body.ui-v72.access-page .login > p{
+        margin-bottom:11px;
+        line-height:18px;
+    }
+
+    body.ui-v72.access-page .auth-tabs{
+        margin-bottom:9px;
+    }
+}
