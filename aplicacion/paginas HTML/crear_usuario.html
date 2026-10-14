@@ -344,18 +344,18 @@
         <section id="panel-sql" class="user-import-panel" role="tabpanel" aria-labelledby="tab-sql" hidden>
             <div class="user-import-copy">
                 <span class="user-import-icon"><i class="fas fa-database" aria-hidden="true"></i></span>
-                <div><span class="user-eyebrow">SQLFILE · Máximo 1 MB</span>
-                    <h2>Importar usuarios desde SQL</h2>
-                    <p>Archivo UTF-8 con INSERT INTO usuarios y columnas identificacion, tipo_documento, nombre, correo, rol, estado y ficha. Valores entre comillas simples. CREATE TABLE usuarios opcional con columnas TEXT.</p>
-                    <p>La exportación incluye la base operativa completa y los usuarios por roles. Esta importación admite únicamente la tabla usuarios; no restaura las demás tablas.</p>
+                <div><span class="user-eyebrow">SQLFILE · Máximo 10 MB</span>
+                    <h2>Importar o restaurar la base SQL</h2>
+                    <p><strong>Formato definido:</strong> UTF-8, una fila <code>INSERT</code> por registro y las columnas en el orden declarado. La tabla <code>usuarios</code> usa: identificacion, tipo_documento, nombre, correo, rol, estado y ficha.</p>
+                    <p>Usa <strong>Exportar base actual</strong> para obtener una plantilla válida y reimportable. Ese archivo incluye usuarios, formación, asistencia y reportes; se valida completo antes de guardar para que las gráficas no queden con datos parciales.</p>
                 </div>
             </div>
             <form id="user-sql-import-form" class="user-import-controls user-sql-controls">
                 <div class="user-sql-file-field">
-                    <input id="user-sql-file" class="user-file-input" name="SQLFILE" type="file" accept=".sql,application/sql,text/sql,text/plain" required aria-describedby="sql-help user-sql-file-name">
+                    <input id="user-sql-file" class="user-file-input" name="SQLFILE" type="file" accept=".sql,application/sql,text/sql,text/plain,application/octet-stream" required aria-describedby="sql-help user-sql-file-name">
                     <label for="user-sql-file" class="user-file-picker user-sql-file-picker">
                         <span class="user-sql-picker-icon"><i class="fas fa-file-code" aria-hidden="true"></i></span>
-                        <span class="user-sql-picker-copy"><strong>Seleccionar archivo SQL</strong><small id="sql-help">Formato .sql · máximo 1 MB</small></span>
+                        <span class="user-sql-picker-copy"><strong>Seleccionar archivo SQL</strong><small id="sql-help">Formato SENA .sql · máximo 10 MB</small></span>
                         <i class="fas fa-chevron-right user-sql-picker-arrow" aria-hidden="true"></i>
                     </label>
                     <span id="user-sql-file-name" class="user-file-name user-sql-file-name"><i class="fas fa-circle-info" aria-hidden="true"></i> Ningún archivo seleccionado</span>

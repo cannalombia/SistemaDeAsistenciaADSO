@@ -644,6 +644,7 @@ Documento	Contenido
 <a href="documentacion/guias/2026-08-21_configurar_correo.md">Configuración de correo</a>	Servicio de correo
 <a href="documentacion/guias/cierre_tecnico_mysql.md">Cierre MySQL</a>	Persistencia y recuperación
 <a href="documentacion/guias/acceso_publico_ssh.md">Acceso público</a>	Acceso temporal
+<a href="documentacion/guias/importacion_sql.md">Importación SQL</a>	Formato integral, validación y restauración
 
 
 <hr>

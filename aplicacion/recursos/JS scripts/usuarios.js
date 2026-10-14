@@ -403,9 +403,10 @@
     const sqlResult = document.getElementById("user-sql-result");
     const exportButton = document.getElementById("user-sql-export");
     const tabs = [document.getElementById("tab-csv"), document.getElementById("tab-sql")];
+    const maxSqlBytes = 10 * 1024 * 1024;
     function updateSqlFilePresentation() {
         const file = sqlFile.files && sqlFile.files[0];
-        const valid = Boolean(file && /\.sql$/i.test(file.name) && file.size > 0 && file.size <= 1048576);
+        const valid = Boolean(file && /\.sql$/i.test(file.name) && file.size > 0 && file.size <= maxSqlBytes);
         sqlImportButton.disabled = !valid;
         sqlFileName.classList.toggle("selected", valid);
         sqlFileName.classList.toggle("invalid", Boolean(file && !valid));
@@ -439,8 +440,8 @@
             let body;
             if (!exporting) {
                 const file = sqlFile.files[0];
-                if (!file || !/\.sql$/i.test(file.name) || !file.size || file.size > 1048576) throw new Error("Selecciona un archivo .sql no vacío de máximo 1 MB (1048576 bytes).");
-                const types = ["application/sql", "application/x-sql", "text/sql", "text/x-sql", "text/plain"];
+                if (!file || !/\.sql$/i.test(file.name) || !file.size || file.size > maxSqlBytes) throw new Error("Selecciona un archivo .sql no vacío de máximo 10 MB.");
+                const types = ["application/sql", "application/x-sql", "text/sql", "text/x-sql", "text/plain", "application/octet-stream"];
                 if (file.type && !types.includes(file.type)) throw new Error("El tipo MIME del archivo no está permitido.");
                 body = new FormData();
                 // Windows puede no asignar MIME a .sql; se declara SQL y el servidor valida su gramática.
@@ -459,7 +460,7 @@
                 link.href = url; link.download = "Base_datos_SENA.sql";
                 document.body.appendChild(link); link.click(); link.remove();
                 setTimeout(() => URL.revokeObjectURL(url), 30000);
-                sqlResult.textContent = "Base_datos_SENA.sql descargado con los usuarios por roles y la base actual.";
+                sqlResult.textContent = "Base_datos_SENA.sql descargado. El archivo conserva columnas, filas y firma de integridad para poder reimportarlo completo.";
             } else {
                 const result = await response.json();
                 aplicarDatos(result); sqlForm.reset(); updateSqlFilePresentation();

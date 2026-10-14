@@ -15,7 +15,7 @@ const { canonicalRole, canonicalUserStatus, csvValue, registryRowFromUser } = re
 const { localDate, dateKey, addDays, rateFor, statusSummary, resolveDashboardRange } = require("./dominio/estadisticas");
 const { buildReportSnapshot, reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport, pruneOldestArchivedReports } = require("./dominio/reportes");
 const { createReportPdf } = require("./modulos/reporte_pdf");
-const { readSqlFile, parseUsersSql, createDump } = require("./modulos/sqlfile");
+const { readSqlFile, parseDatabaseSql, createDump } = require("./modulos/sqlfile");
 const { createBackup, readBackupFile } = require("./modulos/respaldo");
 const { writeFilesAtomically } = require("./modulos/transaccion_archivos");
 const { validateDatabaseEnv } = require("./base_datos/configuracion");
@@ -2091,6 +2091,7 @@ function createProjectServer(options = {}) {
         if (csvUsers.some((user) => normalizeEmail(user.correo) === email)) return sendJson(response, 409, { ok: false, message: "El correo ya existe en la base principal de usuarios." });
         if (username && accounts.some((user) => String(user.username || "").toLowerCase() === username)) return sendJson(response, 409, { ok: false, message: "Ese nombre de usuario ya está en uso." });
 
+        const previous = JSON.parse(JSON.stringify(backupData()));
         const id = `usuario-${crypto.randomUUID()}`;
         const createdAt = new Date().toISOString();
         const user = {
@@ -2118,11 +2119,18 @@ function createProjectServer(options = {}) {
         }
         upsertCsvUser(user);
         if (role === "Aprendiz") syncApprenticeProfile(user);
-        persistCsvUsers();
-        persistManagedUsers();
-        if (role === "Aprendiz") persistApprentices();
         const createdUser = systemUsers().find((item) => item.document === document && normalizeEmail(item.email) === email);
-        audit(session, "create", "usuario", createdUser?.id || document, null, createdUser);
+        appendAuditEntry(createAuditEntry(session, "create", "usuario", createdUser?.id || document, null, createdUser));
+        try {
+            if (csvFileBacked && readUsersCsvSource() !== csvSource) {
+                throw Object.assign(new Error("La base principal cambió durante la operación. Revisa los datos y vuelve a guardar."), { status: 409 });
+            }
+            writeFilesAtomically(restoredFileEntries());
+            if (csvFileBacked) csvSource = serializeCsvUsers(csvUsers);
+        } catch (error) {
+            applyRestoredData(previous);
+            throw Object.assign(new Error(`No se pudo crear el usuario; no se guardó ningún cambio. ${error.message}`), { status: error.status || 500 });
+        }
 
         return sendJson(response, 201, {
             ok: true,
@@ -2272,7 +2280,9 @@ function createProjectServer(options = {}) {
             const sql = await readSqlFile(request);
             refreshUsersFromCsv();
             if (!requireAdministrator(request, response)) return;
-            body = { fileName: "SQLFILE.csv", csv: serializeCsvUsers(parseUsersSql(sql)) };
+            const parsed = parseDatabaseSql(sql);
+            if (parsed.integral) return restoreDatabaseSql(parsed, session, response);
+            body = { fileName: "SQLFILE.csv", csv: serializeCsvUsers(parsed.users) };
         } else body = await readJsonBody(request, 512 * 1024);
         const fileName = String(body.fileName || "").trim();
         const csvText = String(body.csv || "");
@@ -2397,13 +2407,82 @@ function createProjectServer(options = {}) {
         });
     }
 
+    async function restoreDatabaseSql(parsed, session, response) {
+        const requiredTables = ["ambientes", "fichas", "horarios", "programas", "aprendices", "asistencia", "reportes", "cuentas", "auditoria", "excusas", "formacion_configuracion"];
+        const missing = requiredTables.filter(name => !Object.hasOwn(parsed.tables, name));
+        if (missing.length) {
+            return sendJson(response, 400, {
+                ok: false,
+                message: `El respaldo SQL integral está incompleto. Faltan las tablas: ${missing.join(", ")}. Exporta nuevamente desde la aplicación.`
+            });
+        }
+        if (parsed.tables.formacion_configuracion.length !== 1) {
+            return sendJson(response, 400, { ok: false, message: "La tabla formacion_configuracion debe contener exactamente una fila." });
+        }
+        const trainingConfiguration = parsed.tables.formacion_configuracion[0];
+        const restored = validateRestoredData({
+            users: parsed.users,
+            apprentices: parsed.tables.aprendices,
+            managedUsers: parsed.tables.cuentas,
+            attendance: parsed.tables.asistencia,
+            programs: parsed.tables.programas,
+            training: {
+                ...trainingConfiguration,
+                fichas: parsed.tables.fichas,
+                horarios: parsed.tables.horarios,
+                ambientes: parsed.tables.ambientes
+            },
+            reports: parsed.tables.reportes,
+            audit: parsed.tables.auditoria,
+            excuses: parsed.tables.excusas
+        });
+        const previous = JSON.parse(JSON.stringify(backupData()));
+        try {
+            applyRestoredData(restored);
+            appendAuditEntry(createAuditEntry(session, "restore", "sql", parsed.metadata.checksum, null, null, {
+                users: csvUsers.length,
+                attendance: attendanceRecords.length,
+                programs: programRecords.length,
+                fichas: sqlData.fichas.length
+            }));
+            writeFilesAtomically(restoredFileEntries());
+            if (csvFileBacked) csvSource = serializeCsvUsers(csvUsers);
+        } catch (error) {
+            applyRestoredData(previous);
+            throw Object.assign(new Error(`No se pudo importar la base SQL; se conservaron todos los datos anteriores. ${error.message}`), { status: error.status || 500 });
+        }
+        codes.clear();
+        attendanceTokens.clear();
+        for (const token of sessions.keys()) if (token !== session.token) sessions.delete(token);
+        if (repository?.cleanupRuntime) await repository.cleanupRuntime();
+        await persistAuthState();
+        return sendJson(response, 201, {
+            ok: true,
+            message: `Base SQL restaurada correctamente: ${csvUsers.length} usuarios, ${attendanceRecords.length} asistencias, ${programRecords.length} programas y ${sqlData.fichas.length} fichas. Las estadísticas ya usan los datos importados.`,
+            importResult: {
+                integral: true,
+                checksum: parsed.metadata.checksum,
+                users: csvUsers.length,
+                attendance: attendanceRecords.length,
+                programs: programRecords.length,
+                fichas: sqlData.fichas.length
+            },
+            ...userDirectoryPayload()
+        });
+    }
+
     function exportDatabaseSql() {
         refreshUsersFromCsv();
+        const trainingConfiguration = Object.fromEntries(Object.entries(trainingState)
+            .filter(([key]) => !["fichas", "horarios", "ambientes"].includes(key)));
         return createDump(csvUsers, {
             ambientes: sqlData.ambientes, fichas: sqlData.fichas,
             horarios: sqlData.horarios, programas: programRecords,
             aprendices: apprentices, asistencia: attendanceRecords, reportes: reports,
-            cuentas: accounts.map(({ passwordHash, salt, password, ...profile }) => profile)
+            cuentas: managedUsers.map(({ passwordHash, salt, password, ...profile }) => profile),
+            auditoria: auditRecords,
+            excusas: excuses,
+            formacion_configuracion: [trainingConfiguration]
         });
     }
 
