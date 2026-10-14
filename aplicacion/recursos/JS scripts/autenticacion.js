@@ -16,7 +16,8 @@
     const LOGIN_PAGE = "login.html";
     const DEFAULT_PAGE = "estadisticas.html";
     const APPRENTICE_PAGE = "aprendiz.html";
-    const isLoginPage = /(^|\/)login\.html$/.test(window.location.pathname);
+    const isLoginPage = /(^|\/)login\.html$/.test(window.location.pathname)
+        || document.body.classList.contains("access-page");
     const pageFile = window.location.pathname.split("/").pop() || "index.html";
     const currentDestination = `${pageFile}${window.location.search}${window.location.hash}`;
 
