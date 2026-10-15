@@ -218,7 +218,7 @@
                 </svg>
                 <span class="logout-copy" aria-hidden="true">
                     <span class="logout-text logout-text-default">${logoutLetterMarkup("Cerrar sesión")}</span>
-                    <span class="logout-text logout-text-progress">${logoutLetterMarkup("Cerrando...")}</span>
+                    <span class="logout-text logout-text-progress">${logoutLetterMarkup("Cerrando…")}</span>
                 </span>
                 <span class="logout-chevron" aria-hidden="true">›</span>`;
         });

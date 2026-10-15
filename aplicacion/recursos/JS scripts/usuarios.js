@@ -171,7 +171,7 @@
 
     function llenarFichas() {
         let fichaSeleccionada = listaFicha.value;
-        let opciones = ['<option value="">Seleccione una ficha...</option>'];
+        let opciones = ['<option value="">Seleccione una ficha…</option>'];
 
         datos.fichas.forEach(function (ficha) {
             opciones.push('<option value="' + escaparHtml(ficha.codigo) + '">' + escaparHtml(ficha.codigo) + " · " + escaparHtml(ficha.programa) + "</option>");
@@ -328,7 +328,7 @@
         botonImportar.disabled = true;
         resultadoImportacion.hidden = false;
         resultadoImportacion.className = "user-import-result loading";
-        resultadoImportacion.textContent = "Validando y guardando usuarios...";
+        resultadoImportacion.textContent = "Validando y guardando usuarios…";
 
         try {
             let respuesta = await consultarApi("/import", {
@@ -435,7 +435,7 @@
         sqlForm.querySelectorAll("button,input").forEach(item => { item.disabled = true; });
         sqlResult.hidden = false;
         sqlResult.className = "user-import-result loading";
-        sqlResult.innerHTML = '<i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i><span>Procesando archivo SQL...</span>';
+        sqlResult.innerHTML = '<i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i><span>Procesando archivo SQL…</span>';
         try {
             let body;
             if (!exporting) {

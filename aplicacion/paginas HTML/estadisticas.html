@@ -76,22 +76,22 @@
             <div class="filter-footer"><div class="quick-ranges" aria-label="Periodos rápidos"><button type="button" data-days="7">Últimos 7 días</button><button type="button" data-days="30">Últimos 30 días</button><button type="button" data-days="90">Últimos 90 días</button></div><a href="#saved-reports">Ver informes guardados <i class="fas fa-arrow-down" aria-hidden="true"></i></a></div>
         </form>
         <div id="report-message" class="report-message" role="status" aria-live="polite" hidden></div>
-        <div id="dashboard-loading" class="dashboard-loading" role="status" aria-live="polite" hidden><i class="fas fa-circle-notch fa-spin"></i> Actualizando estadísticas...</div>
+        <div id="dashboard-loading" class="dashboard-loading" role="status" aria-live="polite" hidden><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Actualizando estadísticas…</div>
         <div id="dashboard-error" class="dashboard-error" role="alert" hidden></div>
 
         <section class="dashboard-stat-grid" aria-label="Resumen estadístico">
             <article class="dashboard-stat-card stat-green dashboard-animate">
-                <span class="stat-icon"><i class="fas fa-users"></i></span>
+                <span class="stat-icon"><i class="fas fa-users" aria-hidden="true"></i></span>
                 <div class="stat-copy"><span>Aprendices con registros</span><strong data-dashboard-stat="apprentices">0</strong><small>En el periodo seleccionado</small></div>
                 <div class="stat-footer"><span data-dashboard-comparison="apprentices">Con asistencia guardada</span></div>
             </article>
             <article class="dashboard-stat-card stat-blue dashboard-animate">
-                <span class="stat-icon"><i class="far fa-address-card"></i></span>
+                <span class="stat-icon"><i class="far fa-address-card" aria-hidden="true"></i></span>
                 <div class="stat-copy"><span>Fichas con registros</span><strong data-dashboard-stat="fichas">0</strong><small>En el periodo seleccionado</small></div>
                 <div class="stat-footer"><span>Registros de la consulta</span></div>
             </article>
             <article class="dashboard-stat-card stat-purple dashboard-animate">
-                <span class="stat-icon"><i class="far fa-circle-check"></i></span>
+                <span class="stat-icon"><i class="far fa-circle-check" aria-hidden="true"></i></span>
                 <div class="stat-copy"><span>Porcentaje de presentes</span><strong data-dashboard-stat="attendance">0%</strong><small>Sobre la asistencia guardada</small></div>
                 <div class="stat-footer"><span data-dashboard-comparison="attendance">Sin comparación histórica</span><canvas data-dashboard-sparkline="attendance" aria-hidden="true"></canvas></div>
             </article>
@@ -119,9 +119,9 @@
         <section class="dashboard-primary-grid">
             <article class="dashboard-panel composition-panel analytics-module">
                 <header class="dashboard-panel-header analytics-module-header composition-header-pro"><div><span class="analytics-module-kicker">COMPARACIÓN OPERATIVA</span><h2>Composición por ficha</h2><p>Compara estados y abre una ficha para recalcular el panel con datos del servidor.</p></div><div class="composition-controls"><label>Orden<select id="dashboard-composition-sort" aria-label="Ordenar fichas"><option value="attendance-desc">Mayor asistencia</option><option value="attendance-asc">Menor asistencia</option><option value="absences">Más ausencias</option><option value="tardiness">Más tardanzas</option></select></label><label>Vista<select id="dashboard-composition-limit" aria-label="Cantidad de fichas"><option value="5">Top 5</option><option value="10">Top 10</option><option value="all">Todas</option></select></label></div></header>
-                <div class="composition-legend composition-legend-pro"><span><i class="present"></i>Presentes</span><span><i class="late"></i>Tardanzas</span><span><i class="absent"></i>Ausentes</span><span><i class="justified"></i>Justificados</span><strong>Asistencia</strong></div>
+                <div class="composition-legend composition-legend-pro"><span><i class="present" aria-hidden="true"></i>Presentes</span><span><i class="late" aria-hidden="true"></i>Tardanzas</span><span><i class="absent" aria-hidden="true"></i>Ausentes</span><span><i class="justified" aria-hidden="true"></i>Justificados</span><strong>Asistencia</strong></div>
                 <div id="dashboard-composition" class="composition-list-pro" role="listbox" aria-label="Fichas con registros"></div>
-                <footer class="dashboard-panel-footer"><span id="composition-count">0 fichas con registros</span><a href="asistencia.html">Ir a registrar asistencia <i class="fas fa-arrow-right"></i></a></footer>
+                <footer class="dashboard-panel-footer"><span id="composition-count">0 fichas con registros</span><a href="asistencia.html">Ir a registrar asistencia <i class="fas fa-arrow-right" aria-hidden="true"></i></a></footer>
             </article>
         </section>
 

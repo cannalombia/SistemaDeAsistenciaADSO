@@ -26,7 +26,7 @@
         <section class="attendance-filters" aria-label="Filtros de asistencia">
             <label class="attendance-field field-role">
                 <span>Rol</span>
-                <span class="control-with-icon"><i class="far fa-user"></i>
+                <span class="control-with-icon"><i class="far fa-user" aria-hidden="true"></i>
                     <select id="attendance-role" disabled aria-label="Rol autenticado">
                         <option value="Instructor">Instructor</option>
                         <option value="Administrador">Administrador</option>
@@ -35,8 +35,8 @@
             </label>
             <label class="attendance-field field-ficha">
                 <span>Ficha</span>
-                <span class="control-with-icon"><i class="far fa-address-card"></i>
-                    <select id="attendance-ficha" aria-label="Seleccionar ficha"><option value="">Cargando fichas...</option></select>
+                <span class="control-with-icon"><i class="far fa-address-card" aria-hidden="true"></i>
+                    <select id="attendance-ficha" aria-label="Seleccionar ficha"><option value="">Cargando fichas…</option></select>
                 </span>
             </label>
             <label class="attendance-field field-date">
@@ -47,7 +47,7 @@
             </label>
             <label class="attendance-field field-journey">
                 <span>Jornada</span>
-                <span class="control-with-icon journey-icon"><i class="far fa-sun"></i>
+                <span class="control-with-icon journey-icon"><i class="far fa-sun" aria-hidden="true"></i>
                     <select id="attendance-journey" aria-label="Seleccionar jornada">
                         <option value="Mañana">Mañana</option>
                         <option value="Tarde">Tarde</option>
@@ -58,7 +58,7 @@
             <label class="attendance-field field-search">
                 <span>Buscar aprendiz</span>
                 <span class="search-control">
-                    <input id="attendance-search" type="search" placeholder="Buscar por nombre o identificación..." autocomplete="off">
+                    <input id="attendance-search" type="search" placeholder="Ejemplo: nombre o identificación…" autocomplete="off">
                     <i class="fas fa-search" aria-hidden="true"></i>
                 </span>
             </label>
@@ -73,10 +73,10 @@
                     </div>
                     <div class="attendance-actions">
                         <button type="button" class="btn-mark-present" id="attendance-export-pdf"><i class="far fa-file-pdf" aria-hidden="true"></i> Exportar PDF</button>
-                        <button type="button" class="btn-mark-present" data-action="mark-all-present"><i class="far fa-circle-check"></i> Marcar todos presentes</button>
-                        <button type="button" class="btn-save-attendance" data-action="save-attendance"><i class="far fa-floppy-disk"></i> Guardar asistencia</button>
-                        <button type="button" class="btn-mark-present" id="attendance-close"><i class="fas fa-lock"></i> Cerrar jornada</button>
-                        <button type="button" class="btn-mark-present" id="attendance-reopen" hidden><i class="fas fa-lock-open"></i> Reabrir</button>
+                        <button type="button" class="btn-mark-present" data-action="mark-all-present"><i class="far fa-circle-check" aria-hidden="true"></i> Marcar todos presentes</button>
+                        <button type="button" class="btn-save-attendance" data-action="save-attendance"><i class="far fa-floppy-disk" aria-hidden="true"></i> Guardar asistencia</button>
+                        <button type="button" class="btn-mark-present" id="attendance-close"><i class="fas fa-lock" aria-hidden="true"></i> Cerrar jornada</button>
+                        <button type="button" class="btn-mark-present" id="attendance-reopen" hidden><i class="fas fa-lock-open" aria-hidden="true"></i> Reabrir</button>
                     </div>
                 </div>
 
@@ -86,7 +86,7 @@
                             <tr><th>#</th><th>Aprendiz</th><th>Identificación</th><th>Ficha</th><th>Estado</th><th>Observación</th></tr>
                         </thead>
                         <tbody id="attendance-table-body">
-                            <tr><td colspan="6" class="attendance-empty"><i class="fas fa-circle-notch fa-spin"></i> Cargando aprendices...</td></tr>
+                            <tr><td colspan="6" class="attendance-empty"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Cargando aprendices…</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -105,26 +105,26 @@
                     <div><small>Total</small><strong id="summary-total">0</strong><span>aprendices</span></div>
                 </div>
                 <div class="summary-statuses">
-                    <div class="summary-status status-present"><span class="summary-icon"><i class="fas fa-user-check"></i></span><strong>Presentes</strong><b data-summary-count="presente">0</b><small data-summary-percent="presente">0%</small></div>
-                    <div class="summary-status status-late"><span class="summary-icon"><i class="far fa-clock"></i></span><strong>Tardanzas</strong><b data-summary-count="tardanza">0</b><small data-summary-percent="tardanza">0%</small></div>
-                    <div class="summary-status status-absent"><span class="summary-icon"><i class="far fa-user"></i></span><strong>Ausentes</strong><b data-summary-count="ausente">0</b><small data-summary-percent="ausente">0%</small></div>
-                    <div class="summary-status status-justified"><span class="summary-icon"><i class="far fa-clipboard"></i></span><strong>Justificados</strong><b data-summary-count="justificado">0</b><small data-summary-percent="justificado">0%</small></div>
+                    <div class="summary-status status-present"><span class="summary-icon"><i class="fas fa-user-check" aria-hidden="true"></i></span><strong>Presentes</strong><b data-summary-count="presente">0</b><small data-summary-percent="presente">0%</small></div>
+                    <div class="summary-status status-late"><span class="summary-icon"><i class="far fa-clock" aria-hidden="true"></i></span><strong>Tardanzas</strong><b data-summary-count="tardanza">0</b><small data-summary-percent="tardanza">0%</small></div>
+                    <div class="summary-status status-absent"><span class="summary-icon"><i class="far fa-user" aria-hidden="true"></i></span><strong>Ausentes</strong><b data-summary-count="ausente">0</b><small data-summary-percent="ausente">0%</small></div>
+                    <div class="summary-status status-justified"><span class="summary-icon"><i class="far fa-clipboard" aria-hidden="true"></i></span><strong>Justificados</strong><b data-summary-count="justificado">0</b><small data-summary-percent="justificado">0%</small></div>
                 </div>
-                <div class="summary-updated"><i class="far fa-clock"></i><span>Última actualización<br><strong id="summary-updated">Sin guardar</strong><br><b id="attendance-closure-state">Jornada abierta</b></span></div>
+                <div class="summary-updated"><i class="far fa-clock" aria-hidden="true"></i><span>Última actualización<br><strong id="summary-updated">Sin guardar</strong><br><b id="attendance-closure-state">Jornada abierta</b></span></div>
             </aside>
         </div>
 
         <section class="table-container excuse-review-panel" aria-labelledby="excuse-review-title">
-            <div class="attendance-card-header"><div><h2 id="excuse-review-title">Excusas pendientes</h2><p>Revise el soporte antes de aprobar o rechazar.</p></div><button type="button" class="btn-mark-present" id="excuses-refresh"><i class="fas fa-rotate"></i> Actualizar</button></div>
+            <div class="attendance-card-header"><div><h2 id="excuse-review-title">Excusas pendientes</h2><p>Revise el soporte antes de aprobar o rechazar.</p></div><button type="button" class="btn-mark-present" id="excuses-refresh"><i class="fas fa-rotate" aria-hidden="true"></i> Actualizar</button></div>
             <div class="attendance-table-wrap"><table class="attendance-table"><thead><tr><th>Aprendiz</th><th>Ficha</th><th>Fecha</th><th>Motivo</th><th>Soporte</th><th>Decisión</th></tr></thead><tbody id="excuses-review-body"><tr><td colspan="6" class="attendance-empty">Cargando excusas…</td></tr></tbody></table></div>
         </section>
 
         <section id="attendance-legend" class="attendance-legend" aria-labelledby="legend-title">
             <h2 id="legend-title">Estados de asistencia</h2>
-            <div><span class="legend-dot present"><i class="fas fa-check"></i></span><p><strong>Presente</strong><small>Asistió a la formación</small></p></div>
-            <div><span class="legend-dot late"><i class="far fa-clock"></i></span><p><strong>Tardanza</strong><small>Llegó después de la hora</small></p></div>
-            <div><span class="legend-dot absent"><i class="fas fa-user-minus"></i></span><p><strong>Ausente</strong><small>No asistió</small></p></div>
-            <div><span class="legend-dot justified"><i class="far fa-clipboard"></i></span><p><strong>Justificado</strong><small>Ausencia con soporte</small></p></div>
+            <div><span class="legend-dot present"><i class="fas fa-check" aria-hidden="true"></i></span><p><strong>Presente</strong><small>Asistió a la formación</small></p></div>
+            <div><span class="legend-dot late"><i class="far fa-clock" aria-hidden="true"></i></span><p><strong>Tardanza</strong><small>Llegó después de la hora</small></p></div>
+            <div><span class="legend-dot absent"><i class="fas fa-user-minus" aria-hidden="true"></i></span><p><strong>Ausente</strong><small>No asistió</small></p></div>
+            <div><span class="legend-dot justified"><i class="far fa-clipboard" aria-hidden="true"></i></span><p><strong>Justificado</strong><small>Ausencia con soporte</small></p></div>
         </section>
     </main>
 </div>

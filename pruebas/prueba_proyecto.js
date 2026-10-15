@@ -23,6 +23,18 @@ for (const publicDocument of ["README.md"]) {
     check(!/^(?:usuario|clave|contraseña)\s*:\s*\S+/im.test(content), `${publicDocument}: contiene una credencial escrita en texto visible`);
 }
 
+const envExampleFile = path.join(projectRoot, ".env.example");
+check(fs.existsSync(envExampleFile), ".env.example: falta la plantilla de configuración indicada en README.md");
+if (fs.existsSync(envExampleFile)) {
+    const envExample = fs.readFileSync(envExampleFile, "utf8");
+    for (const key of ["DATA_SOURCE", "DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME", "ADMIN_AUTH_SALT", "ADMIN_AUTH_PASSWORD_HASH", "INSTRUCTOR_AUTH_SALT", "INSTRUCTOR_AUTH_PASSWORD_HASH", "OTP_SECRET"]) {
+        check(new RegExp(`^${key}=`, "m").test(envExample), `.env.example: falta la variable ${key}`);
+    }
+    for (const key of ["DB_PASSWORD", "DB_MIGRATION_PASSWORD", "ADMIN_AUTH_SALT", "ADMIN_AUTH_PASSWORD_HASH", "INSTRUCTOR_AUTH_SALT", "INSTRUCTOR_AUTH_PASSWORD_HASH", "OTP_SECRET", "GMAIL_APP_PASSWORD", "RESEND_API_KEY"]) {
+        check(new RegExp(`^${key}=$`, "m").test(envExample), `.env.example: ${key} debe permanecer sin secretos`);
+    }
+}
+
 function publicFile(file) {
     const directories = {
         ".html": root,
@@ -52,6 +64,14 @@ for (const file of htmlFiles) {
     check(occurrences(html, /<body\b/gi) === 1, `${file}: debe contener una sola etiqueta <body>`);
     check(occurrences(html, /<\/body>/gi) === 1, `${file}: debe contener un solo cierre </body>`);
     check(html.indexOf("</body>") < html.indexOf("</html>"), `${file}: el cierre de body debe ir antes de html`);
+
+    for (const image of html.match(/<img\b[^>]*>/gi) || []) {
+        check(/\balt="[^"]*"/i.test(image), `${file}: cada imagen necesita texto alternativo`);
+        check(/\bwidth="\d+"/i.test(image) && /\bheight="\d+"/i.test(image), `${file}: cada imagen debe reservar ancho y alto`);
+    }
+    for (const icon of html.match(/<i\b[^>]*class="[^"]+"[^>]*>/gi) || []) {
+        check(/\baria-hidden="true"/i.test(icon), `${file}: los iconos decorativos deben ocultarse a lectores de pantalla`);
+    }
 
     for (const match of html.matchAll(/(?:href|src)="([^"]+)"/gi)) {
         const target = match[1];

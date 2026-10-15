@@ -166,7 +166,7 @@
     }
 
     function fillSelect(select, values, selected) {
-        select.innerHTML = '<option value="">Seleccione...</option>' + values
+        select.innerHTML = '<option value="">Seleccione…</option>' + values
             .map((value) => `<option value="${escapeHtml(value)}" ${String(value) === String(selected) ? "selected" : ""}>${escapeHtml(value)}</option>`)
             .join("");
     }

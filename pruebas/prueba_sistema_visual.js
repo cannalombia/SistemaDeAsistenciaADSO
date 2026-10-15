@@ -48,6 +48,15 @@ assert(accessCss.includes("height:min(100dvh - 16px,720px)"), "La imagen de acce
 assert(visualCss.includes("DENSIDAD RESPONSIVA DE ESCRITORIO"), "Las vistas internas deben incluir densidad responsiva de escritorio");
 assert(visualCss.includes("body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page)"), "La densidad compacta debe cubrir todas las vistas internas");
 
+for (const [file, logoPath, learnerPath] of [
+    ["index.html", "aplicacion/recursos/imagenes/logo_sena.png", "aplicacion/recursos/imagenes/perfil_aprendiz.png"],
+    ["aplicacion/paginas HTML/login.html", "logo_sena.png", "perfil_aprendiz.png"]
+]) {
+    const html = read(file);
+    assert(html.includes(`src="${logoPath}" class="logo" alt="Logo SENA" width="359" height="351"`), `${file}: el logo debe reservar espacio y conservar texto alternativo`);
+    assert(html.includes(`src="${learnerPath}" alt="Aprendiz" width="813" height="691"`), `${file}: la imagen del aprendiz debe reservar espacio`);
+}
+
 
 const themeInitPath = path.join(root, "aplicacion", "recursos", "JS scripts", "tema_inicial.js");
 assert(fs.existsSync(themeInitPath), "Falta tema_inicial.js para aplicar el tema antes del contenido visible");
