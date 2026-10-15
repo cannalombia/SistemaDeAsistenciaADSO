@@ -1213,11 +1213,22 @@ body.dark-mode.ui-v72.apprentice-portal .learner-excuse-history{
     body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page){
         --ui-control-height:40px;
         --ui-control-height-lg:44px;
+        --ui-sidebar-width:224px;
     }
 
     body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .sidebar{
-        width:224px;
+        flex:0 0 var(--ui-sidebar-width);
+        width:var(--ui-sidebar-width);
         padding:12px 14px;
+    }
+
+    body.settings-page .settings-main,
+    body.attendance-page .attendance-main,
+    body.statistics-page .statistics-main,
+    body.create-user-page .create-user-main,
+    body.apprentice-portal .main{
+        width:calc(100% - var(--ui-sidebar-width));
+        margin-left:var(--ui-sidebar-width);
     }
 
     body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page) .logo{

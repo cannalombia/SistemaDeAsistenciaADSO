@@ -13,7 +13,7 @@ assert(fs.existsSync(path.join(stylesDir, visualFile)), "Falta sistema_visual.cs
 assert(visualFile === visualFile.toLowerCase(), "El CSS compartido debe conservar nombre en minúscula");
 
 const entryCss = read("aplicacion/recursos/estilos CCS/estilos_generales.css");
-assert(entryCss.includes('@import url("sistema_visual.css?v=responsive-20261014");'), "estilos_generales.css debe importar la versión vigente del sistema visual compartido");
+assert(entryCss.includes('@import url("sistema_visual.css?v=sidebar-uniforme-20261015");'), "estilos_generales.css debe importar la versión vigente del sistema visual compartido");
 
 const visualCss = read("aplicacion/recursos/estilos CCS/sistema_visual.css");
 for (const token of ["--ui-primary", "--ui-space-4", "--ui-radius-md", "--ui-shadow-sm", "--ui-control-height"]) {
@@ -41,6 +41,11 @@ for (const [file, expected] of pageClasses) {
     }
 }
 
+for (const file of ["ajustes.html", "ambiente.html", "aprendiz.html", "asistencia.html", "asistencia_qr.html", "crear_usuario.html", "estadisticas.html", "fichas.html", "horario.html", "index.html", "programa_formacion.html"]) {
+    const html = read(`aplicacion/paginas HTML/${file}`);
+    assert(html.includes('estilos_generales.css?v=sidebar-uniforme-20261015'), `${file}: debe cargar la versión uniforme del sidebar`);
+}
+
 const accessCss = read("aplicacion/recursos/estilos CCS/estilos_acceso.css");
 assert(accessCss.includes('@import url("sistema_visual.css?v=responsive-20261014");'), "Login debe reutilizar la versión vigente del sistema visual");
 assert(accessCss.includes("max-height:820px"), "Login debe incluir el ajuste para portátiles a 100% de zoom");
@@ -48,6 +53,10 @@ assert(accessCss.includes("height:min(100dvh - 16px,720px)"), "La imagen de acce
 assert(/\.logo\s*\{[^}]*height\s*:\s*auto/s.test(accessCss), "El logo de acceso debe conservar su proporción original");
 assert(visualCss.includes("DENSIDAD RESPONSIVA DE ESCRITORIO"), "Las vistas internas deben incluir densidad responsiva de escritorio");
 assert(visualCss.includes("body:is(.ui-v72,.create-user-page,.statistics-page):not(.access-page)"), "La densidad compacta debe cubrir todas las vistas internas");
+assert(visualCss.includes("--ui-sidebar-width:224px"), "La densidad compacta debe definir un único ancho de navegación");
+assert(visualCss.includes("flex:0 0 var(--ui-sidebar-width)"), "El ancho visual y el espacio reservado del sidebar deben coincidir");
+assert(visualCss.includes("margin-left:var(--ui-sidebar-width)"), "Las vistas con sidebar fijo deben iniciar después del mismo ancho compartido");
+assert(entryCss.includes('@import url("sistema_visual.css?v=sidebar-uniforme-20261015");'), "Los módulos deben invalidar la caché al publicar el sidebar uniforme");
 
 for (const [file, logoPath, learnerPath] of [
     ["index.html", "aplicacion/recursos/imagenes/logo_sena.png", "aplicacion/recursos/imagenes/perfil_aprendiz.png"],
