@@ -13,7 +13,7 @@ assert(fs.existsSync(path.join(stylesDir, visualFile)), "Falta sistema_visual.cs
 assert(visualFile === visualFile.toLowerCase(), "El CSS compartido debe conservar nombre en minúscula");
 
 const entryCss = read("aplicacion/recursos/estilos CCS/estilos_generales.css");
-assert(entryCss.includes('@import url("sistema_visual.css");'), "estilos_generales.css debe importar el sistema visual compartido");
+assert(entryCss.includes('@import url("sistema_visual.css?v=responsive-20261014");'), "estilos_generales.css debe importar la versión vigente del sistema visual compartido");
 
 const visualCss = read("aplicacion/recursos/estilos CCS/sistema_visual.css");
 for (const token of ["--ui-primary", "--ui-space-4", "--ui-radius-md", "--ui-shadow-sm", "--ui-control-height"]) {
@@ -42,7 +42,7 @@ for (const [file, expected] of pageClasses) {
 }
 
 const accessCss = read("aplicacion/recursos/estilos CCS/estilos_acceso.css");
-assert(accessCss.includes('@import url("sistema_visual.css");'), "Login debe reutilizar el mismo sistema visual");
+assert(accessCss.includes('@import url("sistema_visual.css?v=responsive-20261014");'), "Login debe reutilizar la versión vigente del sistema visual");
 assert(accessCss.includes("max-height:820px"), "Login debe incluir el ajuste para portátiles a 100% de zoom");
 assert(accessCss.includes("height:min(100dvh - 16px,720px)"), "La imagen de acceso debe respetar la altura visible");
 assert(visualCss.includes("DENSIDAD RESPONSIVA DE ESCRITORIO"), "Las vistas internas deben incluir densidad responsiva de escritorio");

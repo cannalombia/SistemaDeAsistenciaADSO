@@ -1,4 +1,4 @@
-@import url("sistema_visual.css");
+@import url("sistema_visual.css?v=responsive-20261014");
 
 /*====================================
         STYLELOGIN.CSS
@@ -837,5 +837,79 @@ body.ui-v72.access-page .imagen img{
 
     body.ui-v72.access-page .auth-tabs{
         margin-bottom:9px;
+    }
+}
+
+@media(max-width:600px){
+    body.ui-v72.access-page{
+        align-items:flex-start;
+        padding-top:max(18px,env(safe-area-inset-top));
+        padding-bottom:max(12px,env(safe-area-inset-bottom));
+    }
+
+    body.ui-v72.access-page .contenedor{
+        gap:12px;
+        margin:0 auto;
+        padding:0 14px;
+    }
+
+    body.ui-v72.access-page .login{
+        padding:20px 18px 18px;
+    }
+
+    body.ui-v72.access-page .logo{
+        width:68px;
+        margin-bottom:10px;
+    }
+
+    body.ui-v72.access-page .login h2{
+        margin-bottom:8px;
+        font-size:24px;
+    }
+
+    body.ui-v72.access-page .login > p{
+        margin-bottom:16px;
+        line-height:20px;
+    }
+
+    body.ui-v72.access-page .auth-tabs{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        margin-bottom:14px;
+    }
+
+    body.ui-v72.access-page .auth-tab{
+        min-width:0;
+        min-height:44px;
+        height:auto;
+        padding:7px 5px;
+        font-size:11.5px;
+        line-height:1.2;
+    }
+
+    body.ui-v72.access-page .imagen{
+        flex:none;
+        align-self:auto;
+        width:100%;
+        height:clamp(190px,57vw,235px);
+        margin:0;
+        padding-left:0;
+        overflow:hidden;
+        justify-content:center;
+        align-items:flex-end;
+    }
+
+    body.ui-v72.access-page .imagen img{
+        width:auto;
+        height:100%;
+        max-width:100%;
+        max-height:none;
+        object-fit:contain;
+        object-position:center bottom;
+    }
+}
+
+@media(max-width:350px){
+    body.ui-v72.access-page .auth-tabs{
+        grid-template-columns:1fr;
     }
 }
