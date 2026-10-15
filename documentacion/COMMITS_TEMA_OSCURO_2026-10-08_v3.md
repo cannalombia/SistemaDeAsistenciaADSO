@@ -1,4 +1,4 @@
-# Commits propuestos para Codex — modo oscuro
+# Commits propuestos — modo oscuro
 
 Estos commits están preparados para dejar evidencia clara en GitHub.
 

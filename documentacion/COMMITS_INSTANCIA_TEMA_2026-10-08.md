@@ -1,4 +1,4 @@
-# Commits sugeridos para Codex / GitHub
+# Commits sugeridos para GitHub
 
 ## Commit 1 — identificar la versión activa del servidor
 

@@ -136,6 +136,6 @@ El degradado azul institucional se coloca por encima de la fotografía para mant
 - `npm test` completo en harness aislado de dependencias externas: EXIT 0.
 - Prueba de escala: 300 usuarios, 240 aprendices, 8 fichas operativas con QR, 11 instructores y 40 franjas: OK.
 
-## Nota para Codex
+## Nota para la integración
 
 No crear un commit nuevo para la imagen lateral si Git no muestra cambios en `sidebar_campus_20261008.png` o `navegacion_aprendiz.css`: ese recurso ya venía de la modificación anterior. En esta ronda se valida y conserva; no se simula un cambio inexistente.

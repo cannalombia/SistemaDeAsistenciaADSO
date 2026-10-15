@@ -1,7 +1,7 @@
 # Evidencia de cambios y plan de commits — 08/10/2026
 
 Proyecto: Sistema web de control de asistencia — Blue Magic V5
-Objetivo: dejar evidencia separada para que Codex realice commits claros en el repositorio Git real, sin mezclar cambios funcionales y visuales.
+Objetivo: dejar evidencia separada para realizar commits claros en el repositorio Git real, sin mezclar cambios funcionales y visuales.
 
 ## Estado del paquete
 
@@ -132,7 +132,7 @@ fix: preservar ficha histórica 3349881 y sus relaciones
 
 No se debe volver a aplicar ni duplicar la corrección si Git ya contiene ese commit; en ese caso este bloque sirve únicamente como evidencia para GitHub y sustentación.
 
-## Secuencia recomendada para Codex
+## Secuencia recomendada de integración
 
 Antes de crear commits, ejecutar:
 
