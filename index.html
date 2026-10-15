@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Inicio de sesión del Sistema de Asistencia SENA">
   <title>Inicio de Sesión | Sistema SENA</title>
+  <script>
+    if (window.location.hostname.endsWith(".github.io")) {
+      window.location.replace("http://localhost:3000/login.html");
+    }
+  </script>
   <link rel="stylesheet" href="aplicacion/recursos/estilos%20CCS/estilos_acceso.css?v=logo-20261015">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script>document.documentElement.classList.add("auth-pending");</script>
@@ -224,6 +229,6 @@
     </div>
   </div>
 
-  <script src="aplicacion/recursos/JS%20scripts/autenticacion.js"></script>
+  <script src="aplicacion/recursos/JS%20scripts/autenticacion.js?v=github-local-20261015"></script>
 </body>
 </html>

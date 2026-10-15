@@ -6,6 +6,12 @@
     "use strict";
 
     const LOCAL_APP_ORIGIN = "http://localhost:3000";
+    const isGitHubPages = window.location.hostname.endsWith(".github.io");
+    if (isGitHubPages) {
+        window.location.replace(`${LOCAL_APP_ORIGIN}/login.html`);
+        return;
+    }
+
     const isLocalAddress = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
     if (isLocalAddress && window.location.origin !== LOCAL_APP_ORIGIN) {
         const destination = `${window.location.pathname}${window.location.search}${window.location.hash}`;

@@ -111,6 +111,7 @@ try {
 }
 
 const login = fs.readFileSync(path.join(root, "login.html"), "utf8");
+const githubIndex = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
 const appSource = ["aplicacion.js", "asistencia.js", "estadisticas.js", "programas.js", "usuarios.js"]
     .map((file) => fs.readFileSync(path.join(scriptsRoot, file), "utf8"))
     .join("\n");
@@ -132,6 +133,9 @@ check(login.includes('data-auth-tab="apprentice"'), "login.html: falta la pesta�
 check(authSource.includes('window.location.replace(destinationFor(serverUser, requestedDestination()))'), "auth.js: una sesión activa debe salir automáticamente del login");
 check(authSource.includes('window.location.replace(destinationFor(result.user, requestedDestination()))'), "auth.js: el código verificado debe dirigir según el rol del usuario");
 check(authSource.includes('const LOCAL_APP_ORIGIN = "http://localhost:3000"'), "auth.js: falta asegurar el servidor local correcto");
+check(authSource.includes('window.location.hostname.endsWith(".github.io")'), "auth.js: GitHub Pages debe reconocer que no puede ejecutar la API");
+check(authSource.includes('window.location.replace(`${LOCAL_APP_ORIGIN}/login.html`)'), "auth.js: GitHub Pages debe dirigir la autenticación al servidor Node local");
+check(githubIndex.includes('window.location.replace("http://localhost:3000/login.html")'), "index.html: GitHub Pages debe redirigir temprano al servidor Node local");
 check(authSource.includes('[404, 405].includes(response.status)'), "auth.js: falta detectar servidores que rechazan la API");
 check(attendanceQrSource.includes("new AbortController()"), "asistencia_qr.js: falta limitar la espera de la API");
 check(attendanceQrSource.includes("El servidor tardó demasiado en responder."), "asistencia_qr.js: falta informar el timeout del QR");
