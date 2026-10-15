@@ -88,6 +88,8 @@ body{
 
     width:85px;
 
+    height:auto;
+
     display:block;
 
     margin:auto;
@@ -716,6 +718,7 @@ body.ui-v72.access-page .imagen{
 
 body.ui-v72.access-page .imagen img{
     width:min(58vw,900px);
+    height:auto;
     max-width:100%;
     max-height:calc(100dvh - 20px);
     object-fit:contain;
