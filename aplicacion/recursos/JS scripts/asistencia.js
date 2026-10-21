@@ -366,6 +366,11 @@
     });
     document.getElementById("excuses-refresh")?.addEventListener("click", loadExcuses);
 
+    // Recarga la tabla cuando otro método, como la huella digital, registra una asistencia.
+    window.addEventListener("sena:attendance-updated", () => {
+        if (!state.loading) loadSelectedFicha();
+    });
+
     document.getElementById("attendance-export-pdf").addEventListener("click", async (event) => {
         const button = event.currentTarget;
         if (state.loading) return;

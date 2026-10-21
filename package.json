@@ -12,7 +12,7 @@
     "start:ensure": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/asegurar_servidor.ps1",
     "status": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/asegurar_servidor.ps1 -StatusOnly",
     "install:autostart": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/instalar_inicio_automatico.ps1",
-    "test": "node pruebas/prueba_modulos.js && node pruebas/prueba_http.js && node pruebas/prueba_recuperacion_admin.js && node pruebas/prueba_mysql.js && node pruebas/prueba_cierre_asistencia.js && node pruebas/prueba_proyecto.js && node pruebas/prueba_qr_frontend.js && node pruebas/prueba_sidebar_visual.js && node pruebas/prueba_sistema_visual.js && node pruebas/prueba_tema_usuarios_estadisticas.js && node pruebas/prueba_estadisticas_frontend.js && node pruebas/prueba_estadisticas_analitica.js && node pruebas/prueba_reportes.js && node pruebas/prueba_persistencia_concurrente.js && node pruebas/prueba_public_url.js && node pruebas/prueba_base_principal.js && node pruebas/prueba_sqlfile.js && node pruebas/prueba_respaldo_atomico.js && node pruebas/prueba_formacion_auditoria.js && node pruebas/prueba_escala.js && node pruebas/prueba_resiliencia_final.js",
+    "test": "node pruebas/prueba_arranque_windows.js && node pruebas/prueba_modulos.js && node pruebas/prueba_http.js && node pruebas/prueba_almacen_biometrico_real.js && node pruebas/prueba_biometria.js && node pruebas/prueba_biometria_real_logica.js && node pruebas/prueba_biometria_frontend.js && node pruebas/prueba_biometria_pro.js && node pruebas/prueba_autosostenibilidad.js && node pruebas/prueba_recuperacion_admin.js && node pruebas/prueba_mysql.js && node pruebas/prueba_cierre_asistencia.js && node pruebas/prueba_proyecto.js && node pruebas/prueba_qr_frontend.js && node pruebas/prueba_sidebar_visual.js && node pruebas/prueba_sistema_visual.js && node pruebas/prueba_tema_usuarios_estadisticas.js && node pruebas/prueba_estadisticas_frontend.js && node pruebas/prueba_estadisticas_analitica.js && node pruebas/prueba_reportes.js && node pruebas/prueba_persistencia_concurrente.js && node pruebas/prueba_public_url.js && node pruebas/prueba_base_principal.js && node pruebas/prueba_sqlfile.js && node pruebas/prueba_respaldo_atomico.js && node pruebas/prueba_formacion_auditoria.js && node pruebas/prueba_escala.js && node pruebas/prueba_resiliencia_final.js && node pruebas/prueba_resumen_biometrico_91.js",
     "verify": "node verificar.js",
     "test:reports": "node pruebas/prueba_reportes.js",
     "test:persistence-concurrency": "node pruebas/prueba_persistencia_concurrente.js",
@@ -28,7 +28,15 @@
     "db:activate": "node herramientas/base_datos/corte.js --validate-only --activate",
     "db:rollback": "node herramientas/base_datos/rollback.js --confirm",
     "test:visual-system": "node pruebas/prueba_sistema_visual.js",
-    "test:resilience": "node pruebas/prueba_resiliencia_final.js"
+    "test:resilience": "node pruebas/prueba_resiliencia_final.js",
+    "test:startup": "node pruebas/prueba_arranque_windows.js",
+    "test:python-biometria": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/probar_puente_python.ps1",
+    "doctor": "node herramientas/diagnostico.js",
+    "doctor:mysql": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/asegurar_mysql.ps1 -StatusOnly",
+    "doctor:biometria": "powershell -NoProfile -ExecutionPolicy Bypass -File ./herramientas/automatizacion/diagnostico_biometria.ps1",
+    "test:biometria:resumen": "node pruebas/prueba_resumen_biometrico_91.js",
+    "demo": "node pruebas/servidor_visual.js",
+    "check:files": "node verificar.js"
   },
   "dependencies": {
     "busboy": "^1.6.0",

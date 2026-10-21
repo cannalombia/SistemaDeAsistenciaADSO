@@ -24,12 +24,18 @@
     let nombreArchivo = document.getElementById("user-csv-file-name");
     let botonImportar = document.getElementById("user-csv-import-button");
     let resultadoImportacion = document.getElementById("user-import-result");
+    let botonBiometria = document.getElementById("user-biometric-enroll");
+    let estadoBiometria = document.getElementById("user-biometric-state");
+    let ayudaBiometria = document.getElementById("user-biometric-help");
+    let tarjetaBiometria = document.getElementById("user-biometric-card");
+    let usuarioBiometricoActual = null;
 
     let datos = {
         usuarios: [],
         fichas: [],
         filtro: "all",
-        archivo: null
+        archivo: null,
+        rolSesion: ""
     };
 
     function obtenerIniciales(nombre) {
@@ -151,7 +157,11 @@
             if (usuario.protected) {
                 acciones = '<span class="user-protected-account"><i class="fas fa-lock" aria-hidden="true"></i> Protegida</span>';
             } else {
+                const accionBiometrica = datos.rolSesion === "Administrador" && usuario.role === "Aprendiz"
+                    ? '<button type="button" class="biometric" data-user-action="biometric" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Gestionar huella de ' + escaparHtml(usuario.name) + '" title="Gestionar huella"><i class="fas fa-fingerprint" aria-hidden="true"></i></button>'
+                    : "";
                 acciones =
+                    accionBiometrica +
                     '<button type="button" data-user-action="edit" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Modificar ' + escaparHtml(usuario.name) + '" title="Modificar"><i class="fas fa-pen" aria-hidden="true"></i></button>' +
                     '<button type="button" data-user-action="status" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Cambiar estado de ' + escaparHtml(usuario.name) + '" title="Cambiar estado"><i class="fas ' + (usuario.status === "Activo" ? "fa-user-slash" : "fa-user-check") + '" aria-hidden="true"></i></button>' +
                     '<button type="button" class="danger" data-user-action="delete" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Eliminar ' + escaparHtml(usuario.name) + '" title="Eliminar"><i class="fas fa-trash" aria-hidden="true"></i></button>';
@@ -272,6 +282,56 @@
         });
     }
 
+    function mostrarEstadoBiometrico(tipo, texto, detalle) {
+        if (!estadoBiometria) return;
+        if (tarjetaBiometria) tarjetaBiometria.dataset.state = tipo || "idle";
+        estadoBiometria.className = "user-biometric-state" + (tipo ? " " + tipo : "");
+        const icono = tipo === "success" ? "fa-circle-check" : tipo === "error" ? "fa-triangle-exclamation" : tipo === "loading" ? "fa-circle-notch fa-spin" : "fa-circle-info";
+        estadoBiometria.innerHTML = '<i class="fas ' + icono + '" aria-hidden="true"></i> ' + escaparHtml(texto);
+        if (ayudaBiometria && detalle) ayudaBiometria.textContent = detalle;
+    }
+
+    function actualizarPanelBiometrico() {
+        if (!botonBiometria) return;
+        const esAprendiz = listaRol.value === "Aprendiz";
+        const esAdministrador = datos.rolSesion === "Administrador";
+        botonBiometria.disabled = !esAprendiz || !esAdministrador || !usuarioBiometricoActual;
+        if (!esAdministrador) {
+            mostrarEstadoBiometrico("", "Solo administrador", "Registrar, reemplazar o eliminar una huella es exclusivo del administrador.");
+            return;
+        }
+        if (!esAprendiz) {
+            usuarioBiometricoActual = null;
+            mostrarEstadoBiometrico("", "Disponible para aprendices", "Selecciona el rol Aprendiz para habilitar el enrolamiento biométrico.");
+            return;
+        }
+        if (!usuarioBiometricoActual) {
+            mostrarEstadoBiometrico("", "Sin usuario guardado", "Guarda primero el aprendiz. Después podrás abrir su registro biométrico centralizado.");
+            return;
+        }
+        mostrarEstadoBiometrico("success", "Aprendiz listo", "Abre la pantalla biométrica para consultar, registrar, verificar, revocar o volver a enrolar su huella.");
+        botonBiometria.innerHTML = '<i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> Abrir registro de huella';
+    }
+
+    async function consultarRolSesion() {
+        try {
+            const respuesta = await fetch("/api/auth/session", { credentials: "same-origin" });
+            const contenido = await respuesta.json().catch(function () { return {}; });
+            datos.rolSesion = contenido?.authenticated ? String(contenido.user?.role || "") : "";
+        } catch (_error) {
+            datos.rolSesion = "";
+        }
+        actualizarPanelBiometrico();
+        dibujarDirectorio();
+    }
+
+    function abrirRegistroBiometrico(usuarioObjetivo) {
+        if (!usuarioObjetivo || usuarioObjetivo.role !== "Aprendiz") return;
+        const destino = "huella_registro.html?usuario=" + encodeURIComponent(usuarioObjetivo.id)
+            + "&retorno=" + encodeURIComponent("crear_usuario.html");
+        window.location.assign(destino);
+    }
+
     function seleccionarFiltro(tarjeta) {
         datos.filtro = tarjeta.dataset.userFilter;
 
@@ -301,6 +361,10 @@
                 break;
             case "delete":
                 eliminarUsuario(usuario);
+                break;
+            case "biometric":
+                usuarioBiometricoActual = usuario;
+                abrirRegistroBiometrico(usuario);
                 break;
         }
     }
@@ -374,8 +438,15 @@
                 body: JSON.stringify(nuevoUsuario)
             });
             aplicarDatos(respuesta);
+            usuarioBiometricoActual = respuesta.user && respuesta.user.role === "Aprendiz" ? respuesta.user : null;
+            const conservarAprendizParaBiometria = Boolean(usuarioBiometricoActual);
             formulario.reset();
+            if (conservarAprendizParaBiometria) {
+                listaRol.value = "Aprendiz";
+                listaFicha.value = usuarioBiometricoActual.ficha || "";
+            }
             ajustarCampoFicha();
+            actualizarPanelBiometrico();
             mostrarMensaje(respuesta.message || "Usuario creado correctamente.");
         } catch (error) {
             mostrarMensaje(error.message, "error");
@@ -391,7 +462,12 @@
     });
     buscador.addEventListener("input", dibujarDirectorio);
     cuerpoTabla.addEventListener("click", ejecutarAccion);
-    listaRol.addEventListener("change", ajustarCampoFicha);
+    listaRol.addEventListener("change", function () {
+        ajustarCampoFicha();
+        if (listaRol.value !== "Aprendiz") usuarioBiometricoActual = null;
+        actualizarPanelBiometrico();
+    });
+    if (botonBiometria) botonBiometria.addEventListener("click", function () { abrirRegistroBiometrico(usuarioBiometricoActual); });
     archivoCsv.addEventListener("change", revisarArchivo);
     formularioImportacion.addEventListener("submit", importarUsuarios);
     formulario.addEventListener("submit", crearUsuario);
@@ -480,6 +556,8 @@
     exportButton.addEventListener("click", () => sqlOperation(true));
 
     ajustarCampoFicha();
+    actualizarPanelBiometrico();
+    consultarRolSesion();
     cargarUsuarios().catch(function (error) {
         if (error.status === 403) {
             window.location.replace("login.html?returnTo=crear_usuario.html");

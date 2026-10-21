@@ -31,7 +31,7 @@ $mode = "Tarea programada"
 try {
     Register-ScheduledTask `
         -TaskName $TaskName `
-        -Description "Mantiene disponible el Sistema de Asistencia SENA en http://localhost:3000 y lo recupera si se detiene." `
+        -Description "Mantiene disponible el Sistema de Asistencia SENA y, cuando está habilitado, su puente biométrico local." `
         -Action $action `
         -Trigger $logonTrigger `
         -Settings $settings `

@@ -42,4 +42,21 @@ const server = createProjectServer({
 });
 
 const visualPort = Number(process.env.VISUAL_PORT || 3100);
-server.listen(visualPort, "127.0.0.1", () => console.log(`Servidor visual listo en http://localhost:${visualPort}/login.html`));
+server.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+        console.error(`[ERROR] El puerto ${visualPort} ya esta ocupado. Cierra el otro servidor o abre http://127.0.0.1:${visualPort}/login.html si ya corresponde a BioSecure.`);
+    } else {
+        console.error("[ERROR] No fue posible iniciar la demostracion:", error.message);
+    }
+    process.exitCode = 1;
+});
+server.listen(visualPort, "127.0.0.1", () => {
+    const url = `http://127.0.0.1:${visualPort}/login.html`;
+    console.log(`Servidor visual listo en ${url}`);
+    if (process.platform === "win32" && process.env.BIOSECURE_ABRIR_NAVEGADOR === "1") {
+        const { execFile } = require("node:child_process");
+        execFile("explorer.exe", [url], { windowsHide: true }, (error) => {
+            if (error) console.warn(`Abre manualmente ${url}: ${error.message}`);
+        });
+    }
+});

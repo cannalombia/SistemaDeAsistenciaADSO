@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asistencia de Estudiantes | Sistema SENA</title>
     <link rel="stylesheet" href="estilos_generales.css?v=sidebar-uniforme-20261015">
+    <link rel="stylesheet" href="estadisticas_reportes.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>.auth-pending body{visibility:hidden}</style>
     <script>document.documentElement.classList.add("auth-pending");</script>
@@ -64,6 +65,138 @@
             </label>
         </section>
 
+        <section class="attendance-method-panel" aria-labelledby="attendance-method-title">
+            <div class="attendance-method-copy">
+                <span class="attendance-method-eyebrow">Métodos de registro</span>
+                <h2 id="attendance-method-title">QR o huella digital</h2>
+                <p>El registro manual continúa disponible. QR mantiene su flujo actual y la huella usa el puente biométrico local cuando el lector está disponible.</p>
+            </div>
+            <div class="attendance-method-actions">
+                <button id="generate-qr" class="attendance-method-button qr" type="button">
+                    <span><i class="fas fa-qrcode" aria-hidden="true"></i></span>
+                    <strong>Generar QR</strong>
+                    <small>Registro desde el celular</small>
+                </button>
+                <button id="attendance-biometric-toggle" class="attendance-method-button fingerprint" type="button" aria-expanded="false" aria-controls="attendance-biometric-panel">
+                    <span><i class="fas fa-fingerprint" aria-hidden="true"></i></span>
+                    <strong>Huella digital</strong>
+                    <small>Identificación biométrica</small>
+                </button>
+            </div>
+        </section>
+
+        <section id="attendance-biometric-panel" class="attendance-biometric-panel" hidden aria-labelledby="attendance-biometric-title">
+            <div id="attendance-biometric-banner" class="attendance-biometric-banner" role="status" aria-live="polite" data-mode="checking">
+                <span class="attendance-biometric-banner-icon"><i id="attendance-biometric-banner-icon" class="fas fa-fingerprint" aria-hidden="true"></i></span>
+                <div>
+                    <small id="attendance-biometric-banner-kicker">Identidad digital SENA</small>
+                    <h2 id="attendance-biometric-title">IDENTIFICACIÓN BIOMÉTRICA</h2>
+                    <p id="attendance-biometric-banner-text">Comprobando el puente local y el lector DigitalPersona.</p>
+                </div>
+                <span id="attendance-biometric-mode-pill" class="attendance-biometric-mode-pill">VERIFICANDO</span>
+            </div>
+
+            <div class="attendance-biometric-layout">
+                <article class="attendance-biometric-reader" data-state="idle">
+                    <div id="attendance-biometric-scanner" class="attendance-biometric-scanner" data-scan-state="idle" aria-hidden="true">
+                        <div class="attendance-biometric-orbit orbit-one"></div>
+                        <div class="attendance-biometric-orbit orbit-two"></div>
+                        <div class="attendance-biometric-reader-icon">
+                            <span class="attendance-biometric-grid"></span>
+                            <span class="attendance-biometric-scan-line"></span>
+                            <i id="attendance-biometric-icon" class="fas fa-fingerprint" aria-hidden="true"></i>
+                            <svg class="bio89-fingerprint-vector" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 26a20 20 0 0 1 40 0v6"/><path d="M17 34v-8a15 15 0 0 1 30 0v10"/>
+                            <path d="M22 38V26a10 10 0 0 1 20 0v13"/><path d="M27 41V26a5 5 0 0 1 10 0v14"/>
+                            <path d="M32 30v13c0 6-2 12-5 16"/><path d="M37 44c0 5-1 10-3 15"/>
+                            <path d="M22 46c-1 4-3 8-5 11"/><path d="M42 45c0 4-1 8-2 12"/>
+                            <path d="M17 41c-1 5-3 9-5 12"/>
+                        </svg>
+                            <span class="attendance-biometric-check"><i class="fas fa-check" aria-hidden="true"></i></span>
+                        </div>
+                        <div class="attendance-biometric-stage-dots">
+                            <span data-stage="1"></span><span data-stage="2"></span><span data-stage="3"></span><span data-stage="4"></span><span data-stage="5"></span>
+                        </div>
+                    </div>
+                    <span class="attendance-method-eyebrow">DigitalPersona U.are.U 4500</span>
+                    <h3 id="attendance-biometric-reader-title">Comprobando servicio…</h3>
+                    <p id="attendance-biometric-reader-message" role="status" aria-live="polite">Consultando el puente biométrico local.</p>
+
+                    <div class="attendance-biometric-indicators">
+                        <span><i class="fas fa-circle" aria-hidden="true"></i> <b>Puente:</b> <strong id="attendance-biometric-bridge">—</strong></span>
+                        <span><i class="fas fa-circle" aria-hidden="true"></i> <b>Lector:</b> <strong id="attendance-biometric-reader-state">—</strong></span>
+                        <span><i class="fas fa-circle" aria-hidden="true"></i> <b>Hardware real:</b> <strong id="attendance-biometric-hardware">NO</strong></span>
+                    </div>
+                </article>
+
+                <article class="attendance-biometric-operation">
+                    <div class="attendance-biometric-operation-heading">
+                        <div>
+                            <span id="attendance-biometric-operation-kicker" class="attendance-method-eyebrow">Identificación por ficha</span>
+                            <h3 id="attendance-biometric-operation-title">Registrar asistencia por huella</h3>
+                        </div>
+                        <button id="attendance-biometric-refresh" class="btn-mark-present" type="button"><i class="fas fa-rotate" aria-hidden="true"></i> Actualizar</button>
+                    </div>
+
+                    <div class="attendance-biometric-field" role="note">
+                        <span id="attendance-biometric-field-title">Identificación por ficha</span>
+                        <p id="attendance-biometric-field-text">El servidor compara la lectura solo con las plantillas enroladas de la ficha seleccionada.</p>
+                    </div>
+
+                    <div class="attendance-biometric-context">
+                        <span>Ficha <strong id="attendance-biometric-ficha">—</strong></span>
+                        <span>Jornada <strong id="attendance-biometric-jornada">Mañana</strong></span>
+                        <span>Estado <strong id="attendance-biometric-capture-state">Listo</strong></span>
+                    </div>
+
+                    <section class="attendance-biometric-telemetry" aria-label="Telemetría biométrica de asistencia">
+                        <div class="attendance-biometric-telemetry-head">
+                            <span id="attendance-biometric-phase-pill" class="attendance-biometric-phase-pill">Canal local · verificando</span>
+                            <span id="attendance-biometric-status-chip" class="attendance-biometric-status-chip">Espera</span>
+                        </div>
+                        <div class="attendance-biometric-telemetry-grid">
+                            <article class="attendance-biometric-mini-card">
+                                <small>Flujo activo</small>
+                                <strong id="attendance-biometric-flow-title">Esperando ficha</strong>
+                                <p id="attendance-biometric-flow-copy">Selecciona una ficha para habilitar la identificación biométrica de asistencia.</p>
+                            </article>
+                            <article class="attendance-biometric-mini-card compact">
+                                <small>Estado de captura</small>
+                                <div id="attendance-biometric-signal" class="attendance-biometric-signal" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+                                <b id="attendance-biometric-signal-label">En espera</b>
+                            </article>
+                        </div>
+                        <ul id="attendance-biometric-timeline" class="attendance-biometric-timeline" aria-live="polite">
+                            <li class="empty">El panel biométrico está listo para iniciar.</li>
+                        </ul>
+                    </section>
+
+                    <div class="attendance-biometric-buttons">
+                        <button id="attendance-biometric-start" class="btn-save-attendance" type="button" disabled>
+                            <i class="fas fa-fingerprint" aria-hidden="true"></i> Iniciar identificación
+                        </button>
+                        <button id="attendance-biometric-cancel" class="btn-mark-present" type="button" hidden>
+                            <i class="fas fa-ban" aria-hidden="true"></i> Cancelar
+                        </button>
+                    </div>
+
+                    <a id="attendance-biometric-enroll-link" class="bio89-enrollment-cta" href="huella_registro.html?retorno=asistencia.html" hidden><i class="fas fa-user-plus" aria-hidden="true"></i> Gestionar huellas de aprendices</a>
+                    <div id="attendance-biometric-result" class="attendance-biometric-result" data-state="idle" aria-live="polite">
+                        <strong id="attendance-biometric-result-title">Sin identificación iniciada</strong>
+                        <p id="attendance-biometric-result-message">Selecciona una ficha para iniciar la identificación biométrica.</p>
+                        <dl>
+                            <div><dt>Nombre</dt><dd id="attendance-biometric-result-name">—</dd></div>
+                            <div><dt>Documento</dt><dd id="attendance-biometric-result-document">—</dd></div>
+                            <div><dt>Ficha</dt><dd id="attendance-biometric-result-ficha">—</dd></div>
+                            <div><dt>Hora</dt><dd id="attendance-biometric-result-time">—</dd></div>
+                        </dl>
+                        <small id="attendance-biometric-result-note"><i class="fas fa-shield-halved" aria-hidden="true"></i> La plantilla permanece cifrada y nunca se envía al navegador.</small>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+
         <div class="attendance-layout">
             <section class="attendance-register-card">
                 <div class="attendance-card-header">
@@ -119,6 +252,19 @@
             <div class="attendance-table-wrap"><table class="attendance-table"><thead><tr><th>Aprendiz</th><th>Ficha</th><th>Fecha</th><th>Motivo</th><th>Soporte</th><th>Decisión</th></tr></thead><tbody id="excuses-review-body"><tr><td colspan="6" class="attendance-empty">Cargando excusas…</td></tr></tbody></table></div>
         </section>
 
+
+        <dialog id="attendance-qr" class="report-preview attendance-qr-dialog" aria-labelledby="qr-title" style="max-width:520px">
+            <header><h2 id="qr-title">Asistencia por QR</h2><button id="close-qr" class="report-btn secondary" type="button">Cerrar</button></header>
+            <div class="filter-controls">
+                <label>Ficha<select id="qr-ficha"></select></label>
+                <label>Jornada<select id="qr-jornada"><option>Mañana</option><option>Tarde</option><option>Noche</option></select></label>
+            </div>
+            <p>El QR se renueva cada 60 segundos. Para escanear desde un celular, conéctalo a la misma red e inicia sesión como aprendiz en la dirección del QR.</p>
+            <img id="qr-image" class="attendance-qr-image" alt="QR para registrar asistencia" width="320" height="320" hidden>
+            <p id="qr-status" role="status"></p>
+            <a id="qr-link" hidden>Abrir enlace de asistencia</a>
+        </dialog>
+
         <section id="attendance-legend" class="attendance-legend" aria-labelledby="legend-title">
             <h2 id="legend-title">Estados de asistencia</h2>
             <div><span class="legend-dot present"><i class="fas fa-check" aria-hidden="true"></i></span><p><strong>Presente</strong><small>Asistió a la formación</small></p></div>
@@ -134,5 +280,7 @@
 <script src="aplicacion.js"></script>
 <script src="reportes.js"></script>
 <script src="asistencia.js"></script>
+<script src="asistencia_qr.js?v=20261016-integrado"></script>
+<script src="biometria_asistencia.js?v=20261016-integrado"></script>
 </body>
 </html>

@@ -45,7 +45,7 @@ assert.match(migration, /uq_attendance_effective/);
 
 const pagesDir = path.join(root, "aplicacion", "paginas HTML");
 const pages = fs.readdirSync(pagesDir).filter((name) => name.endsWith(".html"));
-assert.equal(pages.length, 12, "Se esperaban las 12 páginas HTML del sistema.");
+assert.equal(pages.length, 13, "Se esperaban las 13 páginas HTML, incluida la pantalla única de enrolamiento.");
 for (const page of pages) {
     const html = fs.readFileSync(path.join(pagesDir, page), "utf8");
     assert.match(html, /resiliencia_cliente\.js/, `${page} debe cargar resiliencia_cliente.js.`);

@@ -24,6 +24,9 @@ const { assertMigrationsCurrent } = require("./base_datos/migraciones");
 const { createMysqlRepository } = require("./base_datos/repositorio");
 const { readExcuseSubmission } = require("./modulos/excusas");
 const { sendJson, readRequestJsonBody } = require("./modulos/http");
+const { crearClienteBiometrico, ErrorBiometrico } = require("./modulos/cliente_biometrico");
+const { crearEstadoBiometriaMock } = require("./modulos/estado_biometria_mock");
+const { crearAlmacenBiometricoReal } = require("./modulos/almacen_biometrico_real");
 
 const root = rutasProyecto.raizProyecto;
 const dataDirectory = rutasProyecto.datos;
@@ -107,11 +110,29 @@ function createProjectServer(options = {}) {
         emailHistoryLimit: boundedInteger(options.emailHistoryLimit ?? process.env.EMAIL_HISTORY_LIMIT, 500, 50, 5000),
         emailCircuitFailureThreshold: boundedInteger(options.emailCircuitFailureThreshold ?? process.env.EMAIL_CIRCUIT_FAILURE_THRESHOLD, 5, 2, 10),
         emailCircuitResetMs: boundedInteger(options.emailCircuitResetMs ?? process.env.EMAIL_CIRCUIT_RESET_MS, 30000, 5000, 300000),
-        trustProxy: options.trustProxy ?? process.env.TRUST_PROXY === "1"
+        trustProxy: options.trustProxy ?? process.env.TRUST_PROXY === "1",
+        biometriaHabilitada: options.biometriaHabilitada
+            ?? ["1", "true"].includes(String(process.env.BIOMETRIC_ENABLED || "false").trim().toLowerCase()),
+        biometriaModo: String(options.biometriaModo ?? process.env.BIOMETRIC_MODE ?? "mock").trim().toLowerCase(),
+        biometriaUrlServicio: String(options.biometriaUrlServicio ?? process.env.BIOMETRIC_SERVICE_URL ?? "http://127.0.0.1:4318").trim(),
+        biometriaClaveServicio: String(options.biometriaClaveServicio ?? process.env.BIOMETRIC_SERVICE_KEY ?? ""),
+        biometriaClaveCifrado: String(options.biometriaClaveCifrado ?? process.env.BIOMETRIC_ENCRYPTION_KEY ?? ""),
+        biometriaTiempoLimiteMs: boundedInteger(options.biometriaTiempoLimiteMs ?? process.env.BIOMETRIC_TIMEOUT_MS, 5000, 50, 30000)
     };
+    if (config.biometriaHabilitada && !["mock", "real"].includes(config.biometriaModo)) {
+        throw new Error("BIOMETRIC_MODE debe ser mock o real.");
+    }
+    const clienteBiometrico = options.clienteBiometrico || crearClienteBiometrico({
+        habilitado: config.biometriaHabilitada,
+        url_servicio: config.biometriaUrlServicio,
+        clave_local: config.biometriaClaveServicio,
+        tiempo_limite_ms: config.biometriaTiempoLimiteMs
+    });
     const codes = new Map();
     const sessions = new Map();
     const attendanceTokens = new Map();
+    const capturasBiometricas = new Map();
+    const ticketsAsistenciaBiometrica = new Map();
     const hourlyRequests = new Map();
     const pendingCodeRequests = new Set();
     const now = typeof options.now === "function" ? options.now : Date.now;
@@ -121,6 +142,16 @@ function createProjectServer(options = {}) {
     let adminRecovery = null;
     let adminRecoveryRequestPending = false;
     const persistentRuntime = !options.apprentices && !options.emailSender;
+    const estadoBiometriaMock = crearEstadoBiometriaMock({
+        archivo: persistentRuntime ? path.join(dataDirectory, "biometria_mock_estado.json") : null,
+        inicial: options.biometriaMockEstado || {}
+    });
+    const almacenBiometricoReal = config.biometriaModo === "real"
+        ? crearAlmacenBiometricoReal({
+            directorio: options.biometriaDirectorioReal || path.join(dataDirectory, "biometria_real", "plantillas"),
+            clave: config.biometriaClaveCifrado
+        })
+        : null;
     const authStateFile = options.authStateFile === null
         ? null
         : (options.authStateFile || (persistentRuntime ? path.join(dataDirectory, "estado_autenticacion_correo.json") : null));
@@ -1130,12 +1161,28 @@ function createProjectServer(options = {}) {
         const emailHealth = emailService.getHealth();
         const database = await databaseHealthPayload();
         const storage = await storageHealthPayload();
+        let biometricHealth = { habilitada: config.biometriaHabilitada, modo: config.biometriaModo, disponible: false, estado: config.biometriaHabilitada ? "no_disponible" : "deshabilitada" };
+        if (config.biometriaHabilitada) {
+            try {
+                const [saludBiometrica, lectorBiometrico] = await Promise.all([clienteBiometrico.consultar_salud(), clienteBiometrico.consultar_lector()]);
+                biometricHealth = {
+                    habilitada: true,
+                    modo: String(saludBiometrica.modo || config.biometriaModo),
+                    disponible: lectorBiometrico.lector?.disponible === true,
+                    estado: String(lectorBiometrico.lector?.estado || "desconocido"),
+                    simulado: lectorBiometrico.lector?.simulado === true,
+                    hardware_detectado: lectorBiometrico.lector?.hardware_detectado === true
+                };
+            } catch (error) {
+                biometricHealth = { habilitada: true, modo: config.biometriaModo, disponible: false, estado: "no_disponible", codigo: error?.codigo || "ERROR_BIOMETRICO" };
+            }
+        }
         let instances = [];
         if (repository?.activeInstances) {
             try { instances = await repository.activeInstances({ maxAgeMs: 30000 }); } catch (_) { /* health remains useful without cluster metadata */ }
         }
         const ready = !serverState.draining && database.ready !== false;
-        const degraded = ready && (emailHealth.ready === false || storage.ready === false);
+        const degraded = ready && (emailHealth.ready === false || storage.ready === false || (config.biometriaHabilitada && biometricHealth.disponible === false));
         const memory = process.memoryUsage();
         return sendJson(response, ready ? 200 : 503, {
             ok: ready,
@@ -1154,6 +1201,7 @@ function createProjectServer(options = {}) {
             },
             database,
             storage,
+            biometria: biometricHealth,
             resilience: {
                 sharedSessions: Boolean(repository?.saveSession),
                 sharedQr: Boolean(repository?.saveQrToken),
@@ -1584,6 +1632,527 @@ function createProjectServer(options = {}) {
             return null;
         }
         return session;
+    }
+
+    let ultimaAuditoriaPuenteBiometrico = 0;
+
+    function esAdministradorBiometrico(session) {
+        return String(session?.user?.role || "").trim().toLowerCase() === "administrador";
+    }
+
+    function esModoBiometricoReal() {
+        return config.biometriaModo === "real";
+    }
+
+    function enviarErrorBiometrico(response, error) {
+        const codigo = error instanceof ErrorBiometrico ? error.codigo : "ERROR_BIOMETRICO";
+        const mensajes = {
+            BIOMETRIA_DESHABILITADA: "La integración biométrica está deshabilitada.",
+            PUENTE_NO_DISPONIBLE: "El servicio biométrico local no está disponible.",
+            PUENTE_NO_AUTORIZADO: "El servidor principal no pudo autenticarse con el puente biométrico.",
+            CAPTURA_EN_CURSO: "Ya existe una captura biométrica en curso.",
+            CAPTURA_NO_ENCONTRADA: "La captura biométrica solicitada no existe.",
+            TIEMPO_AGOTADO: "Se agotó el tiempo disponible para la operación biométrica.",
+            MUESTRA_INVALIDA: "La muestra biométrica fue rechazada.",
+            LECTOR_NO_DISPONIBLE: "El lector biométrico no está disponible.",
+            PLANTILLA_INVALIDA: "La plantilla biométrica no pudo procesarse.",
+            PLANTILLA_INCOMPATIBLE: "La plantilla biométrica no es compatible con el lector actual.",
+            IDENTIFICACION_NO_SOPORTADA: "El controlador biométrico actual no permite identificación 1:N.",
+            SIN_PLANTILLAS: "No hay huellas enroladas disponibles para esta operación.",
+            ERROR_BIOMETRICO: "No fue posible completar la operación biométrica."
+        };
+        const estado_http = error instanceof ErrorBiometrico ? error.estado_http : 502;
+        return sendJson(response, estado_http, {
+            correcto: false,
+            error: {
+                codigo: mensajes[codigo] ? codigo : "ERROR_BIOMETRICO",
+                mensaje: mensajes[codigo] || mensajes.ERROR_BIOMETRICO
+            }
+        });
+    }
+
+    function verificarBiometriaHabilitada() {
+        if (!config.biometriaHabilitada) {
+            throw new ErrorBiometrico("BIOMETRIA_DESHABILITADA", "La integración biométrica está deshabilitada.", 503);
+        }
+    }
+
+    function auditarFallaPuenteBiometrico(session, error) {
+        if (!["PUENTE_NO_DISPONIBLE", "PUENTE_NO_AUTORIZADO", "TIEMPO_AGOTADO", "ERROR_BIOMETRICO", "LECTOR_NO_DISPONIBLE"].includes(error?.codigo)) return;
+        const momento = now();
+        if (momento - ultimaAuditoriaPuenteBiometrico < 60000) return;
+        ultimaAuditoriaPuenteBiometrico = momento;
+        audit(session, "BIOMETRIA_PUENTE_NO_DISPONIBLE", "biometria_puente", "local", null, null, {
+            codigo: error.codigo,
+            modo: config.biometriaModo
+        });
+    }
+
+    function mensajeErrorCaptura(codigo) {
+        const simulada = !esModoBiometricoReal();
+        const mensajes = {
+            TIEMPO_AGOTADO: "Se agotó el tiempo de la captura biométrica.",
+            MUESTRA_INVALIDA: simulada ? "La muestra simulada fue marcada como inválida." : "La lectura de la huella no tuvo calidad suficiente.",
+            LECTOR_NO_DISPONIBLE: "El lector biométrico no está disponible.",
+            CAPTURA_CANCELADA: "La captura biométrica fue cancelada.",
+            IDENTIFICACION_NO_SOPORTADA: "El lector no permite identificación contra varias plantillas con el controlador actual."
+        };
+        return mensajes[codigo] || "La captura biométrica terminó con un error.";
+    }
+
+    function limpiarCapturaBiometrica(captura, operacion_solicitada) {
+        const resultado_origen = captura?.resultado && typeof captura.resultado === "object"
+            ? captura.resultado
+            : null;
+        let resultado = null;
+        if (resultado_origen) {
+            resultado = {
+                ...(Object.hasOwn(resultado_origen, "coincidencia")
+                    ? { coincidencia: resultado_origen.coincidencia === true }
+                    : {}),
+                ...(Object.hasOwn(resultado_origen, "enrolamiento_completado")
+                    ? { enrolamiento_completado: resultado_origen.enrolamiento_completado === true }
+                    : {}),
+                ...(Object.hasOwn(resultado_origen, "usuario_id")
+                    ? { usuario_id: String(resultado_origen.usuario_id || "") }
+                    : {}),
+                ...(Object.hasOwn(resultado_origen, "dedo")
+                    ? { dedo: String(resultado_origen.dedo || "indice_derecho") }
+                    : {}),
+                calidad: String(resultado_origen.calidad || (esModoBiometricoReal() ? "aceptada" : "simulada")),
+                puntaje: Number.isFinite(resultado_origen.puntaje) ? resultado_origen.puntaje : null,
+                plantilla_biometrica: null
+            };
+        }
+        const codigo_error = String(captura?.error?.codigo || "");
+        return {
+            id: String(captura?.id || ""),
+            operacion: operacion_solicitada || String(captura?.operacion || ""),
+            estado: String(captura?.estado || ""),
+            modo: config.biometriaModo,
+            usuario_id: String(captura?.usuario_id || ""),
+            creada_en: captura?.creada_en || null,
+            vence_en: captura?.vence_en || null,
+            finalizada_en: captura?.finalizada_en || null,
+            progreso: captura?.progreso && typeof captura.progreso === "object" ? {
+                etapa_actual: Math.max(0, Number(captura.progreso.etapa_actual) || 0),
+                etapas_totales: Math.max(1, Number(captura.progreso.etapas_totales) || 1),
+                requiere_repetir: captura.progreso.requiere_repetir === true,
+                mensaje: String(captura.progreso.mensaje || "").slice(0, 240)
+            } : null,
+            resultado,
+            error: codigo_error ? { codigo: codigo_error, mensaje: mensajeErrorCaptura(codigo_error) } : null
+        };
+    }
+
+    function datosCapturaAutorizada(request, response, id) {
+        const session = requireStaff(request, response);
+        if (!session) return null;
+        const datos = capturasBiometricas.get(id);
+        if (!datos) {
+            enviarErrorBiometrico(response, new ErrorBiometrico("CAPTURA_NO_ENCONTRADA", "Captura no encontrada.", 404));
+            return null;
+        }
+        if (datos.propietario !== session.token && !esAdministradorBiometrico(session)) {
+            sendJson(response, 403, {
+                correcto: false,
+                error: { codigo: "ACCESO_DENEGADO", mensaje: "No puedes consultar o cancelar esta captura biométrica." }
+            });
+            return null;
+        }
+        return { session, datos };
+    }
+
+    async function handleBiometricStatus(request, response) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        try {
+            verificarBiometriaHabilitada();
+            const [salud, estado_lector] = await Promise.all([
+                clienteBiometrico.consultar_salud(),
+                clienteBiometrico.consultar_lector()
+            ]);
+            if (salud.modo !== config.biometriaModo || estado_lector.modo !== config.biometriaModo) {
+                throw new ErrorBiometrico("ERROR_BIOMETRICO", "El modo del puente no coincide con la configuración.", 502);
+            }
+            const lector = estado_lector.lector;
+            return sendJson(response, 200, {
+                correcto: true,
+                habilitado: true,
+                modo: config.biometriaModo,
+                lector: {
+                    disponible: lector.disponible === true,
+                    simulado: config.biometriaModo === "mock",
+                    hardware_detectado: config.biometriaModo === "real" && lector.hardware_detectado === true,
+                    modelo: String(lector.modelo || (esModoBiometricoReal() ? "DigitalPersona U.are.U 4500" : "DigitalPersona U.are.U 4500 simulado")),
+                    estado: String(lector.estado || "desconocido"),
+                    ...(esModoBiometricoReal() ? {
+                        driver: String(lector.driver || "libfprint"),
+                        identificacion_1_n: lector.identificacion_1_n !== false
+                    } : {})
+                },
+                mensaje: esModoBiometricoReal() ? "LECTOR BIOMÉTRICO REAL" : "MODO BIOMÉTRICO DE PRUEBA"
+            });
+        } catch (error) {
+            auditarFallaPuenteBiometrico(session, error);
+            return enviarErrorBiometrico(response, error);
+        }
+    }
+
+
+    // Resumen administrativo: sólo metadatos agregados, sin plantilla, nombres ni documentos.
+    // La misma protección localhost del enrutador biométrico aplica a esta ruta.
+    function handleBiometricSummary(request, response) {
+        const session = currentSession(request);
+        if (!session || !esAdministradorBiometrico(session)) {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "ACCESO_DENEGADO", mensaje: "El resumen biométrico es exclusivo del administrador." } });
+        }
+        const aprendices = systemUsers().filter((usuario) => usuario.role === "Aprendiz");
+        let registrados = 0;
+        try {
+            for (const usuario of aprendices) {
+                const registro = esModoBiometricoReal()
+                    ? almacenBiometricoReal.consultar(usuario.id)
+                    : estadoBiometriaMock.consultar(usuario.id);
+                if (registro) registrados += 1;
+            }
+        } catch (_error) {
+            return sendJson(response, 503, { correcto: false, error: { codigo: "RESUMEN_NO_DISPONIBLE", mensaje: "No fue posible consultar los estados de registro biométrico." } });
+        }
+        return sendJson(response, 200, {
+            correcto: true,
+            modo: config.biometriaModo,
+            habilitado: config.biometriaHabilitada,
+            total_aprendices: aprendices.length,
+            registrados,
+            pendientes: Math.max(0, aprendices.length - registrados),
+            registros_reales: esModoBiometricoReal(),
+            mensaje: esModoBiometricoReal()
+                ? "Se cuentan plantillas cifradas asociadas a aprendices; no se comprueba aquí el lector físico."
+                : "Se cuentan únicamente estados simulados; no existen huellas físicas en este modo."
+        });
+    }
+
+    async function handleBiometricCaptureStart(request, response) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        try {
+            verificarBiometriaHabilitada();
+            const body = await readJsonBody(request);
+            const operacion = String(body.operacion || "").trim().toLowerCase();
+            const usuario_id = String(body.usuario_id || "").trim();
+            const ficha = String(body.ficha || "").trim();
+            const jornada = String(body.jornada || "").trim();
+            const tiempo_limite_segundos = Number(body.tiempo_limite_segundos ?? 30);
+            if (!["verificacion", "identificacion", "enrolamiento"].includes(operacion)) {
+                return sendJson(response, 400, { correcto: false, error: { codigo: "SOLICITUD_INVALIDA", mensaje: "La operación biométrica no es válida." } });
+            }
+            if (operacion === "enrolamiento" && !esAdministradorBiometrico(session)) {
+                return sendJson(response, 403, { correcto: false, error: { codigo: "ACCESO_DENEGADO", mensaje: "El enrolamiento biométrico es exclusivo para administradores." } });
+            }
+            if (operacion === "enrolamiento" && body.consentimiento_confirmado !== true) {
+                return sendJson(response, 400, { correcto: false, error: { codigo: "AUTORIZACION_REQUERIDA", mensaje: "Confirma la existencia de autorización documentada para el tratamiento de datos biométricos." } });
+            }
+            if (!Number.isInteger(tiempo_limite_segundos) || tiempo_limite_segundos < 1 || tiempo_limite_segundos > 120) {
+                return sendJson(response, 400, { correcto: false, error: { codigo: "SOLICITUD_INVALIDA", mensaje: "El tiempo límite debe estar entre 1 y 120 segundos." } });
+            }
+
+            let solicitudPuente;
+            let candidatos = [];
+            if (operacion === "identificacion") {
+                if (!/^\d+$/.test(ficha)) {
+                    return sendJson(response, 400, { correcto: false, error: { codigo: "SOLICITUD_INVALIDA", mensaje: "Debes indicar una ficha válida para identificar por huella." } });
+                }
+                if (esModoBiometricoReal() && !["Mañana", "Tarde", "Noche"].includes(jornada)) {
+                    return sendJson(response, 400, { correcto: false, error: { codigo: "SOLICITUD_INVALIDA", mensaje: "Debes indicar una jornada válida para identificar por huella." } });
+                }
+                candidatos = apprentices
+                    .filter((aprendiz) => String(aprendiz.status || "").toLowerCase() === "activo"
+                        && String(aprendiz.program?.ficha || aprendiz.program?.code || "") === ficha)
+                    .map((aprendiz) => ({
+                        id: String(aprendiz.id || aprendiz.document || ""),
+                        documento: String(aprendiz.document || ""),
+                        nombre: String(aprendiz.name || "Aprendiz"),
+                        ficha
+                    }))
+                    .filter((aprendiz) => aprendiz.id)
+                    .sort((a, b) => a.documento.localeCompare(b.documento, "es"));
+                if (!candidatos.length) {
+                    return sendJson(response, 404, { correcto: false, error: { codigo: "SIN_CANDIDATOS", mensaje: "No hay aprendices activos en la ficha seleccionada." } });
+                }
+                if (esModoBiometricoReal()) {
+                    const plantillas = candidatos.map((candidato) => ({
+                        usuario_id: candidato.id,
+                        plantilla_biometrica: almacenBiometricoReal.obtenerPlantilla(candidato.id)
+                    })).filter((item) => item.plantilla_biometrica);
+                    if (!plantillas.length) {
+                        return sendJson(response, 404, { correcto: false, error: { codigo: "SIN_HUELLAS_ENROLADAS", mensaje: "Ningún aprendiz activo de esta ficha tiene una huella real enrolada." } });
+                    }
+                    solicitudPuente = { operacion: "identificacion", ficha, jornada, plantillas, tiempo_limite_segundos };
+                } else {
+                    solicitudPuente = { operacion: "identificacion", ficha, jornada, candidatos: candidatos.map((aprendiz) => aprendiz.id), tiempo_limite_segundos };
+                }
+            } else {
+                if (!usuario_id || usuario_id.length > 128) {
+                    return sendJson(response, 400, { correcto: false, error: { codigo: "SOLICITUD_INVALIDA", mensaje: "Debes indicar un usuario_id válido." } });
+                }
+                const objetivo = findDirectoryUser(usuario_id);
+                if (!objetivo || objetivo.role !== "Aprendiz") {
+                    return sendJson(response, 404, { correcto: false, error: { codigo: "USUARIO_NO_ENCONTRADO", mensaje: "El aprendiz solicitado no existe." } });
+                }
+                if (operacion === "verificacion" && esModoBiometricoReal()) {
+                    const plantilla_biometrica = almacenBiometricoReal.obtenerPlantilla(usuario_id);
+                    if (!plantilla_biometrica) {
+                        return sendJson(response, 404, { correcto: false, error: { codigo: "HUELLA_NO_REGISTRADA", mensaje: "El aprendiz no tiene una huella real registrada." } });
+                    }
+                    solicitudPuente = { operacion, usuario_id, plantilla_biometrica, tiempo_limite_segundos };
+                } else {
+                    solicitudPuente = { operacion, usuario_id, tiempo_limite_segundos };
+                }
+            }
+
+            const contenido = await clienteBiometrico.iniciar_captura(solicitudPuente);
+            const limpieza = setTimeout(() => capturasBiometricas.delete(contenido.captura.id), (tiempo_limite_segundos + 300) * 1000);
+            if (typeof limpieza.unref === "function") limpieza.unref();
+            capturasBiometricas.set(contenido.captura.id, {
+                propietario: session.token,
+                usuario_sesion: session.user.id,
+                operacion,
+                usuario_id,
+                ficha,
+                jornada,
+                candidatos,
+                enrolamiento_guardado: false,
+                limpieza
+            });
+            audit(session, "BIOMETRIA_CAPTURA_INICIADA", "biometria_captura", contenido.captura.id, null, null, { operacion, modo: config.biometriaModo, ficha: ficha || null, jornada: jornada || null, ...(operacion === "enrolamiento" ? { autorizacion_documentada_confirmada: true } : {}) });
+            return sendJson(response, 202, {
+                correcto: true,
+                captura: limpiarCapturaBiometrica(contenido.captura, operacion),
+                mensaje: esModoBiometricoReal() ? "Captura biométrica real iniciada." : "Captura biométrica simulada iniciada. No existe captura real."
+            });
+        } catch (error) {
+            auditarFallaPuenteBiometrico(session, error);
+            return enviarErrorBiometrico(response, error);
+        }
+    }
+
+    async function handleBiometricCaptureGet(request, response, id) {
+        const acceso = datosCapturaAutorizada(request, response, id);
+        if (!acceso) return;
+        try {
+            verificarBiometriaHabilitada();
+            const contenido = await clienteBiometrico.consultar_captura(id);
+            const captura_origen = contenido.captura;
+
+            if (captura_origen?.estado === "completada"
+                && acceso.datos.operacion === "enrolamiento"
+                && !acceso.datos.enrolamiento_guardado) {
+                // Una única persistencia y auditoría incluso si el navegador envía
+                // dos consultas GET simultáneas sobre la captura finalizada.
+                if (!acceso.datos.enrolamiento_guardando) {
+                    acceso.datos.enrolamiento_guardando = (async () => {
+                // No marcar como persistido hasta que el cifrado y la escritura finalicen.
+                // Así una falla de disco puede reintentarse en una nueva consulta.
+                if (esModoBiometricoReal()) {
+                    const plantilla = String(captura_origen?.resultado?.plantilla_biometrica || "");
+                    if (!plantilla) throw new ErrorBiometrico("ERROR_BIOMETRICO", "El puente no devolvió la plantilla enrolada.", 502);
+                    almacenBiometricoReal.guardar(acceso.datos.usuario_id, plantilla, {
+                        dedo: captura_origen?.resultado?.dedo || "indice_derecho",
+                        fecha_registro: new Date(now()).toISOString()
+                    });
+                    audit(acceso.session, "BIOMETRIA_ENROLAMIENTO_REAL", "biometria_usuario", acceso.datos.usuario_id, null, null, {
+                        modo: "real", plantilla_cifrada: true, dedo: captura_origen?.resultado?.dedo || "indice_derecho"
+                    });
+                } else {
+                    estadoBiometriaMock.registrar(acceso.datos.usuario_id, {
+                        registrado_por: acceso.session.user.id,
+                        fecha: new Date(now()).toISOString()
+                    });
+                    audit(acceso.session, "BIOMETRIA_ENROLAMIENTO_SIMULADO", "biometria_usuario", acceso.datos.usuario_id, null, null, {
+                        modo: "mock", plantilla_generada: false
+                    });
+                }
+                acceso.datos.enrolamiento_guardado = true;
+
+                    })();
+                }
+                try {
+                    await acceso.datos.enrolamiento_guardando;
+                } catch (error) {
+                    acceso.datos.enrolamiento_guardando = null;
+                    throw error;
+                }
+            }
+
+            const captura = limpiarCapturaBiometrica(captura_origen, acceso.datos.operacion);
+            if (captura.estado === "completada" && acceso.datos.operacion === "identificacion" && captura.resultado?.coincidencia === true) {
+                const identificado = acceso.datos.candidatos.find((candidato) => candidato.id === captura.resultado.usuario_id);
+                if (!identificado) {
+                    throw new ErrorBiometrico("ERROR_BIOMETRICO", "El puente devolvió un candidato fuera de la ficha autorizada.", 502);
+                }
+                captura.resultado.usuario = { ...identificado };
+                if (esModoBiometricoReal()) {
+                    if (!acceso.datos.ticket_asistencia) {
+                        const token = crypto.randomBytes(32).toString("hex");
+                        const expira = now() + 15000;
+                        ticketsAsistenciaBiometrica.set(token, {
+                            propietario: acceso.datos.propietario,
+                            usuario_id: identificado.id,
+                            ficha: acceso.datos.ficha,
+                            jornada: acceso.datos.jornada,
+                            expira,
+                            captura_id: id
+                        });
+                        acceso.datos.ticket_asistencia = token;
+                        acceso.datos.ticket_expira = expira;
+                        const limpiarTicket = setTimeout(() => ticketsAsistenciaBiometrica.delete(token), 16000);
+                        if (typeof limpiarTicket.unref === "function") limpiarTicket.unref();
+                    }
+                    captura.resultado.ticket_asistencia = acceso.datos.ticket_asistencia;
+                    captura.resultado.ticket_vence_en = new Date(acceso.datos.ticket_expira).toISOString();
+                }
+            }
+
+            let mensaje = esModoBiometricoReal() ? "Estado de captura biométrica real consultado." : "Estado de captura biométrica simulada consultado.";
+            if (captura.estado === "completada") {
+                if (acceso.datos.operacion === "enrolamiento") mensaje = esModoBiometricoReal()
+                    ? "Huella real enrolada y plantilla cifrada correctamente."
+                    : "Enrolamiento simulado completado. No se creó una plantilla biométrica.";
+                else if (acceso.datos.operacion === "identificacion") mensaje = esModoBiometricoReal()
+                    ? "Identificación biométrica real completada contra las huellas enroladas de la ficha."
+                    : "Identificación simulada completada contra los aprendices activos de la ficha.";
+                else mensaje = esModoBiometricoReal()
+                    ? "Verificación biométrica real completada."
+                    : "Verificación simulada completada. No existe captura biométrica real.";
+            }
+            return sendJson(response, 200, { correcto: true, captura, mensaje });
+        } catch (error) {
+            auditarFallaPuenteBiometrico(acceso.session, error);
+            return enviarErrorBiometrico(response, error);
+        }
+    }
+
+    async function handleBiometricCaptureCancel(request, response, id) {
+        const acceso = datosCapturaAutorizada(request, response, id);
+        if (!acceso) return;
+        try {
+            verificarBiometriaHabilitada();
+            const contenido = await clienteBiometrico.cancelar_captura(id);
+            audit(acceso.session, "BIOMETRIA_CAPTURA_CANCELADA", "biometria_captura", id, null, null, {
+                operacion: acceso.datos.operacion,
+                modo: config.biometriaModo
+            });
+            return sendJson(response, 200, {
+                correcto: true,
+                captura: limpiarCapturaBiometrica(contenido.captura, acceso.datos.operacion),
+                mensaje: "Captura biométrica cancelada."
+            });
+        } catch (error) {
+            auditarFallaPuenteBiometrico(acceso.session, error);
+            return enviarErrorBiometrico(response, error);
+        }
+    }
+
+    async function handleBiometricAttendanceConfirm(request, response) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        if (!esModoBiometricoReal()) {
+            return sendJson(response, 409, { correcto: false, error: { codigo: "MODO_PRUEBA", mensaje: "El modo mock no puede registrar asistencia real por huella." } });
+        }
+        const body = await readJsonBody(request);
+        const token = String(body.ticket_asistencia || "").trim();
+        const ticket = ticketsAsistenciaBiometrica.get(token);
+        if (!token || !ticket || ticket.expira <= now()) {
+            if (token) ticketsAsistenciaBiometrica.delete(token);
+            return sendJson(response, 410, { correcto: false, error: { codigo: "TICKET_BIOMETRICO_INVALIDO", mensaje: "La autorización biométrica venció. Vuelve a colocar el dedo." } });
+        }
+        if (ticket.propietario !== session.token && !esAdministradorBiometrico(session)) {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "ACCESO_DENEGADO", mensaje: "Este ticket biométrico pertenece a otra sesión." } });
+        }
+        // Se consume antes de mutar para que sea estrictamente de un solo uso.
+        ticketsAsistenciaBiometrica.delete(token);
+        const apprentice = apprentices.find((item) => String(item.id || item.document || "") === ticket.usuario_id);
+        if (!apprentice || !apprenticeIsEnabled(apprentice) || (canonicalUserStatus(apprentice.status) || "Activo") !== "Activo") {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "USUARIO_NO_DISPONIBLE", mensaje: "El aprendiz identificado ya no está activo." } });
+        }
+        if (String(apprentice.program?.ficha || apprentice.program?.code || "") !== ticket.ficha) {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "FICHA_NO_COINCIDE", mensaje: "El aprendiz identificado no pertenece a la ficha del registro." } });
+        }
+        const fecha = dateKey(new Date(now()));
+        if (attendanceRecords.some((item) => item.identificacion === apprentice.document && item.ficha === ticket.ficha && item.fecha === fecha && item.jornada === ticket.jornada)) {
+            return sendJson(response, 409, { correcto: false, error: { codigo: "ASISTENCIA_DUPLICADA", mensaje: "El aprendiz ya tiene asistencia registrada para esta fecha y jornada." } });
+        }
+        const record = {
+            identificacion: apprentice.document,
+            nombre: apprentice.name,
+            ficha: ticket.ficha,
+            fecha,
+            jornada: ticket.jornada,
+            estado: "presente",
+            observacion: "Registro por huella digital",
+            metodo: "huella",
+            hora_registro: new Date(now()).toISOString(),
+            registrado_por: session.user.email || session.user.id
+        };
+        attendanceRecords.push(record);
+        try { persistAttendance(); } catch (error) { attendanceRecords.pop(); throw error; }
+        audit(session, "register_fingerprint", "asistencia", `${record.fecha}:${record.jornada}:${record.ficha}:${record.identificacion}`, null, record, {
+            captura_id: ticket.captura_id,
+            metodo: "huella"
+        });
+        return sendJson(response, 201, { correcto: true, mensaje: "Asistencia registrada correctamente por huella digital.", registro: record });
+    }
+
+    function handleBiometricUserState(request, response, id) {
+        const session = currentSession(request);
+        if (!session || !esAdministradorBiometrico(session)) {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "ACCESO_DENEGADO", mensaje: "La gestión biométrica de usuarios es exclusiva del administrador." } });
+        }
+        const target = findDirectoryUser(id);
+        if (!target || target.role !== "Aprendiz") {
+            return sendJson(response, 404, { correcto: false, error: { codigo: "USUARIO_NO_ENCONTRADO", mensaje: "No se encontró el aprendiz solicitado." } });
+        }
+        const registro = esModoBiometricoReal() ? almacenBiometricoReal.consultar(id) : estadoBiometriaMock.consultar(id);
+        return sendJson(response, 200, {
+            correcto: true,
+            modo: config.biometriaModo,
+            usuario_id: id,
+            enrolado: Boolean(registro),
+            estado: registro || null,
+            mensaje: esModoBiometricoReal()
+                ? (registro ? "Huella real registrada y protegida con cifrado AES-256-GCM." : "Sin huella real registrada.")
+                : (registro ? "SIMULACIÓN COMPLETADA. No existe una plantilla biométrica real." : "Sin enrolamiento biométrico simulado.")
+        });
+    }
+
+    async function handleBiometricUserStateDelete(request, response, id) {
+        const session = currentSession(request);
+        if (!session || !esAdministradorBiometrico(session)) {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "ACCESO_DENEGADO", mensaje: "La gestión biométrica de usuarios es exclusiva del administrador." } });
+        }
+        const target = findDirectoryUser(id);
+        if (!target || target.role !== "Aprendiz") {
+            return sendJson(response, 404, { correcto: false, error: { codigo: "USUARIO_NO_ENCONTRADO", mensaje: "No se encontró el aprendiz solicitado." } });
+        }
+        const body = await readJsonBody(request);
+        const motivo = String(body.motivo || "").trim();
+        if (motivo.length < 10 || motivo.length > 300) {
+            return sendJson(response, 400, { correcto: false, error: { codigo: "MOTIVO_REQUERIDO", mensaje: "Indica un motivo de revocación de 10 a 300 caracteres." } });
+        }
+        const eliminado = esModoBiometricoReal() ? almacenBiometricoReal.eliminar(id) : estadoBiometriaMock.eliminar(id);
+        audit(session, esModoBiometricoReal() ? "BIOMETRIA_HUELLA_REAL_REVOCADA" : "BIOMETRIA_ESTADO_SIMULADO_REVOCADO", "biometria_usuario", id, null, null, {
+            modo: config.biometriaModo,
+            existia: eliminado,
+            motivo
+        });
+        return sendJson(response, 200, {
+            correcto: true,
+            enrolado: false,
+            mensaje: esModoBiometricoReal()
+                ? "Plantilla biométrica cifrada eliminada."
+                : "Estado biométrico simulado eliminado. No se eliminó ninguna huella real."
+        });
     }
 
     function requireBackupAdministrator(request, response) {
@@ -2238,6 +2807,8 @@ function createProjectServer(options = {}) {
         const apprenticeIndex = apprentices.findIndex((user) => user.id === target.id || user.document === target.document || normalizeEmail(user.email) === normalizeEmail(target.email));
         if (apprenticeIndex >= 0) apprentices.splice(apprenticeIndex, 1);
         invalidateUserSessions(target);
+        if (esModoBiometricoReal()) almacenBiometricoReal.eliminar(target.id);
+        else estadoBiometriaMock.eliminar(target.id);
         persistCsvUsers();
         persistManagedUsers();
         persistApprentices();
@@ -3114,6 +3685,16 @@ function createProjectServer(options = {}) {
             reportes: handleReports,
             consultarReporte: handleReport
         },
+        biometria: {
+            consultarEstado: handleBiometricStatus,
+            consultarResumen: handleBiometricSummary,
+            iniciarCaptura: handleBiometricCaptureStart,
+            consultarCaptura: handleBiometricCaptureGet,
+            cancelarCaptura: handleBiometricCaptureCancel,
+            confirmarAsistencia: handleBiometricAttendanceConfirm,
+            consultarEstadoUsuario: handleBiometricUserState,
+            eliminarEstadoUsuario: handleBiometricUserStateDelete
+        },
         sistema: { consultarEstado: handleSystemHealth, consultarVida: handleSystemLiveness, consultarDisponibilidad: handleSystemReadiness, consultarAuditoria: handleAudit, consultarNotificaciones: handleNotifications, exportarRespaldo: handleBackupExport, restaurarRespaldo: handleBackupRestore }
     });
 
@@ -3203,10 +3784,12 @@ function createProjectServer(options = {}) {
     const server = http.createServer(async (request, response) => {
         const requestPath = new URL(request.url || "/", "http://localhost").pathname;
         const isEphemeralQrGeneration = request.method === "POST" && requestPath === "/api/attendance/qr";
+        const isEphemeralBiometricOperation = requestPath.startsWith("/api/biometria/") && requestPath !== "/api/biometria/asistencia/confirmar";
         const persistedMutation = repository
             && ["POST", "PATCH", "DELETE"].includes(request.method)
             && requestPath.startsWith("/api/")
-            && !isEphemeralQrGeneration;
+            && !isEphemeralQrGeneration
+            && !isEphemeralBiometricOperation;
         if (!persistedMutation) return handleHttpRequest(request, response);
 
         return enqueuePersistedMutation(async () => {

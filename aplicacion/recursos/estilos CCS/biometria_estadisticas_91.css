@@ -1,0 +1,17 @@
+/* BioSecure 9.1 — Acceso de huellas en Estadísticas. */
+.dashboard-biometric-summary { display:flex; align-items:center; gap:24px; margin:20px 0; padding:24px;
+    border:1px solid rgba(29,146,90,.28); border-radius:20px; background:var(--surface, #fff); box-shadow:0 10px 30px rgba(14,50,45,.06); }
+.dashboard-biometric-summary[hidden], #dashboard-biometric-enroll-header[hidden] { display:none !important; }
+.dashboard-biometric-icon { display:flex; align-items:center; justify-content:center; width:70px; height:70px;
+    flex-shrink:0; font-size:30px; color:#0e8b54; background:rgba(21,149,90,.10); border-radius:20px; }
+.dashboard-biometric-body { flex:1; min-width:0; }
+.dashboard-biometric-body h2 { margin:6px 0; font-size:clamp(1.15rem,2vw,1.55rem); }
+.dashboard-biometric-body p { margin:6px 0; line-height:1.55; }
+.dashboard-biometric-note { font-size:.82rem; opacity:.8; }
+.dashboard-biometric-actions { display:flex; flex-direction:column; gap:9px; align-items:stretch; min-width:180px; }
+.dashboard-biometric-actions .report-btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; text-align:center; }
+.dashboard-biometric-count { display:flex; justify-content:center; align-items:baseline; gap:9px; }
+.dashboard-biometric-count strong { font-size:2rem; font-weight:750; font-variant-numeric:tabular-nums; }
+.dashboard-biometric-count span { font-size:.76rem; max-width:104px; }
+@media (max-width:850px) { .dashboard-biometric-summary { flex-wrap:wrap; } .dashboard-biometric-actions { width:100%; flex-direction:row; align-items:center; flex-wrap:wrap; } }
+@media (max-width:540px) { .dashboard-biometric-summary { padding:18px; gap:12px; } .dashboard-biometric-icon { width:51px; height:51px; font-size:23px; } .dashboard-biometric-body { flex-basis:calc(100% - 70px); } .dashboard-biometric-actions { flex-direction:column; } .dashboard-biometric-actions .report-btn { width:100%; } }

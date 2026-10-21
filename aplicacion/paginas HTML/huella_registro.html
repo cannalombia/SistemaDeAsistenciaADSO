@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioSecure 9.1 · Registro de huella | Sistema SENA</title>
+    <link rel="stylesheet" href="estilos_generales.css?v=biometria-recuperacion-20261021">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>.auth-pending body{visibility:hidden}</style>
+    <script>document.documentElement.classList.add("auth-pending");</script>
+</head>
+<body class="biometric-enrollment-page ui-v72">
+<script src="tema_inicial.js"></script>
+<script src="resiliencia_cliente.js"></script>
+<div class="container">
+    <aside class="sidebar" data-navegacion-principal></aside>
+
+    <main class="main biometric-enrollment-main">
+        <header class="biometric-enrollment-header">
+            <div>
+                <a id="biometric-back" class="biometric-back-link" href="crear_usuario.html"><i class="fas fa-arrow-left" aria-hidden="true"></i> Volver a usuarios</a>
+                <span class="biometric-page-kicker">SENA · BIOSECURE 9.1 · IDENTIDAD DIGITAL</span>
+                <h1>Registro de huella digital</h1>
+                <p>Estación de enrolamiento segura · DigitalPersona U.are.U 4500 · Capturas físicas verificables.</p>
+            </div>
+            <div id="biometric-live-status" class="biometric-live-status" data-state="checking" role="status" aria-live="polite">
+                <i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i>
+                <span><small>Infraestructura biométrica</small><strong>Comprobando conexión…</strong></span>
+            </div>
+        </header>
+
+        <section class="biometric-trust-strip" aria-label="Controles de protección biométrica">
+            <span><i class="fas fa-shield-halved" aria-hidden="true"></i><b>AES-256-GCM</b><small>Plantilla cifrada</small></span>
+            <span><i class="fas fa-eye-slash" aria-hidden="true"></i><b>Sin imágenes</b><small>El navegador no recibe la huella</small></span>
+            <span><i class="fas fa-clipboard-check" aria-hidden="true"></i><b>Auditoría</b><small>Registro y revocación trazables</small></span>
+        </section>
+
+        <section class="biometric-enrollment-grid" aria-labelledby="biometric-enrollment-title">
+            <article class="biometric-subject-card">
+                <div class="biometric-card-label"><span>01</span> Aprendiz seleccionado</div>
+                <label class="biometric-subject-select">
+                    <span>Aprendiz del directorio</span>
+                    <input id="biometric-user-search" type="search" placeholder="Buscar por nombre, documento o ficha…" aria-label="Filtrar aprendices" autocomplete="off" spellcheck="false">
+                    <select id="biometric-user-select" aria-label="Seleccionar aprendiz"><option value="">Cargando aprendices…</option></select>
+                </label>
+                <div class="biometric-subject-identity">
+                    <span id="biometric-user-initials" class="biometric-subject-avatar">—</span>
+                    <div><small>Nombre completo</small><strong id="biometric-user-name">Selecciona un aprendiz</strong><p id="biometric-user-email">—</p></div>
+                </div>
+                <dl class="biometric-subject-data">
+                    <div><dt>Documento</dt><dd id="biometric-user-document">—</dd></div>
+                    <div><dt>Ficha</dt><dd id="biometric-user-ficha">—</dd></div>
+                    <div><dt>Estado</dt><dd id="biometric-user-status">—</dd></div>
+                    <div><dt>Huella</dt><dd id="biometric-template-status">Sin consultar</dd></div>
+                </dl>
+                <div id="biometric-template-meta" class="biometric-template-meta" hidden>
+                    <i class="fas fa-lock" aria-hidden="true"></i>
+                    <span><strong>Registro protegido</strong><small id="biometric-template-date">—</small></span>
+                </div>
+            </article>
+
+            <article class="biometric-capture-console" data-state="idle">
+                <div class="biometric-console-topline">
+                    <div><span class="biometric-card-label"><span>02</span> Captura física</span><h2 id="biometric-enrollment-title">Lector listo para validar</h2></div>
+                    <span id="biometric-reader-badge" class="biometric-reader-badge"><i class="fas fa-satellite-dish" aria-hidden="true"></i> U.are.U 4500</span>
+                </div>
+
+                <div class="biometric-enrollment-scanner" data-scan-state="idle" aria-hidden="true">
+                    <span class="biometric-enrollment-orbit orbit-a"></span>
+                    <span class="biometric-enrollment-orbit orbit-b"></span>
+                    <div class="biometric-enrollment-sensor">
+                        <span class="biometric-enrollment-grid-lines"></span>
+                        <span class="biometric-sensor-crosshair"></span>
+                        <span class="biometric-sensor-readout">FP / 4500</span>
+                        <span class="biometric-enrollment-scan-line"></span>
+                        <i class="fas fa-fingerprint" aria-hidden="true"></i>
+                        <svg class="bio89-fingerprint-vector" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 26a20 20 0 0 1 40 0v6"/><path d="M17 34v-8a15 15 0 0 1 30 0v10"/>
+                            <path d="M22 38V26a10 10 0 0 1 20 0v13"/><path d="M27 41V26a5 5 0 0 1 10 0v14"/>
+                            <path d="M32 30v13c0 6-2 12-5 16"/><path d="M37 44c0 5-1 10-3 15"/>
+                            <path d="M22 46c-1 4-3 8-5 11"/><path d="M42 45c0 4-1 8-2 12"/>
+                            <path d="M17 41c-1 5-3 9-5 12"/>
+                        </svg>
+                        <span class="biometric-enrollment-complete"><i class="fas fa-check" aria-hidden="true"></i></span>
+                    </div>
+                </div>
+
+                <div class="biometric-capture-copy" role="status" aria-live="polite">
+                    <strong id="biometric-capture-title">Preparando el módulo</strong>
+                    <p id="biometric-capture-message">Selecciona un aprendiz y espera la comprobación del lector físico.</p>
+                </div>
+
+                <section class="biometric-console-telemetry" aria-label="Telemetría biométrica en vivo">
+                    <div class="biometric-telemetry-head">
+                        <span id="biometric-phase-pill" class="biometric-telemetry-pill">Fase · Inicializando</span>
+                        <span id="biometric-session-pill" class="biometric-telemetry-pill alt">Sesión local segura</span>
+                    </div>
+                    <div class="biometric-telemetry-grid">
+                        <article class="biometric-telemetry-card">
+                            <small>Estado del flujo</small>
+                            <strong id="biometric-telemetry-state">Listo para selección</strong>
+                            <p id="biometric-telemetry-description">Selecciona un aprendiz para activar la consola premium de enrolamiento.</p>
+                        </article>
+                        <article class="biometric-telemetry-card compact">
+                            <small>Actividad de captura</small>
+                            <div id="biometric-signal-bars" class="biometric-signal-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+                            <b id="biometric-quality-label">En espera</b>
+                        </article>
+                        <article class="biometric-telemetry-card compact">
+                            <small>Último evento</small>
+                            <strong id="biometric-last-event">Sin eventos</strong>
+                            <p id="biometric-last-event-time">—</p>
+                        </article>
+                    </div>
+                </section>
+
+                <div class="biometric-progress-block">
+                    <div><span>Progreso del enrolamiento</span><b id="biometric-progress-label">0 / —</b></div>
+                    <progress id="biometric-progress" value="0" max="1">0%</progress>
+                    <div id="biometric-stage-dots" class="biometric-stage-dots" role="list" aria-label="Capturas confirmadas por el lector"></div>
+                    <small id="biometric-progress-explanation" class="biometric-progress-help">El progreso avanza únicamente cuando el sensor acepta una captura.</small>
+                </div>
+
+                <label class="biometric-consent"><input type="checkbox" id="biometric-consent-check"><span>Confirmo que existe autorización documentada del aprendiz para tratar su plantilla biométrica y que se ha informado su finalidad.</span></label>
+                <div class="biometric-enrollment-actions">
+                    <button id="biometric-start" class="biometric-primary-action" type="button" disabled><i class="fas fa-fingerprint" aria-hidden="true"></i><span>Registrar huella</span></button>
+                    <button id="biometric-verify" class="biometric-secondary-action" type="button" hidden disabled><i class="fas fa-user-check" aria-hidden="true"></i> Verificar</button>
+                    <button id="biometric-refresh" class="biometric-secondary-action" type="button"><i class="fas fa-rotate" aria-hidden="true"></i> Comprobar lector</button>
+                    <button id="biometric-cancel" class="biometric-secondary-action" type="button" hidden><i class="fas fa-xmark" aria-hidden="true"></i> Cancelar</button>
+                    <button id="biometric-revoke" class="biometric-danger-action" type="button" hidden disabled><i class="fas fa-ban" aria-hidden="true"></i> Revocar</button>
+                </div>
+            </article>
+
+            <aside class="biometric-process-card">
+                <div class="biometric-card-label"><span>03</span> Proceso seguro</div>
+                <ol class="biometric-process-list">
+                    <li data-process-step="reader"><i class="fas fa-usb" aria-hidden="true"></i><span><b>Lector disponible</b><small>Puente local autenticado</small></span></li>
+                    <li data-process-step="capture"><i class="fas fa-hand-pointer" aria-hidden="true"></i><span><b>Capturas de calidad</b><small>Retira el dedo entre cada lectura</small></span></li>
+                    <li data-process-step="template"><i class="fas fa-fingerprint" aria-hidden="true"></i><span><b>Plantilla libfprint</b><small>Validación biométrica local</small></span></li>
+                    <li data-process-step="secure"><i class="fas fa-lock" aria-hidden="true"></i><span><b>Cifrado y asociación</b><small>Vinculada al aprendiz correcto</small></span></li>
+                </ol>
+                <div class="biometric-privacy-note"><i class="fas fa-circle-info" aria-hidden="true"></i><p>El sistema conserva una plantilla matemática cifrada. No almacena fotografías del dedo ni expone la plantilla al navegador.</p></div>
+            </aside>
+        </section>
+    </main>
+</div>
+
+<dialog id="biometric-revoke-dialog" class="biometric-revoke-dialog" aria-labelledby="biometric-revoke-title">
+    <form method="dialog">
+        <span class="biometric-dialog-icon"><i class="fas fa-shield-halved" aria-hidden="true"></i></span>
+        <h2 id="biometric-revoke-title">Revocar huella registrada</h2>
+        <p>La plantilla cifrada se eliminará y el evento quedará registrado en auditoría.</p>
+        <label>Motivo de la revocación<textarea id="biometric-revoke-reason" minlength="10" maxlength="300" rows="4" placeholder="Ejemplo: cambio autorizado de dedo registrado"></textarea></label>
+        <div><button value="cancel" class="biometric-secondary-action">Cancelar</button><button id="biometric-revoke-confirm" value="default" class="biometric-danger-action">Confirmar revocación</button></div>
+    </form>
+</dialog>
+
+<script src="navegacion.js"></script>
+<script src="autenticacion.js"></script>
+<script src="aplicacion.js"></script>
+<script src="huella_registro.js?v=20261021-recuperacion"></script>
+</body>
+</html>

@@ -6,6 +6,7 @@
     <title>Estadísticas | Sistema SENA</title>
     <link rel="stylesheet" href="estilos_generales.css?v=sidebar-uniforme-20261015">
     <link rel="stylesheet" href="estadisticas_reportes.css">
+    <link rel="stylesheet" href="biometria_estadisticas_91.css?v=9.1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="tema_oscuro_modulos_20261008.css?v=20261008-1930">
     <style>.auth-pending body{visibility:hidden}</style>
@@ -20,7 +21,7 @@
     <main class="main statistics-main">
         <header class="header dashboard-header">
             <div class="dashboard-title"><span class="eyebrow">CENTRO DE SEGUIMIENTO</span><h1>Estadísticas e informes</h1><p>Bienvenido, <span data-auth-name>Administrador</span>. Cada registro cuenta.</p></div>
-            <div class="header-actions"><a class="report-btn secondary" href="asistencia.html"><i class="fas fa-calendar-check" aria-hidden="true"></i> Registrar asistencia</a><button id="generate-qr" class="report-btn primary" type="button">Generar QR</button></div>
+            <div class="header-actions"><a class="report-btn secondary" href="asistencia.html"><i class="fas fa-calendar-check" aria-hidden="true"></i> Registrar asistencia</a><button id="generate-qr" class="report-btn primary" type="button"><i class="fas fa-qrcode" aria-hidden="true"></i> Generar QR</button><a class="report-btn primary" href="asistencia.html?metodo=huella"><i class="fas fa-fingerprint" aria-hidden="true"></i> Asistencia por huella</a><a id="dashboard-biometric-enroll-header" class="report-btn secondary" href="huella_registro.html?retorno=estadisticas.html" hidden><i class="fas fa-fingerprint" aria-hidden="true"></i> Registrar huella</a></div>
         </header>
         <section class="insight-banner insight-banner-live" aria-label="Análisis para el seguimiento formativo">
             <div class="insight-visual" aria-hidden="true">
@@ -62,6 +63,20 @@
                         <div class="metric-copy"><span>Ausencias</span><strong id="insight-absence">—</strong><small id="insight-absence-detail">Sin registros todavía</small></div>
                     </article>
                 </div>
+            </div>
+        </section>
+        <section id="dashboard-biometric-summary" class="dashboard-biometric-summary" aria-labelledby="dashboard-biometric-heading" hidden>
+            <div class="dashboard-biometric-icon" aria-hidden="true"><i class="fas fa-fingerprint" aria-hidden="true"></i></div>
+            <div class="dashboard-biometric-body">
+                <span class="eyebrow">IDENTIDAD DIGITAL · ACCESO ADMINISTRATIVO</span>
+                <h2 id="dashboard-biometric-heading">Registro de huellas</h2>
+                <p id="dashboard-biometric-detail" role="status" aria-live="polite">Consultando estados de registro…</p>
+                <p class="dashboard-biometric-note">El recuento no expone imágenes ni plantillas. Registrar huella exige autorización documentada y conexión local al lector físico.</p>
+            </div>
+            <div class="dashboard-biometric-actions">
+                <div class="dashboard-biometric-count"><strong id="dashboard-biometric-count">—</strong><span id="dashboard-biometric-count-label">Registros</span></div>
+                <a class="report-btn primary" href="huella_registro.html?retorno=estadisticas.html"><i class="fas fa-fingerprint" aria-hidden="true"></i> Registrar huella</a>
+                <button id="dashboard-biometric-refresh" class="report-btn secondary" type="button"><i class="fas fa-arrows-rotate" aria-hidden="true"></i> Actualizar estado</button>
             </div>
         </section>
         <form id="dashboard-filters" class="report-filters">
@@ -140,6 +155,7 @@
 <script src="estadisticas_banner.js"></script>
 <script src="estadisticas_analitica.js"></script>
 <script src="estadisticas.js"></script>
+<script src="biometria_estadisticas_91.js?v=9.1"></script>
 <script src="asistencia_qr.js?v=20261008-qrfix"></script>
 </body>
 </html>

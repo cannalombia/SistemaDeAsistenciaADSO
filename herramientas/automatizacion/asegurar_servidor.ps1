@@ -16,6 +16,8 @@ $ServerErrorLog = Join-Path $DataDirectory "servidor_errores.log"
 $HealthUrl = "http://127.0.0.1:$Port/api/health/ready"
 $FullHealthUrl = "http://127.0.0.1:$Port/api/health"
 $RestartStateFile = Join-Path $DataDirectory "supervisor_reinicios.json"
+$MysqlSupervisor = Join-Path $PSScriptRoot "asegurar_mysql.ps1"
+$CredentialsCheck = Join-Path $ProjectRoot "herramientas\verificar_credenciales.js"
 
 New-Item -ItemType Directory -Path $DataDirectory -Force | Out-Null
 
@@ -137,6 +139,19 @@ if ($StatusOnly) {
         Reason = $reason
     } | Format-List
     exit 1
+}
+
+# Quien invoque este supervisor directamente (npm run start:ensure o el
+# vigilante) recibe las mismas garantías que ABRIR_PROYECTO.cmd.
+& $MysqlSupervisor
+if ($LASTEXITCODE -ne 0) {
+    Write-SupervisorLog "No se inició Node.js porque MySQL no está listo."
+    exit 7
+}
+& node.exe $CredentialsCheck
+if ($LASTEXITCODE -ne 0) {
+    Write-SupervisorLog "No se inició Node.js porque faltan credenciales de acceso válidas."
+    exit 8
 }
 
 # Si localhost:3000 pertenece a una copia anterior del mismo proyecto,
