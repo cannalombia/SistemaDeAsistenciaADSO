@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Politica de datos biometricos
+    url: https://github.com/cannalombia/SistemaDeAsistenciaADSO/blob/main/docs/biometria.md
+    about: Revisa privacidad, consentimiento y limites antes de reportar evidencia.
