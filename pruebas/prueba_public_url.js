@@ -4,6 +4,8 @@ const { createProjectServer } = require("../servidor/servidor");
 
 async function main() {
     const previous = process.env.PUBLIC_URL;
+    const previous_node_env = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
     process.env.PUBLIC_URL = "https://prueba-publica.lhr.life/";
     const options = {
         adminPassword: "prueba-publica",
@@ -78,10 +80,50 @@ async function main() {
                 await new Promise(resolve => server.close(resolve));
             }
         }
+        process.env.NODE_ENV = "production";
+
+const production_server = createProjectServer({
+    ...options,
+    publicUrl: "https://prueba-publica.lhr.life"
+});
+
+await new Promise((resolve, reject) => {
+    production_server.once("error", reject);
+    production_server.listen(0, "0.0.0.0", resolve);
+});
+
+const production_base = `http://127.0.0.1:${production_server.address().port}`;
+
+try {
+    const allowed = await fetch(production_base + "/api/health", {
+        headers: {
+            Origin: "https://prueba-publica.lhr.life"
+        }
+    });
+
+    assert.equal(allowed.status, 200);
+    assert.equal(
+        allowed.headers.get("access-control-allow-origin"),
+        "https://prueba-publica.lhr.life"
+    );
+
+    const denied = await fetch(production_base + "/api/health", {
+        headers: {
+            Origin: "https://otro.example"
+        }
+    });
+
+    assert.equal(denied.status, 403);
+} finally {
+    await new Promise(resolve => production_server.close(resolve));
+}
         console.log("OK: PUBLIC_URL, QR público/local, login, CORS, OPTIONS y escucha IPv4.");
     } finally {
         if (previous === undefined) delete process.env.PUBLIC_URL;
         else process.env.PUBLIC_URL = previous;
+
+        if (previous_node_env === undefined) delete process.env.NODE_ENV;
+        else process.env.NODE_ENV = previous_node_env;
     }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

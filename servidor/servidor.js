@@ -3747,14 +3747,46 @@ function createProjectServer(options = {}) {
         return true;
     }
 
+    function configurar_cors(request, response) {
+    const es_produccion = process.env.NODE_ENV === "production";
+
+    if (!es_produccion) {
+        response.setHeader("Access-Control-Allow-Origin", "*");
+        return true;
+    }
+
+    const origen_solicitud = String(request.headers.origin || "").trim();
+    const origen_permitido = publicUrl
+        ? new URL(publicUrl).origin
+        : "";
+
+    if (!origen_solicitud) {
+        return true;
+    }
+
+    if (!origen_permitido || origen_solicitud !== origen_permitido) {
+        return false;
+    }
+
+    response.setHeader("Access-Control-Allow-Origin", origen_permitido);
+    response.setHeader("Vary", "Origin");
+    return true;
+}
+
     async function handleHttpRequest(request, response) {
         const requestId = String(request.headers["x-request-id"] || crypto.randomUUID()).slice(0, 128);
         request.blueMagicRequestId = requestId;
         response.setHeader("X-Request-Id", requestId);
         response.setHeader("X-Blue-Magic-Instance", instanceId);
-        response.setHeader("Access-Control-Allow-Origin", "*");
+        const cors_permitido = configurar_cors(request, response);
         response.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS");
         response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, X-Request-Id");
+        if (!cors_permitido) {
+            return sendJson(response, 403, {
+                ok: false,
+                message: "Origen no permitido."
+            });
+        }
         if (request.method === "OPTIONS") {
             response.writeHead(204);
             return response.end();
