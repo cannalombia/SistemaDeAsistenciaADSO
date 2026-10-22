@@ -781,6 +781,9 @@ ESTADOS
 }
 .attendance-field select{padding:0 34px 0 42px;cursor:pointer}
 .attendance-field input{padding:0 38px 0 13px}
+.field-date .date-control input{padding-left:13px;padding-right:12px;color-scheme:light}
+.field-date .date-control input::-webkit-calendar-picker-indicator{margin:0;padding:5px;cursor:pointer;opacity:.72}
+body.dark-mode .field-date .date-control input{color-scheme:dark}
 .attendance-field select:focus,.attendance-field input:focus,.page-size select:focus{border-color:var(--attendance-green);box-shadow:0 0 0 3px rgba(57,181,74,.12)}
 .attendance-field select:disabled{opacity:1;color:#29394a;cursor:default}
 .search-control i{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#7f8b96}
@@ -1105,3 +1108,100 @@ body.dark-mode .dialog-close{background:#31434c;color:#fff}
     .status-panel{grid-template-columns:1fr}
     .app-toast{right:14px;bottom:14px;left:14px}
 }
+
+/* Modo oscuro específico de Asistencia: evita módulos claros aislados. */
+body.dark-mode.attendance-page{
+    --attendance-ink:#edf4f6;
+    --attendance-muted:#aebcc3;
+    --attendance-border:#30444e;
+    background:#0d171d;
+    color:#e8f0f3;
+    color-scheme:dark;
+}
+body.dark-mode.attendance-page .attendance-main{
+    background:linear-gradient(135deg,#0d171d 0%,#101c22 55%,#0d171d 100%);
+}
+body.dark-mode.attendance-page .attendance-heading h1,
+body.dark-mode.attendance-page .attendance-card-header h2,
+body.dark-mode.attendance-page .attendance-summary h2,
+body.dark-mode.attendance-page .attendance-legend h2,
+body.dark-mode.attendance-page .attendance-student strong{color:#eef5f7}
+body.dark-mode.attendance-page .attendance-heading p,
+body.dark-mode.attendance-page .attendance-card-header p,
+body.dark-mode.attendance-page .attendance-summary>p,
+body.dark-mode.attendance-page .attendance-pagination p,
+body.dark-mode.attendance-page .summary-updated,
+body.dark-mode.attendance-page .attendance-legend small{color:#aebcc3}
+body.dark-mode.attendance-page .attendance-filters,
+body.dark-mode.attendance-page .attendance-register-card,
+body.dark-mode.attendance-page .attendance-summary,
+body.dark-mode.attendance-page .attendance-legend,
+body.dark-mode.attendance-page .excuse-review-panel{
+    background:#192830;
+    border-color:#314650;
+    box-shadow:0 9px 26px rgba(0,0,0,.14);
+}
+body.dark-mode.attendance-page .attendance-field{color:#c5d0d5}
+body.dark-mode.attendance-page .attendance-field select,
+body.dark-mode.attendance-page .attendance-field input,
+body.dark-mode.attendance-page .search-control input,
+body.dark-mode.attendance-page .page-size select,
+body.dark-mode.attendance-page .attendance-observation{
+    background:#122129;
+    color:#eef5f7;
+    border-color:#3a505a;
+}
+body.dark-mode.attendance-page .attendance-field select:disabled{color:#b7c4ca}
+body.dark-mode.attendance-page .search-control input::placeholder,
+body.dark-mode.attendance-page .attendance-observation::placeholder{color:#81949d}
+body.dark-mode.attendance-page .btn-mark-present{
+    background:#182b33;
+    color:#9ee3a8;
+    border-color:#3fa759;
+}
+body.dark-mode.attendance-page .btn-mark-present:hover{background:#203840}
+body.dark-mode.attendance-page .attendance-table thead{background:#22343d}
+body.dark-mode.attendance-page .attendance-table th{
+    color:#b9c6cc;
+    border-color:#3b4f58;
+}
+body.dark-mode.attendance-page .attendance-table td{
+    color:#dce6ea;
+    border-color:#2e424b;
+}
+body.dark-mode.attendance-page .attendance-table tbody tr:hover{background:#1e3139}
+body.dark-mode.attendance-page .attendance-avatar{background:#173b29;color:#8ee29c}
+body.dark-mode.attendance-page .attendance-pagination button{
+    background:#17262e;
+    color:#dce6ea;
+    border-color:#3a4e58;
+}
+body.dark-mode.attendance-page .attendance-pagination button:hover{background:#21353e}
+body.dark-mode.attendance-page .attendance-status.status-presente{background:#153523;border-color:#347a46;color:#8ee29c}
+body.dark-mode.attendance-page .attendance-status.status-tardanza{background:#3a3018;border-color:#735d24;color:#ffd36b}
+body.dark-mode.attendance-page .attendance-status.status-ausente{background:#3b2226;border-color:#743a42;color:#ff9aa1}
+body.dark-mode.attendance-page .attendance-status.status-justificado{background:#192e46;border-color:#365f8f;color:#9ac7ff}
+body.dark-mode.attendance-page .attendance-donut{background:#263841}
+body.dark-mode.attendance-page .attendance-donut::after{
+    background:#122129;
+    box-shadow:inset 0 0 0 1px #334a54;
+}
+body.dark-mode.attendance-page .attendance-donut strong{color:#eef5f7}
+body.dark-mode.attendance-page .attendance-donut span{color:#aebcc3}
+body.dark-mode.attendance-page .summary-status{
+    background:#16252d;
+    border-color:#30444e;
+    box-shadow:0 5px 14px rgba(0,0,0,.12);
+}
+body.dark-mode.attendance-page .summary-status strong{color:#dce7eb}
+body.dark-mode.attendance-page .summary-status small{color:#aab8bf}
+body.dark-mode.attendance-page .status-present .summary-icon{background:#173b29}
+body.dark-mode.attendance-page .status-late .summary-icon{background:#3b3118}
+body.dark-mode.attendance-page .status-absent .summary-icon{background:#3d2327}
+body.dark-mode.attendance-page .status-justified .summary-icon{background:#1a3048}
+body.dark-mode.attendance-page .summary-updated{border-color:#30444e}
+body.dark-mode.attendance-page .legend-dot.present{background:#173b29}
+body.dark-mode.attendance-page .legend-dot.late{background:#3b3118}
+body.dark-mode.attendance-page .legend-dot.absent{background:#3d2327}
+body.dark-mode.attendance-page .legend-dot.justified{background:#1a3048}
+body.dark-mode.attendance-page .attendance-empty{color:#94a5ad!important}

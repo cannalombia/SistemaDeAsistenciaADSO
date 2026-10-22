@@ -1,0 +1,268 @@
+/*
+ * BLUE MAGIC V5 — refuerzo final de tema oscuro (2026-10-08)
+ * Se carga al final de la cascada únicamente en Crear usuario y Estadísticas.
+ * Objetivo: impedir que reglas claras heredadas vuelvan a pintar paneles blancos.
+ */
+
+body.dark-mode.create-user-page,
+body.dark-mode.statistics-page {
+    color-scheme: dark;
+}
+
+/* =========================
+   CREAR USUARIO — COBERTURA TOTAL
+   ========================= */
+body.dark-mode.create-user-page,
+body.dark-mode.create-user-page .main,
+body.dark-mode.create-user-page .create-user-main {
+    background: #0c171d !important;
+    color: #edf5f7 !important;
+}
+
+body.dark-mode.create-user-page .create-user-header,
+body.dark-mode.create-user-page .user-metric-card,
+body.dark-mode.create-user-page .user-import-panel,
+body.dark-mode.create-user-page .user-directory-panel,
+body.dark-mode.create-user-page .user-form-panel,
+body.dark-mode.create-user-page .form-container.user-form-panel {
+    border-color: #304751 !important;
+    background: linear-gradient(145deg, #1a2a32 0%, #15242b 100%) !important;
+    color: #edf5f7 !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+
+body.dark-mode.create-user-page .user-metric-card {
+    background: linear-gradient(145deg, #2a3b43 0%, #213039 100%) !important;
+    box-shadow: -7px -7px 15px rgba(55,75,84,.38), 8px 8px 18px rgba(2,9,13,.72), inset -5px -5px 13px rgba(7,18,24,.45), inset 2px 2px 5px rgba(83,105,114,.24) !important;
+}
+body.dark-mode.create-user-page .user-metric-card:hover,
+body.dark-mode.create-user-page .user-metric-card.active {
+    border-color: #4c6a75 !important;
+    background: linear-gradient(145deg, #30434c 0%, #263740 100%) !important;
+}
+body.dark-mode.create-user-page .user-metric-copy small,
+body.dark-mode.create-user-page .user-metric-copy strong,
+body.dark-mode.create-user-page .user-metric-copy > span,
+body.dark-mode.create-user-page .user-metric-action {
+    color: #edf5f7 !important;
+}
+body.dark-mode.create-user-page .user-metric-copy > span { color: #aabac1 !important; }
+body.dark-mode.create-user-page .user-metric-action {
+    background: #1a2b33 !important;
+    color: #8fe2ad !important;
+    box-shadow: inset 2px 2px 5px #0d181e, inset -2px -2px 5px #34464f !important;
+}
+
+body.dark-mode.create-user-page .create-user-header h1,
+body.dark-mode.create-user-page .create-user-header strong,
+body.dark-mode.create-user-page .user-import-copy h2,
+body.dark-mode.create-user-page .user-panel-heading h2,
+body.dark-mode.create-user-page .user-form-heading h2,
+body.dark-mode.create-user-page .user-directory-person strong,
+body.dark-mode.create-user-page .user-sql-picker-copy strong {
+    color: #f2f7f9 !important;
+}
+body.dark-mode.create-user-page .create-user-header p,
+body.dark-mode.create-user-page .user-import-copy p,
+body.dark-mode.create-user-page .user-import-copy p strong,
+body.dark-mode.create-user-page .user-panel-heading p,
+body.dark-mode.create-user-page .user-form-heading p,
+body.dark-mode.create-user-page .user-file-name,
+body.dark-mode.create-user-page .user-directory-person small,
+body.dark-mode.create-user-page .user-ficha-label,
+body.dark-mode.create-user-page .user-form-actions p {
+    color: #aebdc4 !important;
+}
+body.dark-mode.create-user-page .user-eyebrow { color: #70dd82 !important; }
+body.dark-mode.create-user-page .user-sync-status {
+    border-color: #2f6840 !important;
+    background: #132a1c !important;
+    color: #99e5a6 !important;
+}
+
+body.dark-mode.create-user-page .user-import-tabs .user-import-button,
+body.dark-mode.create-user-page .user-import-tabs [aria-selected="false"] {
+    border-color: #344c57 !important;
+    background: #1a2b33 !important;
+    color: #c6d4da !important;
+}
+body.dark-mode.create-user-page .user-import-tabs [aria-selected="true"] {
+    border-color: #0b638c !important;
+    background: #075075 !important;
+    color: #fff !important;
+}
+body.dark-mode.create-user-page .user-import-icon,
+body.dark-mode.create-user-page .user-form-icon,
+body.dark-mode.create-user-page .user-sql-picker-icon {
+    border-color: #315c3e !important;
+    background: #173724 !important;
+    color: #7ce08e !important;
+    box-shadow: none !important;
+}
+body.dark-mode.create-user-page .user-file-picker,
+body.dark-mode.create-user-page .user-sql-file-picker {
+    border-color: #47765a !important;
+    background: #142820 !important;
+    color: #a1e5ac !important;
+    box-shadow: none !important;
+}
+body.dark-mode.create-user-page .user-file-picker:hover,
+body.dark-mode.create-user-page .user-sql-file-picker:hover {
+    border-color: #61bd74 !important;
+    background: #193324 !important;
+}
+body.dark-mode.create-user-page .user-sql-picker-copy small,
+body.dark-mode.create-user-page .user-sql-picker-arrow,
+body.dark-mode.create-user-page .user-sql-file-name { color: #a0b1b8 !important; }
+body.dark-mode.create-user-page .user-sql-secondary {
+    border-color: #405b67 !important;
+    background: #182b34 !important;
+    color: #d2e3e9 !important;
+}
+body.dark-mode.create-user-page .user-import-button:disabled {
+    opacity: .52 !important;
+    color: #d5e0e4 !important;
+}
+
+body.dark-mode.create-user-page .user-directory-search {
+    border-color: #3a535e !important;
+    background: #122229 !important;
+    color: #a7b7be !important;
+}
+body.dark-mode.create-user-page .user-directory-search input,
+body.dark-mode.create-user-page .user-directory-search input:focus {
+    background: transparent !important;
+    color: #f0f6f8 !important;
+    box-shadow: none !important;
+}
+body.dark-mode.create-user-page .user-directory-search input::placeholder { color: #81959e !important; }
+body.dark-mode.create-user-page .user-directory-table-wrap {
+    border-color: #304751 !important;
+    background: #122129 !important;
+    scrollbar-color: #5b6f79 #122129;
+}
+body.dark-mode.create-user-page .user-directory-table,
+body.dark-mode.create-user-page .user-directory-table tbody {
+    background: #15252d !important;
+    color: #e5eef1 !important;
+}
+body.dark-mode.create-user-page .user-directory-table thead,
+body.dark-mode.create-user-page .user-directory-table th {
+    border-color: #314852 !important;
+    background: #223740 !important;
+    color: #c7d6cd !important;
+}
+body.dark-mode.create-user-page .user-directory-table td {
+    border-color: #2e434d !important;
+    background: #17272f !important;
+    color: #dce8ec !important;
+}
+body.dark-mode.create-user-page .user-directory-table tbody tr:nth-child(even) td { background: #15242c !important; }
+body.dark-mode.create-user-page .user-directory-table tbody tr:hover td { background: #1d313a !important; }
+body.dark-mode.create-user-page .user-directory-avatar { background: #173b29 !important; color: #91e09f !important; }
+body.dark-mode.create-user-page .user-role-badge { background: #293a43 !important; color: #d5e0e4 !important; }
+body.dark-mode.create-user-page .user-role-badge.instructor { background: #1a304a !important; color: #9bc9ff !important; }
+body.dark-mode.create-user-page .user-role-badge.aprendiz { background: #30264b !important; color: #c9b3ff !important; }
+body.dark-mode.create-user-page .user-role-badge.administrador,
+body.dark-mode.create-user-page .user-role-badge.coordinador { background: #173a24 !important; color: #a0e6ac !important; }
+body.dark-mode.create-user-page .user-status-badge { background: #173624 !important; color: #9ce4a8 !important; }
+body.dark-mode.create-user-page .user-status-badge.inactive { background: #2a3a42 !important; color: #bdc9ce !important; }
+body.dark-mode.create-user-page .user-directory-actions button {
+    border-color: #3c535e !important;
+    background: #1a2c34 !important;
+    color: #c6d7de !important;
+}
+body.dark-mode.create-user-page .user-protected-account { background: #263840 !important; color: #c4d0d5 !important; }
+body.dark-mode.create-user-page .user-directory-empty { color: #9babb3 !important; background: #17272f !important; }
+
+body.dark-mode.create-user-page .user-form-heading,
+body.dark-mode.create-user-page .user-form-actions { border-color: #304751 !important; }
+body.dark-mode.create-user-page .user-form-panel .form-group label { color: #d2dde1 !important; }
+body.dark-mode.create-user-page .user-form-panel .form-group input,
+body.dark-mode.create-user-page .user-form-panel .form-group select,
+body.dark-mode.create-user-page .user-form-panel input,
+body.dark-mode.create-user-page .user-form-panel select {
+    border-color: #3b535e !important;
+    background: #122229 !important;
+    color: #eff5f7 !important;
+}
+body.dark-mode.create-user-page .user-form-panel .form-group input::placeholder { color: #80949d !important; }
+body.dark-mode.create-user-page .user-form-panel option { background: #122229 !important; color: #eff5f7 !important; }
+body.dark-mode.create-user-page .password-field button { color: #b5c3c9 !important; }
+body.dark-mode.create-user-page .password-field button:hover { background: #213740 !important; color: #8be09a !important; }
+
+/* =========================
+   ESTADÍSTICAS — REFUERZO DE PARIDAD OSCURA
+   ========================= */
+body.dark-mode.statistics-page,
+body.dark-mode.statistics-page .main,
+body.dark-mode.statistics-page .statistics-main {
+    background: #0c171d !important;
+    color: #edf5f7 !important;
+}
+body.dark-mode.statistics-page .report-filters,
+body.dark-mode.statistics-page .dashboard-stat-card,
+body.dark-mode.statistics-page .dashboard-panel,
+body.dark-mode.statistics-page .report-preview,
+body.dark-mode.statistics-page .analytics-module,
+body.dark-mode.statistics-page .analytics-card,
+body.dark-mode.statistics-page .saved-reports-panel {
+    border-color: #304751 !important;
+    background: linear-gradient(145deg, #1a2a32 0%, #15242b 100%) !important;
+    color: #edf5f7 !important;
+    box-shadow: 0 12px 30px rgba(0,0,0,.22) !important;
+}
+body.dark-mode.statistics-page .dashboard-stat-card {
+    background: linear-gradient(145deg, #2a3b43 0%, #213039 100%) !important;
+    box-shadow: -7px -7px 15px rgba(55,75,84,.36), 8px 8px 18px rgba(2,9,13,.7), inset -5px -5px 13px rgba(7,18,24,.42), inset 2px 2px 5px rgba(83,105,114,.22) !important;
+}
+body.dark-mode.statistics-page .dashboard-stat-card:last-child,
+body.dark-mode.statistics-page .dashboard-stat-card.stat-green,
+body.dark-mode.statistics-page .dashboard-stat-card.stat-blue,
+body.dark-mode.statistics-page .dashboard-stat-card.stat-purple {
+    border-color: #3c555f !important;
+    background: linear-gradient(145deg, #2a3b43 0%, #213039 100%) !important;
+}
+body.dark-mode.statistics-page .dashboard-stat-card strong,
+body.dark-mode.statistics-page .dashboard-stat-card .stat-copy strong,
+body.dark-mode.statistics-page .dashboard-stat-card .stat-copy > span,
+body.dark-mode.statistics-page .dashboard-stat-card .stat-footer,
+body.dark-mode.statistics-page .dashboard-stat-card .stat-footer > span {
+    color: #edf5f7 !important;
+}
+body.dark-mode.statistics-page .dashboard-stat-card .stat-copy > span,
+body.dark-mode.statistics-page .dashboard-stat-card .stat-copy small { color: #aebdc4 !important; }
+body.dark-mode.statistics-page .dashboard-stat-card .stat-footer {
+    border-color: #304751 !important;
+    background: #1a2b33 !important;
+    color: #90e2ae !important;
+}
+body.dark-mode.statistics-page .filter-controls label,
+body.dark-mode.statistics-page .report-status-filter,
+body.dark-mode.statistics-page .dashboard-panel-header,
+body.dark-mode.statistics-page .section-heading { color: #d8e3e7 !important; }
+body.dark-mode.statistics-page .filter-controls input,
+body.dark-mode.statistics-page .filter-controls select,
+body.dark-mode.statistics-page .report-search input,
+body.dark-mode.statistics-page .report-status-filter select,
+body.dark-mode.statistics-page .dashboard-panel-header select,
+body.dark-mode.statistics-page .dashboard-period select {
+    border-color: #3b535e !important;
+    background: #122229 !important;
+    color: #eff5f7 !important;
+}
+body.dark-mode.statistics-page .dashboard-panel h2,
+body.dark-mode.statistics-page .dashboard-panel h3,
+body.dark-mode.statistics-page .analytics-module h2,
+body.dark-mode.statistics-page .analytics-module h3,
+body.dark-mode.statistics-page .section-heading h2,
+body.dark-mode.statistics-page .dashboard-title h1 { color: #f0f6f8 !important; }
+body.dark-mode.statistics-page .dashboard-panel p,
+body.dark-mode.statistics-page .analytics-module p,
+body.dark-mode.statistics-page .section-heading > span,
+body.dark-mode.statistics-page .dashboard-title p { color: #aebdc4 !important; }
+body.dark-mode.statistics-page .report-table th { background: #223740 !important; color: #c6d5da !important; border-color: #304751 !important; }
+body.dark-mode.statistics-page .report-table td { background: #17272f !important; color: #dce8ec !important; border-color: #2e434d !important; }
+
+/* El QR mantiene fondo blanco por legibilidad del código. */
+body.dark-mode.statistics-page #attendance-qr .attendance-qr-image { background: #fff !important; filter: none !important; }

@@ -1,0 +1,82 @@
+[
+  {
+    "identificacion": "DEMO001",
+    "nombre": "Aprendiz Demo 001",
+    "ficha": "DEMO-FICHA-01",
+    "fecha": "2026-09-28",
+    "jornada": "Mañana",
+    "estado": "presente"
+  },
+  {
+    "identificacion": "DEMO002",
+    "nombre": "Aprendiz Demo 002",
+    "ficha": "DEMO-FICHA-01",
+    "fecha": "2026-09-29",
+    "jornada": "Mañana",
+    "estado": "tardanza"
+  },
+  {
+    "identificacion": "DEMO001",
+    "nombre": "Aprendiz Demo 001",
+    "ficha": "DEMO-FICHA-01",
+    "fecha": "2026-09-30",
+    "jornada": "Mañana",
+    "estado": "presente"
+  },
+  {
+    "identificacion": "DEMO002",
+    "nombre": "Aprendiz Demo 002",
+    "ficha": "DEMO-FICHA-01",
+    "fecha": "2026-10-01",
+    "jornada": "Mañana",
+    "estado": "justificado"
+  },
+  {
+    "identificacion": "DEMO001",
+    "nombre": "Aprendiz Demo 001",
+    "ficha": "DEMO-FICHA-01",
+    "fecha": "2026-10-02",
+    "jornada": "Mañana",
+    "estado": "presente"
+  },
+  {
+    "identificacion": "DEMO002",
+    "nombre": "Aprendiz Demo 002",
+    "ficha": "DEMO-FICHA-01",
+    "fecha": "2026-10-05",
+    "jornada": "Mañana",
+    "estado": "presente"
+  },
+  {
+    "identificacion": "DEMO001",
+    "nombre": "Aprendiz Demo 001",
+    "ficha": "DEMO-FICHA-01",
+    "fecha": "2026-10-06",
+    "jornada": "Mañana",
+    "estado": "ausente"
+  },
+  {
+    "identificacion": "DEMO002",
+    "nombre": "Aprendiz Demo 002",
+    "ficha": "DEMO-FICHA-01",
+    "fecha": "2026-10-07",
+    "jornada": "Mañana",
+    "estado": "presente"
+  },
+  {
+    "identificacion": "DEMO001",
+    "nombre": "Aprendiz Demo 001",
+    "ficha": "DEMO-FICHA-01",
+    "fecha": "2026-10-08",
+    "jornada": "Mañana",
+    "estado": "tardanza"
+  },
+  {
+    "identificacion": "DEMO002",
+    "nombre": "Aprendiz Demo 002",
+    "ficha": "DEMO-FICHA-01",
+    "fecha": "2026-10-09",
+    "jornada": "Mañana",
+    "estado": "presente"
+  }
+]

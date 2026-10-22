@@ -33,6 +33,15 @@ async function main() {
         const directoryData = (await request('/api/users')).data;
         assert.equal(directoryData.summary.students, 240);
         assert.equal(directoryData.users.filter(user => user.role === 'Instructor' && user.document).length, 11);
+        const attendanceCatalog = await request('/api/attendance');
+        assert.equal(attendanceCatalog.status, 200);
+        assert.deepEqual(attendanceCatalog.data.fichas.map((ficha) => ficha.codigo), [
+            '3349882', '3349883', '3349884', '3349885', '3349886', '3349887', '3349888', '3349889'
+        ]);
+        const qrEighthFicha = await request('/api/attendance/qr', { ficha: '3349889', jornada: 'Tarde' });
+        assert.equal(qrEighthFicha.status, 201);
+        assert.match(qrEighthFicha.data.url, /asistencia_qr\.html\?token=/);
+
         const training = (await request('/api/training')).data;
         assert.equal(training.weeklyPlan.length, 40);
         assert.equal(training.instructors.filter(user => user.document).length, 11);
@@ -50,7 +59,7 @@ async function main() {
         assert.equal((await request('/api/schedules', { ...lesson, day: 'Sábado' })).status, 400);
         assert.equal((await request('/api/schedules', { ...lesson, day: 'Jueves', end: '14:00' })).status, 400);
         assert.equal((await request('/api/schedules', { ...lesson, fichaId: '5', start: '13:00', end: '19:00' })).status, 201);
-        console.log('OK: 300 usuarios importados, 240 aprendices en 8 fichas, 11 instructores, 40 franjas y rotación sin cruces.');
+        console.log('OK: 300 usuarios, 240 aprendices, 8 fichas operativas con QR, 11 instructores, 40 franjas y rotación sin cruces.');
     } finally {
         await new Promise(resolve => server.close(resolve));
         fs.rmSync(directory, { recursive: true, force: true });

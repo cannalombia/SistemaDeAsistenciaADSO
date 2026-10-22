@@ -1,0 +1,430 @@
+/* BioSecure 8.9 — capa visual incremental.
+   La identidad SENA y el resto de módulos conservan sus estilos originales. */
+.biometric-enrollment-page {
+    --bio-89-glow: #2fb65c;
+    --bio-89-deep: #092d31;
+    --bio-89-mint: #e7f8ee;
+}
+.biometric-enrollment-page .biometric-enrollment-main {
+    background:
+        radial-gradient(ellipse 66% 36% at 82% 0%, rgba(32, 169, 113, .09), transparent 70%),
+        radial-gradient(ellipse 40% 40% at 0% 72%, rgba(30, 111, 150, .05), transparent 76%),
+        transparent;
+}
+.biometric-enrollment-page .biometric-enrollment-header {position:relative; isolation:isolate; padding:17px 0 8px;}
+.biometric-enrollment-page .biometric-page-kicker {display:inline-flex;align-items:center;gap:8px;letter-spacing:.13em;font-weight:800}
+.biometric-enrollment-page .biometric-page-kicker::before {content:"";width:6px;height:6px;background:#32b260;border-radius:50%;box-shadow:0 0 0 4px rgba(50,178,96,.12)}
+.biometric-enrollment-page .biometric-enrollment-header h1 {letter-spacing:-.045em;text-wrap:balance}
+.biometric-enrollment-page .biometric-enrollment-header p {max-width:58ch;line-height:1.65}
+.biometric-enrollment-page .biometric-live-status {border-radius:18px;border:1px solid rgba(34,147,99,.2);box-shadow:0 16px 40px rgba(14,50,58,.08), inset 0 1px rgba(255,255,255,.6);transition:background-color .3s,border-color .3s,box-shadow .3s}
+.biometric-enrollment-page .biometric-live-status[data-state="ready"] {border-color:rgba(33,159,79,.35);box-shadow:0 0 0 4px rgba(40,181,95,.045),0 16px 40px rgba(14,50,58,.07)}
+.biometric-enrollment-page .biometric-trust-strip {border-radius:19px;overflow:hidden;box-shadow:0 14px 34px rgba(26,70,70,.045)}
+.biometric-enrollment-page .biometric-trust-strip>span {transition:background-color .25s,transform .25s}
+@media(hover:hover){.biometric-enrollment-page .biometric-trust-strip>span:hover{transform:translateY(-2px)}}
+.biometric-enrollment-page .biometric-enrollment-grid {gap:20px}
+.biometric-enrollment-page .biometric-subject-card,
+.biometric-enrollment-page .biometric-capture-console,
+.biometric-enrollment-page .biometric-process-card {border-radius:24px;overflow:hidden;box-shadow:0 22px 65px rgba(8,52,62,.075),0 1px 2px rgba(10,40,50,.055)}
+.biometric-enrollment-page .biometric-subject-card::before,
+.biometric-enrollment-page .biometric-process-card::before {content:"";position:absolute;left:24px;right:24px;top:0;height:2px;background:linear-gradient(90deg,transparent,rgba(35,164,91,.42),transparent)}
+.biometric-enrollment-page .biometric-subject-select {display:grid;gap:9px}
+.biometric-enrollment-page #biometric-user-search {display:block;width:100%;min-height:42px;border:1px solid #cbded7;border-radius:12px;padding:10px 13px;font:inherit;color:#163f42;background:rgba(247,253,249,.96);outline-offset:3px;transition:border-color .2s,box-shadow .2s}
+.biometric-enrollment-page #biometric-user-search:focus {border-color:#25a35d;box-shadow:0 0 0 4px rgba(42,161,88,.12);outline:none}
+.biometric-enrollment-page #biometric-user-search:disabled {opacity:.62}
+.biometric-enrollment-page .biometric-subject-avatar {position:relative;box-shadow:0 10px 18px rgba(24,105,62,.16),inset 0 1px rgba(255,255,255,.45)}
+.biometric-enrollment-page .biometric-capture-console {isolation:isolate;background:
+    radial-gradient(circle at 50% 29%,rgba(74,217,130,.12),transparent 38%),
+    linear-gradient(155deg,#0d343c,#071e28 85%)!important;border:1px solid #1a5251!important;color:#e9fff5!important;}
+.biometric-enrollment-page .biometric-capture-console::before {content:"";position:absolute;z-index:0;inset:0;pointer-events:none;opacity:.32;background-image:linear-gradient(rgba(104,230,163,.065) 1px,transparent 1px),linear-gradient(90deg,rgba(104,230,163,.065) 1px,transparent 1px);background-size:32px 32px;mask-image:linear-gradient(to bottom,#000,transparent 85%)}
+.biometric-enrollment-page .biometric-capture-console::after {content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 50% 40%,transparent 25%,rgba(3,16,23,.16) 100%)}
+.biometric-enrollment-page .biometric-capture-console>* {position:relative;z-index:1}
+.biometric-enrollment-page .biometric-console-topline h2 {color:#e9fff5!important;letter-spacing:-.025em}
+.biometric-enrollment-page .biometric-capture-console .biometric-card-label {color:#8bd8c1!important}
+.biometric-enrollment-page .biometric-reader-badge {background:rgba(43,191,121,.09);color:#a9f7c9;border:1px solid rgba(91,231,150,.3);letter-spacing:.08em}
+.biometric-enrollment-page .biometric-reader-badge i {margin-right:4px}
+.biometric-enrollment-page .biometric-enrollment-scanner {filter:drop-shadow(0 12px 26px rgba(6,20,27,.2))}
+.biometric-enrollment-page .biometric-enrollment-sensor {background:linear-gradient(145deg,#19444b,#102a34)!important;border:1px solid rgba(126,246,176,.4)!important;color:#9af8c0!important;box-shadow:0 14px 34px rgba(0,0,0,.25),inset 0 0 0 8px rgba(120,255,184,.025),0 0 36px rgba(52,215,117,.11)!important}
+.biometric-enrollment-page .biometric-enrollment-sensor>i {position:relative;z-index:4;filter:drop-shadow(0 0 14px rgba(70,229,141,.33))}
+.biometric-enrollment-page .biometric-sensor-crosshair {position:absolute;inset:24px 13px 25px;z-index:3;pointer-events:none;border:1px dashed rgba(165,250,184,.20);border-radius:29px}
+.biometric-enrollment-page .biometric-sensor-readout {position:absolute;z-index:4;bottom:10px;right:18px;font:700 8px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.17em;color:#8ad7b1}
+.biometric-enrollment-page .biometric-enrollment-orbit {border-color:rgba(89,232,147,.18)!important}
+.biometric-enrollment-page .biometric-enrollment-scan-line {background:#65ffad!important;box-shadow:0 0 13px #65ffad,0 0 28px rgba(53,229,121,.8)!important}
+.biometric-enrollment-page .biometric-enrollment-scanner[data-scan-state="waiting"] .biometric-enrollment-sensor,
+.biometric-enrollment-page .biometric-enrollment-scanner[data-scan-state="processing"] .biometric-enrollment-sensor {animation:bio89-breathe 2.5s ease-in-out infinite}
+.biometric-enrollment-page .biometric-capture-console[data-state="success"] .biometric-enrollment-sensor {border-color:#9dffc0!important;box-shadow:0 0 54px rgba(55,226,131,.27),inset 0 0 0 8px rgba(120,255,184,.06)!important}
+.biometric-enrollment-page .biometric-capture-copy strong {color:#f5fff9!important;font-size:clamp(16px,1.7vw,23px);letter-spacing:-.02em}
+.biometric-enrollment-page .biometric-capture-copy p {color:#beddd3!important;line-height:1.6}
+.biometric-enrollment-page .biometric-progress-block {padding:15px 17px;border:1px solid rgba(111,218,161,.17);border-radius:17px;background:rgba(10,37,42,.48)}
+.biometric-enrollment-page .biometric-progress-block>div:first-child {color:#d9f4e6!important}
+.biometric-enrollment-page .biometric-progress-block b {color:#aef9c6!important;font-variant-numeric:tabular-nums}
+.biometric-enrollment-page #biometric-progress {height:9px;border-radius:999px;overflow:hidden;accent-color:#48dc8b}
+.biometric-enrollment-page .biometric-progress-help {display:block;margin-top:10px;color:#accfc0;font-size:11px;line-height:1.55}
+.biometric-enrollment-page .biometric-consent {display:flex;align-items:flex-start;gap:11px;padding:13px 14px;border:1px solid rgba(90,221,139,.25);border-radius:15px;background:rgba(37,101,78,.18);color:#d8efe2;font-size:12px;line-height:1.58;cursor:pointer;text-align:left}
+.biometric-enrollment-page .biometric-consent input {appearance:auto;flex:0 0 auto;width:17px;height:17px;margin-top:1px;accent-color:#54d78a;cursor:pointer}
+.biometric-enrollment-page .biometric-consent:focus-within {outline:2px solid #80e6ae;outline-offset:2px}
+.biometric-enrollment-page .biometric-enrollment-actions {flex-wrap:wrap;gap:10px}
+.biometric-enrollment-page .biometric-enrollment-actions button {min-height:44px;transition:transform .2s,box-shadow .2s,background-color .2s}
+.biometric-enrollment-page .biometric-enrollment-actions button:not(:disabled):active {transform:translateY(1px) scale(.99)}
+.biometric-enrollment-page .biometric-primary-action:not(:disabled) {box-shadow:0 11px 24px rgba(40,203,112,.22),inset 0 1px rgba(255,255,255,.24)}
+.biometric-enrollment-page .biometric-enrollment-actions button:focus-visible {outline:3px solid #9df7bb;outline-offset:3px}
+.biometric-enrollment-page .biometric-process-list li {transition:border-color .22s,background-color .22s,transform .22s}
+.biometric-enrollment-page .biometric-process-list li.complete {border-color:rgba(44,161,95,.55);background:rgba(46,188,104,.07)}
+.attendance-page .attendance-biometric-reader {transition:box-shadow .3s,border-color .3s}
+.attendance-page .attendance-biometric-reader[data-state="ok"] {box-shadow:0 18px 45px rgba(15,85,69,.10),0 0 0 1px rgba(52,179,112,.10)}
+.attendance-page .attendance-biometric-scanner[data-scan-state="waiting"] .attendance-biometric-reader-icon,
+.attendance-page .attendance-biometric-scanner[data-scan-state="processing"] .attendance-biometric-reader-icon {animation:bio89-breathe 2.5s ease-in-out infinite}
+.attendance-page .attendance-biometric-result[data-state="success"] {animation:bio89-result .46s cubic-bezier(.2,.7,.2,1) both}
+.attendance-page #attendance-biometric-start:focus-visible {outline:3px solid #47c76c;outline-offset:4px}
+@keyframes bio89-breathe {0%,100%{filter:brightness(1) drop-shadow(0 0 0 transparent)}50%{filter:brightness(1.12) drop-shadow(0 0 12px rgba(61,223,120,.24))}}
+@keyframes bio89-result {from{opacity:.6;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+body.dark-mode.biometric-enrollment-page #biometric-user-search {background:#132c31;border-color:#385855;color:#e7f3ec}
+body.dark-mode.biometric-enrollment-page .biometric-subject-card,
+body.dark-mode.biometric-enrollment-page .biometric-process-card {box-shadow:0 24px 54px rgba(0,0,0,.19)}
+@media(max-width:850px){.biometric-enrollment-page .biometric-enrollment-grid{gap:14px}.biometric-enrollment-page .biometric-capture-console{min-height:530px}}
+@media(max-width:520px){.biometric-enrollment-page .biometric-enrollment-actions{display:flex;flex-direction:column;align-items:stretch}.biometric-enrollment-page .biometric-enrollment-actions button{width:100%;min-width:0}.biometric-enrollment-page .biometric-enrollment-grid{gap:12px}.biometric-enrollment-page .biometric-trust-strip{gap:6px}.biometric-enrollment-page .biometric-sensor-readout{display:none}}
+@media(prefers-reduced-motion:reduce){.biometric-enrollment-page .biometric-enrollment-scanner[data-scan-state] .biometric-enrollment-sensor,.attendance-page .attendance-biometric-scanner[data-scan-state] .attendance-biometric-reader-icon,.attendance-page .attendance-biometric-result[data-state="success"]{animation:none!important}.biometric-enrollment-page .biometric-enrollment-actions button,.biometric-enrollment-page .biometric-trust-strip>span{transition:none!important}}
+
+/* Respeta el atributo semántico hidden incluso si el CSS original fuerza display:flex. */
+body.biometric-enrollment-page [hidden],
+body.attendance-page #attendance-biometric-panel[hidden],
+body.attendance-page #attendance-biometric-cancel[hidden],
+body.attendance-page #attendance-biometric-enroll-link[hidden] {display:none!important}
+.biometric-enrollment-page .biometric-sensor-readout {pointer-events:none}
+.bio89-fingerprint-vector {position:relative;z-index:4;width:83px;height:83px;color:#7ef6b0;filter:drop-shadow(0 0 12px rgba(75,238,149,.35));stroke:currentColor;flex:none}
+.biometric-enrollment-page .biometric-enrollment-sensor>.fas.fa-fingerprint,
+.attendance-page .attendance-biometric-reader-icon>#attendance-biometric-icon {display:none}
+.attendance-page .attendance-biometric-reader-icon .bio89-fingerprint-vector {width:72px;height:72px;color:#2aaf69}
+.attendance-page .attendance-biometric-scanner[data-scan-state="waiting"] .bio89-fingerprint-vector,
+.attendance-page .attendance-biometric-scanner[data-scan-state="processing"] .bio89-fingerprint-vector {color:#35c881;filter:drop-shadow(0 0 16px rgba(35,197,111,.36))}
+.attendance-page .attendance-biometric-scanner[data-scan-state="error"] .bio89-fingerprint-vector {color:#d44b62;filter:none}
+.attendance-page .attendance-biometric-scanner[data-scan-state="success"] .bio89-fingerprint-vector {color:#1ea34c}
+.attendance-page .bio89-enrollment-cta {display:inline-flex;align-items:center;gap:8px;margin:12px 0;padding:11px 15px;border:1px solid #8dd4a9;background:#e8f8ee;color:#146039;border-radius:11px;font-size:12px;font-weight:700;text-decoration:none;transition:background-color .2s,box-shadow .2s}
+.attendance-page .bio89-enrollment-cta:hover {background:#d5f1e0;box-shadow:0 4px 16px rgba(26,122,70,.08)}
+.attendance-page .bio89-enrollment-cta:focus-visible {outline:3px solid #47c76c;outline-offset:3px}
+body.dark-mode.attendance-page .bio89-enrollment-cta {background:#153d32;color:#bcf4d1;border-color:#327e58}
+
+/* --- Refinamiento visual BioSecure 8.9.1 --- */
+.biometric-enrollment-page .biometric-console-telemetry,
+.attendance-page .attendance-biometric-telemetry {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    gap: 14px;
+    width: 100%;
+    margin: 4px auto 2px;
+}
+.biometric-enrollment-page .biometric-telemetry-head,
+.attendance-page .attendance-biometric-telemetry-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.biometric-enrollment-page .biometric-telemetry-pill,
+.attendance-page .attendance-biometric-phase-pill,
+.attendance-page .attendance-biometric-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(126, 246, 176, .24);
+    background: rgba(14, 44, 47, .48);
+    color: #dcfff0;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.biometric-enrollment-page .biometric-telemetry-pill.alt {
+    background: rgba(37, 77, 74, .4);
+    color: #b9f5d0;
+}
+.biometric-enrollment-page .biometric-telemetry-grid,
+.attendance-page .attendance-biometric-telemetry-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(0, .8fr));
+    gap: 12px;
+}
+.attendance-page .attendance-biometric-telemetry-grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(220px, .9fr);
+}
+.biometric-enrollment-page .biometric-telemetry-card,
+.attendance-page .attendance-biometric-mini-card {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    padding: 14px 15px;
+    border-radius: 16px;
+    border: 1px solid rgba(111, 218, 161, .17);
+    background: linear-gradient(180deg, rgba(14, 43, 47, .72), rgba(9, 30, 34, .82));
+    box-shadow: inset 0 1px rgba(255, 255, 255, .03);
+}
+.biometric-enrollment-page .biometric-telemetry-card::before,
+.attendance-page .attendance-biometric-mini-card::before {
+    content: "";
+    position: absolute;
+    inset: auto -10% 0;
+    height: 42px;
+    background: radial-gradient(circle at center, rgba(108, 248, 161, .16), transparent 68%);
+    transform: translateY(65%);
+    pointer-events: none;
+}
+.biometric-enrollment-page .biometric-telemetry-card small,
+.attendance-page .attendance-biometric-mini-card small {
+    color: #9ddfbe;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+.biometric-enrollment-page .biometric-telemetry-card strong,
+.attendance-page .attendance-biometric-mini-card strong {
+    color: #f2fff8;
+    font-size: 15px;
+    letter-spacing: -.02em;
+}
+.biometric-enrollment-page .biometric-telemetry-card p,
+.attendance-page .attendance-biometric-mini-card p {
+    margin: 0;
+    color: #c1ddd0;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.biometric-enrollment-page .biometric-telemetry-card.compact,
+.attendance-page .attendance-biometric-mini-card.compact {
+    align-content: center;
+}
+.biometric-enrollment-page .biometric-telemetry-card.compact b,
+.attendance-page .attendance-biometric-mini-card.compact b {
+    color: #b7ffd0;
+    font-size: 12px;
+}
+.biometric-enrollment-page .biometric-signal-bars,
+.attendance-page .attendance-biometric-signal {
+    display: flex;
+    align-items: end;
+    gap: 7px;
+    min-height: 46px;
+}
+.biometric-enrollment-page .biometric-signal-bars span,
+.attendance-page .attendance-biometric-signal span {
+    display: block;
+    width: 8px;
+    border-radius: 999px;
+    background: rgba(160, 223, 188, .18);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05);
+    transition: transform .28s ease, background-color .28s ease, box-shadow .28s ease;
+}
+.biometric-enrollment-page .biometric-signal-bars span:nth-child(1),
+.attendance-page .attendance-biometric-signal span:nth-child(1) { height: 12px; }
+.biometric-enrollment-page .biometric-signal-bars span:nth-child(2),
+.attendance-page .attendance-biometric-signal span:nth-child(2) { height: 18px; }
+.biometric-enrollment-page .biometric-signal-bars span:nth-child(3),
+.attendance-page .attendance-biometric-signal span:nth-child(3) { height: 24px; }
+.biometric-enrollment-page .biometric-signal-bars span:nth-child(4),
+.attendance-page .attendance-biometric-signal span:nth-child(4) { height: 30px; }
+.biometric-enrollment-page .biometric-signal-bars span:nth-child(5),
+.attendance-page .attendance-biometric-signal span:nth-child(5) { height: 36px; }
+.biometric-enrollment-page .biometric-signal-bars span.active,
+.attendance-page .attendance-biometric-signal span.active {
+    background: linear-gradient(180deg, #7effb8, #36d27b);
+    box-shadow: 0 0 12px rgba(66, 239, 140, .42);
+    transform: translateY(-2px);
+}
+.biometric-enrollment-page .biometric-activity-stream,
+.attendance-page .attendance-biometric-timeline {
+    border-radius: 16px;
+    border: 1px solid rgba(111, 218, 161, .17);
+    background: rgba(8, 29, 33, .62);
+}
+.biometric-enrollment-page .biometric-stream-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 12px 14px 0;
+    color: #c5ffe0;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+.biometric-enrollment-page .biometric-stream-title i { color: #77f0b3; }
+.biometric-enrollment-page .biometric-activity-log,
+.attendance-page .attendance-biometric-timeline {
+    display: grid;
+    gap: 9px;
+    margin: 0;
+    padding: 12px 14px 14px;
+    list-style: none;
+}
+.biometric-enrollment-page .biometric-activity-log li,
+.attendance-page .attendance-biometric-timeline li {
+    display: grid;
+    gap: 4px;
+    padding: 11px 12px;
+    border-radius: 13px;
+    border: 1px solid rgba(128, 216, 176, .12);
+    background: rgba(18, 48, 51, .62);
+    color: #dbf4e7;
+}
+.biometric-enrollment-page .biometric-activity-log li strong,
+.attendance-page .attendance-biometric-timeline li strong { font-size: 12px; }
+.biometric-enrollment-page .biometric-activity-log li p,
+.attendance-page .attendance-biometric-timeline li p {
+    margin: 0;
+    color: #b8d7c8;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.biometric-enrollment-page .biometric-activity-log li small,
+.attendance-page .attendance-biometric-timeline li small {
+    color: #8fbaa8;
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+.biometric-enrollment-page .biometric-activity-log li[data-type="success"],
+.attendance-page .attendance-biometric-timeline li[data-type="success"] {
+    border-color: rgba(110, 235, 151, .26);
+    background: rgba(18, 65, 43, .42);
+}
+.biometric-enrollment-page .biometric-activity-log li[data-type="warning"],
+.attendance-page .attendance-biometric-timeline li[data-type="warning"] {
+    border-color: rgba(234, 194, 74, .28);
+    background: rgba(70, 55, 16, .35);
+}
+.biometric-enrollment-page .biometric-activity-log li[data-type="error"],
+.attendance-page .attendance-biometric-timeline li[data-type="error"] {
+    border-color: rgba(229, 97, 120, .28);
+    background: rgba(78, 24, 35, .38);
+}
+.biometric-enrollment-page .biometric-activity-log li.empty,
+.attendance-page .attendance-biometric-timeline li.empty {
+    color: #a5cbc0;
+    font-size: 12px;
+    text-align: center;
+}
+.attendance-page .attendance-biometric-telemetry {
+    display: grid;
+    gap: 12px;
+    margin-top: 14px;
+}
+.attendance-page .attendance-biometric-status-chip {
+    background: rgba(21, 65, 49, .08);
+    border-color: rgba(52, 160, 99, .18);
+    color: #1b7942;
+}
+.attendance-page .attendance-biometric-mini-card {
+    background: linear-gradient(180deg, #f8fffb, #edf8f2);
+    border-color: #d9ece0;
+}
+.attendance-page .attendance-biometric-mini-card small { color: #62806d; }
+.attendance-page .attendance-biometric-mini-card strong { color: #193329; }
+.attendance-page .attendance-biometric-mini-card p { color: #5f7467; }
+.attendance-page .attendance-biometric-timeline {
+    margin: 0;
+    padding: 12px;
+    background: linear-gradient(180deg, #f9fcfa, #f1f7f3);
+    border-color: #deebe3;
+}
+.attendance-page .attendance-biometric-timeline li {
+    background: #ffffff;
+    border-color: #e2ece6;
+    color: #20362a;
+}
+.attendance-page .attendance-biometric-timeline li p { color: #617468; }
+.attendance-page .attendance-biometric-timeline li small { color: #7b9284; }
+.attendance-page .attendance-biometric-scanner::after,
+.biometric-enrollment-page .biometric-enrollment-scanner::after {
+    content: "";
+    position: absolute;
+    inset: auto 18% 4px;
+    height: 22px;
+    border-radius: 999px;
+    background: radial-gradient(circle at center, rgba(111, 255, 170, .28), transparent 70%);
+    filter: blur(10px);
+    opacity: .7;
+    pointer-events: none;
+}
+.biometric-enrollment-page .biometric-enrollment-scanner[data-scan-state="waiting"] .bio89-fingerprint-vector,
+.biometric-enrollment-page .biometric-enrollment-scanner[data-scan-state="processing"] .bio89-fingerprint-vector,
+.attendance-page .attendance-biometric-scanner[data-scan-state="waiting"] .bio89-fingerprint-vector,
+.attendance-page .attendance-biometric-scanner[data-scan-state="processing"] .bio89-fingerprint-vector {
+    animation: bio89-fingerprint-glow 1.8s ease-in-out infinite;
+}
+@keyframes bio89-fingerprint-glow {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(62, 228, 132, .18)); }
+    50% { transform: scale(1.04); filter: drop-shadow(0 0 18px rgba(62, 228, 132, .44)); }
+}
+@media (max-width: 920px) {
+    .biometric-enrollment-page .biometric-telemetry-grid,
+    .attendance-page .attendance-biometric-telemetry-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+    .biometric-enrollment-page .biometric-telemetry-head,
+    .attendance-page .attendance-biometric-telemetry-head { flex-direction: column; }
+}
+@media(prefers-reduced-motion:reduce) {
+    .biometric-enrollment-page .biometric-signal-bars span,
+    .attendance-page .attendance-biometric-signal span,
+    .biometric-enrollment-page .biometric-activity-log li,
+    .attendance-page .attendance-biometric-timeline li,
+    .biometric-enrollment-page .bio89-fingerprint-vector,
+    .attendance-page .bio89-fingerprint-vector { animation: none !important; transition: none !important; }
+}
+
+/* BioSecure 9.1: consola compacta sin bitácora; el estado útil queda visible. */
+.biometric-enrollment-page .biometric-capture-console {
+    min-height: 0;
+}
+.biometric-enrollment-page .biometric-console-telemetry {
+    max-width: 720px;
+    margin-top: 14px;
+}
+.biometric-enrollment-page .biometric-telemetry-card {
+    min-width: 0;
+}
+.biometric-enrollment-page .biometric-telemetry-card :where(strong,p) {
+    overflow-wrap: anywhere;
+}
+.biometric-enrollment-page .biometric-progress-block {
+    margin-block: 14px;
+}
+.biometric-enrollment-page .biometric-enrollment-actions {
+    margin-top: 14px;
+}
+@media (max-width: 1450px) and (min-width: 851px) {
+    .biometric-enrollment-page .biometric-enrollment-grid {
+        grid-template-columns: minmax(250px, .72fr) minmax(460px, 1.28fr);
+    }
+    .biometric-enrollment-page .biometric-process-card {
+        grid-column: 1 / -1;
+    }
+    .biometric-enrollment-page .biometric-process-list {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+
+
+/* BioSecure 9.1 — Menú lateral fijo en registro de huellas */
+@media (min-width: 1101px) {
+    body.biometric-enrollment-page .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: var(--ui-sidebar-width, 270px);
+        height: 100dvh;
+        min-height: 100vh;
+        overflow-y: auto;
+    }
+
+    body.biometric-enrollment-page .biometric-enrollment-main {
+        width: calc(100% - var(--ui-sidebar-width, 270px));
+        margin-left: var(--ui-sidebar-width, 270px);
+        flex: 0 0 auto;
+        min-width: 0;
+    }
+}

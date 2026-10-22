@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Horarios</title>
 
-    <link rel="stylesheet" href="estilos_generales.css">
+    <link rel="stylesheet" href="estilos_generales.css?v=sidebar-uniforme-20261015">
 
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -14,7 +14,9 @@
     <script>document.documentElement.classList.add("auth-pending");</script>
 </head>
 
-<body>
+<body class="ui-v72 schedule-page">
+<script src="tema_inicial.js"></script>
+<script src="resiliencia_cliente.js"></script>
 
 <div class="container">
 
@@ -30,24 +32,28 @@
             </div>
 
             <button type="button" class="btn" data-action="new-schedule">
-                <i class="fas fa-plus"></i>
+                <i class="fas fa-plus" aria-hidden="true"></i>
                 Nuevo Horario
             </button>
 
         </header>
 <section class="table-container">
 
-    <h2 style="margin-bottom:20px;">
-        Consultar Horario por Ficha
-    </h2>
+    <div class="ui-section-heading">
+        <div>
+            <h2>Consultar horario por ficha</h2>
+            <p>Filtra la programación académica sin modificar la fuente de datos.</p>
+        </div>
+    </div>
 
+    <div class="ui-control-panel">
     <div class="form-group">
 
         <label>Seleccione una ficha</label>
 
         <select id="ficha">
 
-            <option value="">Seleccione...</option>
+            <option value="">Seleccione…</option>
 
             <option value="3349881">3349881</option>
             <option value="3349882">3349882</option>
@@ -61,8 +67,10 @@
         </select>
 
     </div>
+    </div>
 
-    <table>
+    <div class="ui-table-scroll">
+    <table aria-label="Horarios por ficha">
 
         <thead>
 
@@ -85,6 +93,8 @@
         </tbody>
 
     </table>
+    </div>
+    <p class="ui-table-note">La tabla se adapta mediante desplazamiento horizontal en pantallas pequeñas.</p>
 
 </section>
     </main>

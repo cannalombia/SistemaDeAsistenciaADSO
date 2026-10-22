@@ -2,12 +2,14 @@ const { crearRutasAcceso } = require("./acceso");
 const { crearRutasUsuarios } = require("./usuarios");
 const { crearRutasFormacion } = require("./formacion");
 const { crearRutasSistema } = require("./sistema");
+const { crearRutasBiometria } = require("./biometria");
 
 function crearEnrutadorApi(controladores) {
     const grupos = [
         crearRutasAcceso(controladores.acceso),
         crearRutasUsuarios(controladores.usuarios),
         crearRutasFormacion(controladores.formacion),
+        crearRutasBiometria(controladores.biometria),
         crearRutasSistema(controladores.sistema)
     ];
 

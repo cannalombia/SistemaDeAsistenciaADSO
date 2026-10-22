@@ -240,7 +240,7 @@ body.dark-mode.programas-page,.dark-mode .programas-main{background:#101a20}
 .dashboard-stat-card,
 .user-metric-card,
 .program-metric-card,
-.cards .card{
+.apprentice-portal .cards .card{
     border:1px solid rgba(255,255,255,.72);
     border-radius:20px;
     background:linear-gradient(145deg,#eef0f3,var(--metric-surface));
@@ -252,45 +252,45 @@ body.dark-mode.programas-page,.dark-mode .programas-main{background:#101a20}
 .dashboard-stat-card:hover,
 .user-metric-card:hover,
 .program-metric-card:hover,
-.cards .card:hover{
+.apprentice-portal .cards .card:hover{
     border-color:rgba(255,255,255,.94);
     transform:translateY(-3px);
     box-shadow:-11px -11px 22px #fff,11px 11px 22px rgba(145,153,166,.78),inset -7px -7px 16px rgba(209,213,220,.78),inset 2px 2px 5px rgba(255,255,255,.68);
 }
 
 .dashboard-stat-card:hover{animation:none}
-.cards .card{animation:none}
+.apprentice-portal .cards .card{animation:none}
 .card-dark{background:linear-gradient(145deg,#eef0f3,var(--metric-surface));color:var(--metric-ink)}
 
 .stat-icon,
 .user-metric-icon,
 .program-metric-icon,
-.cards .card .top i{
+.apprentice-portal .cards .card .top i{
     border:1px solid rgba(255,255,255,.72);
     border-radius:999px;
     color:#fff;
     box-shadow:-3px -3px 6px rgba(255,255,255,.92),3px 3px 7px rgba(145,153,166,.78),inset 1px 1px 2px rgba(255,255,255,.28);
 }
 
-.stat-green .stat-icon,.user-metric-icon.users,.metric-active .program-metric-icon,.cards .card .top i{background:#10b981;color:#fff}
+.stat-green .stat-icon,.user-metric-icon.users,.metric-active .program-metric-icon,.apprentice-portal .cards .card .top i{background:#10b981;color:#fff}
 .stat-blue .stat-icon,.user-metric-icon.instructors,.metric-levels .program-metric-icon{background:#3b82f6;color:#fff}
 .stat-purple .stat-icon,.user-metric-icon.students,.metric-fichas .program-metric-icon{background:#8b5cf6;color:#fff}
 .stat-orange .stat-icon,.metric-review .program-metric-icon{background:#f59e0b;color:#fff}
-.cards .card-ausentes .top i{background:#ef4444;color:#fff}
-.cards .card-asistencia .top i{background:#2563eb;color:#fff}
+.apprentice-portal .cards .card-ausentes .top i{background:#ef4444;color:#fff}
+.apprentice-portal .cards .card-asistencia .top i{background:#2563eb;color:#fff}
 
 .stat-copy>span,
 .user-metric-copy small,
 .program-metric-card p,
-.cards .card .top span{color:#374151}
+.apprentice-portal .cards .card .top span{color:#374151}
 .stat-copy strong,
 .user-metric-copy strong,
 .program-metric-card strong,
-.cards .card h2{color:var(--metric-ink)}
+.apprentice-portal .cards .card h2{color:var(--metric-ink)}
 .stat-copy small,
 .user-metric-copy>span,
 .program-metric-card small,
-.cards .card .bottom{color:var(--metric-muted)}
+.apprentice-portal .cards .card .bottom{color:var(--metric-muted)}
 
 .dashboard-stat-card{overflow:visible}
 .stat-footer{position:relative;padding-top:13px;border-top:0}
@@ -343,7 +343,7 @@ body.dark-mode{
 .dark-mode .dashboard-stat-card,
 .dark-mode .user-metric-card,
 .dark-mode .program-metric-card,
-.dark-mode .cards .card,
+.dark-mode.apprentice-portal .cards .card,
 .dark-mode .summary-status{
     border-color:#3b4e57;
     background:linear-gradient(145deg,#2b3b44,var(--metric-surface));
@@ -354,9 +354,9 @@ body.dark-mode{
 .dark-mode .user-metric-action,.dark-mode .stat-footer::before{background:#223139;box-shadow:inset 2px 2px 5px #101c22,inset -2px -2px 5px #3b4c54}
 
 @media(max-width:760px){
-    .dashboard-stat-card,.user-metric-card,.program-metric-card,.cards .card{box-shadow:-6px -6px 13px rgba(255,255,255,.86),6px 6px 14px rgba(145,153,166,.66),inset -5px -5px 12px rgba(209,213,220,.72)}
+    .dashboard-stat-card,.user-metric-card,.program-metric-card,.apprentice-portal .cards .card{box-shadow:-6px -6px 13px rgba(255,255,255,.86),6px 6px 14px rgba(145,153,166,.66),inset -5px -5px 12px rgba(209,213,220,.72)}
 }
 
 @media(prefers-reduced-motion:reduce){
-    .dashboard-stat-card,.user-metric-card,.program-metric-card,.cards .card{transition:none}
+    .dashboard-stat-card,.user-metric-card,.program-metric-card,.apprentice-portal .cards .card{transition:none}
 }

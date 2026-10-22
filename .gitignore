@@ -31,3 +31,22 @@ datos/importaciones/originales/
 /Mejoras.txt
 /QR.txt
 /instructor.png
+/datos/biometria_mock_estado.json
+/datos/biometria_mock_estado.json.tmp
+
+/datos/clave_puente_biometrico.key
+/datos/biometria_real/
+/datos/biometria_real_salida.log
+/datos/biometria_real_errores.log
+
+# Protección adicional 8.9: no versionar copias de secretos ni biometría real
+.env.*
+!.env.example
+*.bak
+*.key
+*.bio.json
+__pycache__/
+datos/biometria_real/
+/datos/supervisor_reinicios.json
+/datos/supervisor_biometria_reinicios.json
+/datos/supervisor_*.log

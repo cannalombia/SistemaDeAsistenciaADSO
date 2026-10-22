@@ -10,6 +10,7 @@ const root = path.join(projectRoot, "aplicacion", "paginas HTML");
 const scriptsRoot = path.join(projectRoot, "aplicacion", "recursos", "JS scripts");
 const stylesRoot = path.join(projectRoot, "aplicacion", "recursos", "estilos CCS");
 const imagesRoot = path.join(projectRoot, "aplicacion", "recursos", "imagenes");
+const videosRoot = path.join(projectRoot, "aplicacion", "recursos", "video");
 const serverFile = path.join(projectRoot, "servidor", "servidor.js");
 const emailModuleFile = path.join(projectRoot, "servidor", "modulos", "correo.js");
 const apiRoutesRoot = path.join(projectRoot, "servidor", "rutas");
@@ -17,9 +18,21 @@ const automationRoot = path.join(projectRoot, "herramientas", "automatizacion");
 const htmlFiles = fs.readdirSync(root).filter((name) => name.endsWith(".html")).sort();
 const failures = [];
 
-for (const publicDocument of ["README.md", "Estructura.txt"]) {
+for (const publicDocument of ["README.md"]) {
     const content = fs.readFileSync(path.join(projectRoot, publicDocument), "utf8");
     check(!/^(?:usuario|clave|contraseña)\s*:\s*\S+/im.test(content), `${publicDocument}: contiene una credencial escrita en texto visible`);
+}
+
+const envExampleFile = path.join(projectRoot, ".env.example");
+check(fs.existsSync(envExampleFile), ".env.example: falta la plantilla de configuración indicada en README.md");
+if (fs.existsSync(envExampleFile)) {
+    const envExample = fs.readFileSync(envExampleFile, "utf8");
+    for (const key of ["DATA_SOURCE", "DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME", "ADMIN_AUTH_SALT", "ADMIN_AUTH_PASSWORD_HASH", "INSTRUCTOR_AUTH_SALT", "INSTRUCTOR_AUTH_PASSWORD_HASH", "OTP_SECRET"]) {
+        check(new RegExp(`^${key}=`, "m").test(envExample), `.env.example: falta la variable ${key}`);
+    }
+    for (const key of ["DB_PASSWORD", "DB_MIGRATION_PASSWORD", "ADMIN_AUTH_SALT", "ADMIN_AUTH_PASSWORD_HASH", "INSTRUCTOR_AUTH_SALT", "INSTRUCTOR_AUTH_PASSWORD_HASH", "OTP_SECRET", "GMAIL_APP_PASSWORD", "RESEND_API_KEY"]) {
+        check(new RegExp(`^${key}=$`, "m").test(envExample), `.env.example: ${key} debe permanecer sin secretos`);
+    }
 }
 
 function publicFile(file) {
@@ -27,7 +40,9 @@ function publicFile(file) {
         ".html": root,
         ".js": scriptsRoot,
         ".css": stylesRoot,
-        ".png": imagesRoot
+        ".png": imagesRoot,
+        ".webp": videosRoot,
+        ".mp4": videosRoot
     };
     const directory = directories[path.extname(file).toLowerCase()];
     return directory && path.basename(file) === file ? path.join(directory, file) : "";
@@ -49,6 +64,14 @@ for (const file of htmlFiles) {
     check(occurrences(html, /<body\b/gi) === 1, `${file}: debe contener una sola etiqueta <body>`);
     check(occurrences(html, /<\/body>/gi) === 1, `${file}: debe contener un solo cierre </body>`);
     check(html.indexOf("</body>") < html.indexOf("</html>"), `${file}: el cierre de body debe ir antes de html`);
+
+    for (const image of html.match(/<img\b[^>]*>/gi) || []) {
+        check(/\balt="[^"]*"/i.test(image), `${file}: cada imagen necesita texto alternativo`);
+        check(/\bwidth="\d+"/i.test(image) && /\bheight="\d+"/i.test(image), `${file}: cada imagen debe reservar ancho y alto`);
+    }
+    for (const icon of html.match(/<i\b[^>]*class="[^"]+"[^>]*>/gi) || []) {
+        check(/\baria-hidden="true"/i.test(icon), `${file}: los iconos decorativos deben ocultarse a lectores de pantalla`);
+    }
 
     for (const match of html.matchAll(/(?:href|src)="([^"]+)"/gi)) {
         const target = match[1];
@@ -88,11 +111,14 @@ try {
 }
 
 const login = fs.readFileSync(path.join(root, "login.html"), "utf8");
+const githubIndex = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
 const appSource = ["aplicacion.js", "asistencia.js", "estadisticas.js", "programas.js", "usuarios.js"]
     .map((file) => fs.readFileSync(path.join(scriptsRoot, file), "utf8"))
     .join("\n");
 const authSource = fs.readFileSync(path.join(scriptsRoot, "autenticacion.js"), "utf8");
+const attendanceQrSource = fs.readFileSync(path.join(scriptsRoot, "asistencia_qr.js"), "utf8");
 const navigationSource = fs.readFileSync(path.join(scriptsRoot, "navegacion.js"), "utf8");
+const baseStyles = fs.readFileSync(path.join(stylesRoot, "base.css"), "utf8");
 const crudSource = fs.readFileSync(path.join(scriptsRoot, "usuarios.js"), "utf8");
 const operationalApprentices = path.join(projectRoot, "datos", "aprendices.json");
 const sampleApprentices = path.join(projectRoot, "datos", "ejemplos", "aprendices.ejemplo.json");
@@ -107,7 +133,13 @@ check(login.includes('data-auth-tab="apprentice"'), "login.html: falta la pesta�
 check(authSource.includes('window.location.replace(destinationFor(serverUser, requestedDestination()))'), "auth.js: una sesión activa debe salir automáticamente del login");
 check(authSource.includes('window.location.replace(destinationFor(result.user, requestedDestination()))'), "auth.js: el código verificado debe dirigir según el rol del usuario");
 check(authSource.includes('const LOCAL_APP_ORIGIN = "http://localhost:3000"'), "auth.js: falta asegurar el servidor local correcto");
+check(authSource.includes('window.location.hostname.endsWith(".github.io")'), "auth.js: GitHub Pages debe reconocer que no puede ejecutar la API");
+check(authSource.includes('window.location.replace(`${LOCAL_APP_ORIGIN}/login.html`)'), "auth.js: GitHub Pages debe dirigir la autenticación al servidor Node local");
+check(githubIndex.includes('window.location.replace("http://localhost:3000/login.html")'), "index.html: GitHub Pages debe redirigir temprano al servidor Node local");
 check(authSource.includes('[404, 405].includes(response.status)'), "auth.js: falta detectar servidores que rechazan la API");
+check(attendanceQrSource.includes("new AbortController()"), "asistencia_qr.js: falta limitar la espera de la API");
+check(attendanceQrSource.includes("El servidor tardó demasiado en responder."), "asistencia_qr.js: falta informar el timeout del QR");
+check(attendanceQrSource.includes("Reintentando en 5 segundos"), "asistencia_qr.js: falta la recuperación controlada del QR");
 if (usesOperationalData) {
     const activeApprentices = csvUsers.filter((item) => item.rol === "aprendiz" && item.estado === "activo");
     check(apprenticeData.length === activeApprentices.length, "Datos: los perfiles de aprendices no coinciden con el directorio activo");
@@ -180,6 +212,19 @@ check(!appSource.includes('loadData("programs")'), "usuarios.js: programas no de
 check(fs.readFileSync(serverFile, "utf8").includes("pendingCodeRequests") && fs.readFileSync(serverFile, "utf8").includes("emailService.enqueueVerificationCode"), "servidor.js: falta protección contra envíos duplicados o saturación del correo");
 check(fs.existsSync(emailModuleFile) && fs.readFileSync(emailModuleFile, "utf8").includes("deliveryTail"), "correo.js: falta la cola independiente de entrega");
 check(navigationSource.includes('className = "sidebar-overlay"'), "navegacion.js: falta cerrar el menú móvil desde el fondo");
+check(navigationSource.includes('class="sena-logo-video"'), "navegacion.js: falta el logo institucional animado");
+check(!navigationSource.includes('poster="logo_sena.png"'), "navegacion.js: el PNG no debe mostrarse como poster antes del video");
+check(navigationSource.includes('class="sena-logo-fallback"') && navigationSource.includes('classList.add("logo-video-error")'), "navegacion.js: falta el fallback estático ante un error real del video");
+check(navigationSource.includes('preload="auto"') && navigationSource.includes("loadeddata") && navigationSource.includes('classList.add("is-ready")'), "navegacion.js: el video debe revelarse únicamente cuando tenga un frame disponible");
+check(/\.logo \.sena-logo-video\s*\{[^}]*opacity:0;[^}]*transition:opacity 120ms linear;/s.test(baseStyles), "base.css: falta ocultar y revelar suavemente el video durante la carga");
+check(/\.logo \.sena-logo-video\.is-ready\s*\{[^}]*opacity:1;/s.test(baseStyles), "base.css: falta el estado visible del logo animado");
+check(fs.existsSync(path.join(videosRoot, "video sena logo.mp4")), "Recursos: falta el video institucional del logo SENA");
+check(navigationSource.includes('class="sena-logo-session-frame"'), "navegacion.js: falta el fotograma puente para continuidad entre páginas");
+check(navigationSource.includes('sena-logo-session-epoch-v2') && navigationSource.includes('targetSessionTime'), "navegacion.js: falta sincronizar la fase del logo durante toda la sesión");
+check(navigationSource.includes('window.addEventListener("pageshow"') && navigationSource.includes('document.visibilityState === "hidden"'), "navegacion.js: falta resincronizar el logo al volver a la página o pestaña");
+check(!navigationSource.includes('video.addEventListener("timeupdate"'), "navegacion.js: no debe reiniciar la fase global desde timeupdate");
+check(baseStyles.includes('view-transition-name:sena-logo-session') && baseStyles.includes('@view-transition'), "base.css: falta continuidad visual entre documentos para el logo");
+check(fs.existsSync(path.join(videosRoot, "logo_sena_video_frame.webp")), "Recursos: falta el fotograma inicial del video para carga continua");
 
 for (const [file, markers] of Object.entries(requiredFeatures)) {
     const html = fs.readFileSync(path.join(root, file), "utf8");
@@ -216,7 +261,8 @@ async function smokeTest() {
             "paneles_academicos.css",
             "navegacion_aprendiz.css",
             "estadisticas_usuarios.css",
-            "programas_indicadores.css"
+            "programas_indicadores.css",
+            "sistema_visual.css"
         ];
         for (const file of [...htmlFiles, ...recursosPublicos]) {
             const response = await fetch(`http://127.0.0.1:${port}/${encodeURIComponent(file)}`);
@@ -293,6 +339,15 @@ async function emailApiTest() {
         const adminData = await adminResponse.json();
         const adminCookie = adminResponse.headers.get("set-cookie")?.split(";")[0] || "";
         check(adminResponse.status === 200 && adminData.user.role === "Administrador", "API contraseña: no autenticó al administrador");
+
+        const logoVideoResponse = await fetch(`${baseUrl}/video%20sena%20logo.mp4`, { method: "HEAD" });
+        check(logoVideoResponse.status === 200, `Video institucional: respuesta HTTP ${logoVideoResponse.status}`);
+        check(logoVideoResponse.headers.get("content-type") === "video/mp4", "Video institucional: MIME distinto de video/mp4");
+        const logoFrameResponse = await fetch(`${baseUrl}/logo_sena_video_frame.webp`, { method: "HEAD" });
+        check(logoFrameResponse.status === 200, `Fotograma institucional: respuesta HTTP ${logoFrameResponse.status}`);
+        check(logoFrameResponse.headers.get("content-type") === "image/webp", "Fotograma institucional: MIME distinto de image/webp");
+        check(/max-age=31536000/.test(logoFrameResponse.headers.get("cache-control") || ""), "Fotograma institucional: falta cache persistente para continuidad");
+        check(/max-age=31536000/.test(logoVideoResponse.headers.get("cache-control") || ""), "Video institucional: falta cache persistente para continuidad");
         check((adminResponse.headers.get("set-cookie") || "").includes("HttpOnly"), "API contraseña: la sesión no usa cookie HttpOnly");
 
         const adminProfileResponse = await fetch(`${baseUrl}/api/auth/profile`, { headers: { Cookie: adminCookie } });

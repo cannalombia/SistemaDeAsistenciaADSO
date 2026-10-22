@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createProjectServer } = require('../servidor/servidor');
-const { createDump, parseUsersSql, LIMIT } = require('../servidor/modulos/sqlfile');
+const { createDump, parseUsersSql, parseDatabaseSql, LIMIT } = require('../servidor/modulos/sqlfile');
 const { serializeCsvUsers, loadCsvUsers } = require('../servidor/modulos/persistencia');
 
 async function main() {
@@ -14,9 +14,19 @@ async function main() {
     fs.writeFileSync(file, serializeCsvUsers([]));
     const sql = createDump([user]);
     assert.deepEqual(parseUsersSql(sql), [user]);
-    for (const invalid of [sql + 'DROP TABLE usuarios;', sql + 'SELECT 1;', sql + '/* ! DROP */', sql.replace("'800000901'", 'SLEEP(5)'), sql.replace('`usuarios` VALUES', '`cuentas` VALUES'), sql + "INSERT INTO usuarios VALUES ('incompleto');"]) {
+    for (const invalid of [sql + 'DROP TABLE usuarios;', sql + 'SELECT 1;', sql + '/* ! DROP */', sql.replace("'800000901'", 'SLEEP(5)'), sql.replace('CREATE TABLE `usuarios`', 'CREATE TABLE `cuentas`'), sql + "INSERT INTO usuarios VALUES ('incompleto');"]) {
         assert.throws(() => parseUsersSql(invalid));
     }
+    const completeSql = createDump([user], {
+        ambientes: [{ id: 1, nombre: 'Aula "Norte"' }], fichas: [], horarios: [], programas: [],
+        aprendices: [], asistencia: [{ fecha: '2026-10-13', ficha: '1', observacion: 'Línea\\nsegura' }],
+        reportes: [], cuentas: [], auditoria: [], excusas: [], formacion_configuracion: [{ attendanceClosures: [] }]
+    });
+    const complete = parseDatabaseSql(completeSql);
+    assert.equal(complete.integral, true);
+    assert.deepEqual(complete.tables.ambientes, [{ id: 1, nombre: 'Aula "Norte"' }]);
+    assert.equal(complete.tables.asistencia[0].observacion, 'Línea\\nsegura');
+    assert.throws(() => parseDatabaseSql(completeSql.replace('Aula', 'Salon')), /firma de integridad/);
     const server = createProjectServer({ usersCsvFile: file, apprentices: [], managedUsers: [], attendanceRecords: [],
         sqlData: { ambientes: [], horarios: [], programas: [], fichas: [] }, adminPassword: 'sql-test-password',
         emailSender: async () => ({ id: 'test' }), publicUrl: '', allowedDomain: '', allowedEmails: '' });
@@ -34,7 +44,7 @@ async function main() {
         const login = await fetch(base + '/api/auth/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: 'admin', password: 'sql-test-password' }) });
         assert.equal(login.status, 200);
         cookie = login.headers.get('set-cookie').split(';')[0];
-        for (const args of [[sql, 'usuarios.csv'], [sql, 'usuarios.sql', 'image/png'], [sql, 'usuarios.sql', 'application/octet-stream'], [sql, 'usuarios.sql', 'application/sql', 'bad'], [''], [sql + 'DROP TABLE usuarios;']]) {
+        for (const args of [[sql, 'usuarios.csv'], [sql, 'usuarios.sql', 'image/png'], [sql, 'usuarios.sql', 'application/sql', 'bad'], [''], [sql + 'DROP TABLE usuarios;']]) {
             const result = await upload(...args);
             assert.equal(result.status, 400, await result.text());
             assert.equal(loadCsvUsers(file).length, 0);
@@ -46,6 +56,12 @@ async function main() {
         assert.equal(response.status, 413, await response.text());
         response = await upload(sql, 'USUARIOS.SQL', 'text/plain');
         assert.equal(response.status, 201, await response.text());
+        response = await upload(completeSql, 'Base_completa.sql', 'application/octet-stream');
+        assert.equal(response.status, 201, await response.text());
+        response = await fetch(base + '/api/statistics?from=2026-10-13&to=2026-10-13', { headers: { Cookie: cookie } });
+        const statistics = await response.json();
+        assert.equal(response.status, 200);
+        assert.equal(statistics.distribution.total, 1, 'Las estadísticas no recibieron la asistencia restaurada desde SQL.');
         response = await fetch(base + '/api/users/export-sql', { headers: { Cookie: cookie } });
         assert.equal(response.status, 200);
         assert.equal(response.headers.get('content-disposition'), 'attachment; filename="Base_datos_SENA.sql"');
@@ -53,9 +69,18 @@ async function main() {
         assert.ok(dump.includes("María O''Brien"));
         assert.ok(dump.includes('CREATE TABLE `asistencia`'));
         assert.ok(!dump.includes('passwordHash'));
+        const parsedDump = parseDatabaseSql(dump);
+        assert.equal(parsedDump.integral, true);
+        assert.deepEqual(Object.keys(parsedDump.tables), ['ambientes', 'fichas', 'horarios', 'programas', 'aprendices', 'asistencia', 'reportes', 'cuentas', 'auditoria', 'excusas', 'formacion_configuracion']);
         const updated = { ...user, nombre: 'Edición externa' };
         fs.writeFileSync(file, serializeCsvUsers([updated]));
         assert.ok(server.exportDatabaseSql().includes('Edición externa'));
+        response = await upload(dump, 'Base_datos_SENA.sql', 'application/octet-stream');
+        const restoredText = await response.text();
+        assert.equal(response.status, 201, restoredText);
+        const restored = JSON.parse(restoredText);
+        assert.equal(restored.importResult.integral, true);
+        assert.equal(loadCsvUsers(file)[0].nombre, user.nombre);
         console.log('OK: SQLFILE, permisos, MIME, extensión, límite exacto, SQL malicioso, actualización, exportación y CSV vigente.');
     } finally {
         await new Promise(resolve => server.close(resolve));

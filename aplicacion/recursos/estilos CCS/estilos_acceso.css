@@ -1,3 +1,5 @@
+@import url("sistema_visual.css?v=responsive-20261014");
+
 /*====================================
         STYLELOGIN.CSS
 ====================================*/
@@ -85,6 +87,8 @@ body{
 .logo{
 
     width:85px;
+
+    height:auto;
 
     display:block;
 
@@ -646,4 +650,269 @@ label{
 .btn-link:hover{
     color:#2f973d;
     text-decoration:underline;
+}
+
+/* ===== CIERRE VISUAL INTERNO — ACCESO ===== */
+body.ui-v72.access-page{
+    background:
+        radial-gradient(circle at 12% 18%,rgba(57,181,74,.10),transparent 28%),
+        radial-gradient(circle at 88% 80%,rgba(0,59,92,.10),transparent 32%),
+        #f4f7f8;
+}
+body.ui-v72.access-page .contenedor{gap:56px}
+body.ui-v72.access-page .login{
+    border:1px solid var(--ui-border);
+    box-shadow:0 24px 65px rgba(22,48,62,.13);
+}
+body.ui-v72.access-page .login h2{
+    color:var(--ui-primary);
+    letter-spacing:-.02em;
+}
+body.ui-v72.access-page .login > p{color:var(--ui-muted)}
+body.ui-v72.access-page label{color:#334650;font-weight:700}
+body.ui-v72.access-page .input{
+    min-height:48px;
+    border-color:var(--ui-border-strong);
+    background:#fff;
+    transition:border-color var(--ui-transition),box-shadow var(--ui-transition),background var(--ui-transition);
+}
+body.ui-v72.access-page .input:focus-within{
+    border-color:var(--ui-accent);
+    box-shadow:0 0 0 3px var(--ui-focus);
+}
+body.ui-v72.access-page .input input{min-height:46px;background:transparent;color:var(--ui-text)}
+body.ui-v72.access-page .auth-tabs{
+    padding:4px;
+    border:1px solid var(--ui-border);
+    border-radius:12px;
+    background:#f3f7f8;
+}
+body.ui-v72.access-page .auth-tab{
+    min-height:42px;
+    border-radius:9px;
+}
+body.ui-v72.access-page .auth-tab.active{
+    background:#fff;
+    color:var(--ui-primary);
+    box-shadow:0 4px 12px rgba(22,48,62,.08);
+}
+body.ui-v72.access-page .btn-login,
+body.ui-v72.access-page .btn-secondary{min-height:48px;border-radius:10px}
+body.ui-v72.access-page .btn-link{min-height:44px}
+body.ui-v72.access-page :where(button,input,a):focus-visible{
+    outline:3px solid var(--ui-focus);
+    outline-offset:3px;
+}
+@media(max-width:600px){
+    body.ui-v72.access-page .contenedor{padding-inline:14px}
+    body.ui-v72.access-page .login{width:100%;padding:26px 20px;border-radius:18px}
+    body.ui-v72.access-page .login h2{font-size:25px}
+}
+
+/* ===== ACCESO RESPONSIVO PARA PORTÁTILES A 100% =====
+   Conserva la legibilidad sin depender del zoom del navegador. */
+body.ui-v72.access-page .imagen{
+    min-width:0;
+    padding-left:clamp(20px,4vw,50px);
+}
+
+body.ui-v72.access-page .imagen img{
+    width:min(58vw,900px);
+    height:auto;
+    max-width:100%;
+    max-height:calc(100dvh - 20px);
+    object-fit:contain;
+}
+
+@media (min-width:1101px) and (max-height:820px){
+    body.ui-v72.access-page{
+        overflow:hidden;
+    }
+
+    body.ui-v72.access-page .contenedor{
+        min-height:100vh;
+        min-height:100dvh;
+        gap:clamp(28px,4vw,56px);
+        padding:10px clamp(36px,7vw,96px);
+    }
+
+    body.ui-v72.access-page .login{
+        flex:0 0 360px;
+        width:360px;
+        padding:24px 28px;
+        border-radius:20px;
+    }
+
+    body.ui-v72.access-page .logo{
+        width:68px;
+        margin-bottom:12px;
+    }
+
+    body.ui-v72.access-page .login h2{
+        margin-bottom:7px;
+        font-size:26px;
+        line-height:1.15;
+        white-space:nowrap;
+    }
+
+    body.ui-v72.access-page .login > p{
+        margin-bottom:16px;
+        font-size:13px;
+        line-height:20px;
+    }
+
+    body.ui-v72.access-page .auth-status{
+        margin-bottom:12px;
+        padding:9px 11px;
+    }
+
+    body.ui-v72.access-page .auth-tabs{
+        margin-bottom:14px;
+    }
+
+    body.ui-v72.access-page .auth-tab{
+        height:36px;
+        min-height:36px;
+        font-size:12px;
+    }
+
+    body.ui-v72.access-page label{
+        margin-top:10px;
+        margin-bottom:6px;
+        font-size:13px;
+    }
+
+    body.ui-v72.access-page .input{
+        height:42px;
+        min-height:42px;
+        margin-bottom:6px;
+    }
+
+    body.ui-v72.access-page .input input{
+        min-height:40px;
+        font-size:14px;
+    }
+
+    body.ui-v72.access-page .btn-login,
+    body.ui-v72.access-page .btn-secondary{
+        height:44px;
+        min-height:44px;
+        font-size:14px;
+    }
+
+    body.ui-v72.access-page .btn-link{
+        min-height:34px;
+        margin-top:8px;
+        font-size:12px;
+    }
+
+    body.ui-v72.access-page .imagen{
+        align-self:stretch;
+        padding-left:0;
+    }
+
+    body.ui-v72.access-page .imagen img{
+        width:auto;
+        height:min(100dvh - 16px,720px);
+        max-width:100%;
+        max-height:calc(100dvh - 16px);
+    }
+}
+
+@media (min-width:1101px) and (max-height:640px){
+    body.ui-v72.access-page .login{
+        padding:18px 24px;
+    }
+
+    body.ui-v72.access-page .logo{
+        width:58px;
+        margin-bottom:8px;
+    }
+
+    body.ui-v72.access-page .login h2{
+        font-size:23px;
+    }
+
+    body.ui-v72.access-page .login > p{
+        margin-bottom:11px;
+        line-height:18px;
+    }
+
+    body.ui-v72.access-page .auth-tabs{
+        margin-bottom:9px;
+    }
+}
+
+@media(max-width:600px){
+    body.ui-v72.access-page{
+        align-items:flex-start;
+        padding-top:max(18px,env(safe-area-inset-top));
+        padding-bottom:max(12px,env(safe-area-inset-bottom));
+    }
+
+    body.ui-v72.access-page .contenedor{
+        gap:12px;
+        margin:0 auto;
+        padding:0 14px;
+    }
+
+    body.ui-v72.access-page .login{
+        padding:20px 18px 18px;
+    }
+
+    body.ui-v72.access-page .logo{
+        width:68px;
+        margin-bottom:10px;
+    }
+
+    body.ui-v72.access-page .login h2{
+        margin-bottom:8px;
+        font-size:24px;
+    }
+
+    body.ui-v72.access-page .login > p{
+        margin-bottom:16px;
+        line-height:20px;
+    }
+
+    body.ui-v72.access-page .auth-tabs{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        margin-bottom:14px;
+    }
+
+    body.ui-v72.access-page .auth-tab{
+        min-width:0;
+        min-height:44px;
+        height:auto;
+        padding:7px 5px;
+        font-size:11.5px;
+        line-height:1.2;
+    }
+
+    body.ui-v72.access-page .imagen{
+        flex:none;
+        align-self:auto;
+        width:100%;
+        height:clamp(190px,57vw,235px);
+        margin:0;
+        padding-left:0;
+        overflow:hidden;
+        justify-content:center;
+        align-items:flex-end;
+    }
+
+    body.ui-v72.access-page .imagen img{
+        width:auto;
+        height:100%;
+        max-width:100%;
+        max-height:none;
+        object-fit:contain;
+        object-position:center bottom;
+    }
+}
+
+@media(max-width:350px){
+    body.ui-v72.access-page .auth-tabs{
+        grid-template-columns:1fr;
+    }
 }

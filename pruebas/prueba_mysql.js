@@ -23,4 +23,12 @@ assert.match(migrations[0].up, /DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_
 assert.match(migrations[0].up, /ON UPDATE CASCADE ON DELETE RESTRICT/);
 assert.match(migrations[0].up, /idx_attendance_lookup/);
 assert.ok(fs.existsSync(path.join(__dirname, "..", "base_datos", "migraciones", "001_esquema_aplicacion.down.sql")));
-console.log("OK: configuración, validación comparativa, relaciones y migraciones MySQL.");
+const resilienceMigration = migrations.find((item) => item.version.startsWith("003_resiliencia_multiinstancia"));
+assert.ok(resilienceMigration, "Debe existir la migración 003 de resiliencia multi-instancia.");
+assert.match(resilienceMigration.up, /CREATE TABLE IF NOT EXISTS app_sessions/);
+assert.match(resilienceMigration.up, /CREATE TABLE IF NOT EXISTS app_qr_tokens/);
+assert.match(resilienceMigration.up, /CREATE TABLE IF NOT EXISTS app_idempotency/);
+assert.match(resilienceMigration.up, /CREATE TABLE IF NOT EXISTS app_email_outbox/);
+assert.match(resilienceMigration.up, /CREATE TABLE IF NOT EXISTS app_instance_heartbeats/);
+assert.match(resilienceMigration.up, /UNIQUE KEY uq_attendance_effective/);
+console.log("OK: configuración, validación comparativa, relaciones y migraciones MySQL, incluida resiliencia multi-instancia.");

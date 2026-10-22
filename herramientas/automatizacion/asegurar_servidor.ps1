@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [int]$Port = 3000,
     [switch]$StatusOnly
@@ -8,10 +8,16 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $DataDirectory = Join-Path $ProjectRoot "datos"
 $ServerScript = Join-Path $ProjectRoot "servidor\servidor.js"
+$BuildIdFile = Join-Path $ProjectRoot "BUILD_ID.txt"
+$ExpectedBuildId = if (Test-Path -LiteralPath $BuildIdFile) { (Get-Content -LiteralPath $BuildIdFile -Raw).Trim() } else { "development" }
 $SupervisorLog = Join-Path $DataDirectory "supervisor_servidor.log"
 $ServerOutputLog = Join-Path $DataDirectory "servidor_salida.log"
 $ServerErrorLog = Join-Path $DataDirectory "servidor_errores.log"
-$HealthUrl = "http://127.0.0.1:$Port/api/health"
+$HealthUrl = "http://127.0.0.1:$Port/api/health/ready"
+$FullHealthUrl = "http://127.0.0.1:$Port/api/health"
+$RestartStateFile = Join-Path $DataDirectory "supervisor_reinicios.json"
+$MysqlSupervisor = Join-Path $PSScriptRoot "asegurar_mysql.ps1"
+$CredentialsCheck = Join-Path $ProjectRoot "herramientas\verificar_credenciales.js"
 
 New-Item -ItemType Directory -Path $DataDirectory -Force | Out-Null
 
@@ -33,6 +39,56 @@ function Get-ProjectHealth {
     return $null
 }
 
+function Get-FullProjectHealth {
+    try { return Invoke-RestMethod -Uri $FullHealthUrl -Method Get -TimeoutSec 4 } catch { return $null }
+}
+
+function Test-RestartBudget {
+    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $recent = @()
+    if (Test-Path -LiteralPath $RestartStateFile) {
+        try {
+            $parsed = @(Get-Content -LiteralPath $RestartStateFile -Raw | ConvertFrom-Json)
+            $recent = @($parsed | Where-Object { [long]$_ -ge ($now - 300) })
+        } catch { $recent = @() }
+    }
+    if ($recent.Count -ge 5) {
+        Write-SupervisorLog "Protección crash-loop: se alcanzaron $($recent.Count) reinicios en 5 minutos. Se esperará antes de volver a intentar."
+        return $false
+    }
+    $recent += $now
+    $recent | ConvertTo-Json | Set-Content -LiteralPath $RestartStateFile -Encoding UTF8
+    return $true
+}
+
+function Clear-RestartBudget {
+    try { @() | ConvertTo-Json | Set-Content -LiteralPath $RestartStateFile -Encoding UTF8 } catch { }
+}
+
+function Get-ListeningNodeProcesses {
+    $result = @()
+    $listeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
+    foreach ($processId in ($listeners.OwningProcess | Sort-Object -Unique)) {
+        $process = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
+        if ($process) { $result += $process }
+    }
+    return @($result)
+}
+
+function Test-CurrentProjectServer {
+    param($Process)
+    if (-not $Process -or $Process.Name -ne "node.exe") { return $false }
+    $commandLine = ([string]$Process.CommandLine).Replace('/', '\').ToLowerInvariant()
+    $expectedScript = ([System.IO.Path]::GetFullPath($ServerScript)).Replace('/', '\').ToLowerInvariant()
+    return $commandLine.Contains($expectedScript)
+}
+
+function Test-AnyProjectServer {
+    param($Process)
+    if (-not $Process -or $Process.Name -ne "node.exe") { return $false }
+    return ([string]$Process.CommandLine) -match "servidor[\\/]servidor\.js"
+}
+
 function Rotate-Log {
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) { return }
@@ -43,40 +99,83 @@ function Rotate-Log {
 }
 
 $health = Get-ProjectHealth
-if ($health) {
+$processes = @(Get-ListeningNodeProcesses)
+$currentProcess = $processes | Where-Object { Test-CurrentProjectServer $_ } | Select-Object -First 1
+$buildMatches = $health -and ([string]$health.buildId -eq $ExpectedBuildId)
+$currentInstanceReady = $health -and $currentProcess -and $buildMatches
+
+if ($currentInstanceReady) {
+    Clear-RestartBudget
     if ($StatusOnly) {
+        $full = Get-FullProjectHealth
         [pscustomobject]@{
             Active = $true
             Url = "http://localhost:$Port/login.html"
-            StartedAt = $health.startedAt
-            EmailReady = $health.email.ready
-            EmailProvider = $health.email.provider
+            BuildId = $health.buildId
+            InstanceId = $health.instanceId
+            StartedAt = if ($full) { $full.startedAt } else { $null }
+            EmailReady = if ($full) { $full.email.ready } else { $null }
+            EmailProvider = if ($full) { $full.email.provider } else { $null }
         } | Format-List
     }
     exit 0
 }
 
 if ($StatusOnly) {
-    [pscustomobject]@{ Active = $false; Url = "http://localhost:$Port/login.html" } | Format-List
+    $reason = if ($health -and -not $buildMatches) {
+        "Hay otra versión de Blue Magic usando el puerto $Port."
+    } elseif ($health -and -not $currentProcess) {
+        "Blue Magic está activo desde otra carpeta."
+    } else {
+        "La versión actual no está activa."
+    }
+    $detectedBuildId = $null
+    if ($health) { $detectedBuildId = [string]$health.buildId }
+    [pscustomobject]@{
+        Active = $false
+        Url = "http://localhost:$Port/login.html"
+        ExpectedBuildId = $ExpectedBuildId
+        DetectedBuildId = $detectedBuildId
+        Reason = $reason
+    } | Format-List
     exit 1
 }
 
-$listeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
-if ($listeners.Count -gt 0) {
+# Quien invoque este supervisor directamente (npm run start:ensure o el
+# vigilante) recibe las mismas garantías que ABRIR_PROYECTO.cmd.
+& $MysqlSupervisor
+if ($LASTEXITCODE -ne 0) {
+    Write-SupervisorLog "No se inició Node.js porque MySQL no está listo."
+    exit 7
+}
+& node.exe $CredentialsCheck
+if ($LASTEXITCODE -ne 0) {
+    Write-SupervisorLog "No se inició Node.js porque faltan credenciales de acceso válidas."
+    exit 8
+}
+
+# Si localhost:3000 pertenece a una copia anterior del mismo proyecto,
+# la cerramos antes de iniciar esta carpeta. Esta validación evita que el
+# navegador siga mostrando HTML/CSS viejos aunque el usuario abra un ZIP nuevo.
+if ($processes.Count -gt 0) {
     $stoppedProjectProcess = $false
-    foreach ($processId in ($listeners.OwningProcess | Sort-Object -Unique)) {
-        $process = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
-        if ($process -and $process.Name -eq "node.exe" -and $process.CommandLine -match "servidor[\\/]servidor\.js") {
-            Stop-Process -Id $processId -Force
+    foreach ($process in $processes) {
+        if (Test-AnyProjectServer $process) {
+            Stop-Process -Id $process.ProcessId -Force
             $stoppedProjectProcess = $true
-            Write-SupervisorLog "Se detuvo el servidor bloqueado (PID $processId) para recuperarlo."
+            $source = if (Test-CurrentProjectServer $process) { "misma carpeta, versión anterior" } else { "otra carpeta/versión" }
+            Write-SupervisorLog "Se detuvo Blue Magic de $source (PID $($process.ProcessId)); se iniciará build $ExpectedBuildId."
         }
     }
     if (-not $stoppedProjectProcess) {
         Write-SupervisorLog "No se pudo iniciar: el puerto $Port está ocupado por otro programa."
         exit 2
     }
-    Start-Sleep -Milliseconds 500
+    Start-Sleep -Milliseconds 650
+}
+
+if (-not (Test-RestartBudget)) {
+    exit 6
 }
 
 Rotate-Log -Path $ServerOutputLog
@@ -91,7 +190,7 @@ try {
         -RedirectStandardOutput $ServerOutputLog `
         -RedirectStandardError $ServerErrorLog `
         -PassThru
-    Write-SupervisorLog "Servidor iniciado (PID $($process.Id))."
+    Write-SupervisorLog "Servidor iniciado (PID $($process.Id), build $ExpectedBuildId, raíz $ProjectRoot)."
 } catch {
     Write-SupervisorLog "Error al iniciar el servidor: $($_.Exception.Message)"
     exit 3
@@ -100,8 +199,11 @@ try {
 for ($attempt = 1; $attempt -le 15; $attempt += 1) {
     Start-Sleep -Seconds 1
     $health = Get-ProjectHealth
-    if ($health) {
-        Write-SupervisorLog "Servidor listo en http://localhost:$Port/login.html; correo=$($health.email.provider), disponible=$($health.email.ready)."
+    if ($health -and ([string]$health.buildId -eq $ExpectedBuildId)) {
+        Clear-RestartBudget
+        $full = Get-FullProjectHealth
+        $emailText = if ($full) { "correo=$($full.email.provider), disponible=$($full.email.ready)" } else { "health completo pendiente" }
+        Write-SupervisorLog "Servidor listo en http://localhost:$Port/login.html; build=$($health.buildId); instance=$($health.instanceId); $emailText."
         exit 0
     }
     if ($process.HasExited) {
@@ -110,5 +212,5 @@ for ($attempt = 1; $attempt -le 15; $attempt += 1) {
     }
 }
 
-Write-SupervisorLog "El servidor no respondió después de 15 segundos."
+Write-SupervisorLog "El servidor no respondió con el build esperado $ExpectedBuildId después de 15 segundos."
 exit 5

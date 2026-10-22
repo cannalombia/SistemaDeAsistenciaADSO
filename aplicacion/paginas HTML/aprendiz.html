@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal del Aprendiz | Sistema SENA</title>
-    <link rel="stylesheet" href="estilos_generales.css">
+    <link rel="stylesheet" href="estilos_generales.css?v=sidebar-uniforme-20261015">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>.auth-pending body{visibility:hidden}</style>
     <script>document.documentElement.classList.add("auth-pending");</script>
 </head>
-<body class="apprentice-portal">
+<body class="apprentice-portal ui-v72">
+<script src="tema_inicial.js"></script>
+<script src="resiliencia_cliente.js"></script>
 <div class="container">
     <aside class="sidebar" data-navegacion-principal></aside>
 
@@ -19,23 +21,23 @@
                 <h1>Hola, <span data-auth-name>Aprendiz</span></h1>
                 <p>Consulta tu proceso formativo y tu asistencia</p>
             </div>
-            <div class="learner-role"><i class="fas fa-user-graduate"></i> Aprendiz</div>
+            <div class="learner-role"><i class="fas fa-user-graduate" aria-hidden="true"></i> Aprendiz</div>
         </header>
 
         <section id="apprentice-attendance" class="apprentice-section active">
             <div class="cards apprentice-summary">
                 <div class="card card-asistencia">
-                    <div class="top"><i class="fas fa-chart-pie"></i><span>Asistencia acumulada</span></div>
+                    <div class="top"><i class="fas fa-chart-pie" aria-hidden="true"></i><span>Asistencia acumulada</span></div>
                     <h2 data-apprentice-stat="average">0%</h2>
                     <div class="bottom"><span>Año formativo</span></div>
                 </div>
                 <div class="card">
-                    <div class="top"><i class="fas fa-id-card"></i><span>Ficha</span></div>
+                    <div class="top"><i class="fas fa-id-card" aria-hidden="true"></i><span>Ficha</span></div>
                     <h2 data-apprentice-program="ficha">-</h2>
                     <div class="bottom"><span>Asignada</span></div>
                 </div>
                 <div class="card card-dark">
-                    <div class="top"><i class="fas fa-graduation-cap"></i><span>Estado</span></div>
+                    <div class="top"><i class="fas fa-graduation-cap" aria-hidden="true"></i><span>Estado</span></div>
                     <h2 class="learner-status" data-apprentice-program="status">-</h2>
                     <div class="bottom"><span>Programa actual</span></div>
                 </div>
@@ -52,21 +54,21 @@
             <section class="form-container learner-excuse-card">
                 <h2>Presentar una excusa</h2>
                 <p class="section-description">Solo puede enviarse para una ausencia registrada. Adjunta un soporte PDF, JPG o PNG de máximo 5 MB.</p>
-                <form id="apprentice-excuse-form">
+                <form id="apprentice-excuse-form" class="learner-excuse-form">
                     <div class="form-grid">
                         <div class="form-group"><label for="excuse-date">Fecha de ausencia</label><input id="excuse-date" name="fecha" type="date" required></div>
-                        <div class="form-group"><label for="excuse-support">Soporte</label><input id="excuse-support" name="SOPORTE" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
+                        <div class="form-group"><label for="excuse-support">Soporte</label><input id="excuse-support" class="learner-file-input" name="SOPORTE" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
                         <div class="form-group full-width"><label for="excuse-reason">Motivo</label><textarea id="excuse-reason" name="motivo" minlength="10" maxlength="500" required></textarea></div>
                     </div>
-                    <button type="submit" class="btn"><i class="fas fa-paper-plane"></i> Enviar excusa</button>
+                    <div class="learner-excuse-actions"><button type="submit" class="btn learner-excuse-submit"><i class="fas fa-paper-plane" aria-hidden="true"></i> Enviar excusa</button></div>
                 </form>
-                <div class="attendance-table-wrap"><table><thead><tr><th>Fecha</th><th>Motivo</th><th>Soporte</th><th>Estado</th><th>Respuesta</th></tr></thead><tbody id="apprentice-excuses"><tr><td colspan="5">Cargando excusas…</td></tr></tbody></table></div>
+                <div class="attendance-table-wrap learner-excuse-history"><table><thead><tr><th>Fecha</th><th>Motivo</th><th>Soporte</th><th>Estado</th><th>Respuesta</th></tr></thead><tbody id="apprentice-excuses"><tr><td colspan="5">Cargando excusas…</td></tr></tbody></table></div>
             </section>
         </section>
 
         <section id="apprentice-program" class="apprentice-section" hidden>
             <section class="form-container learner-program-card">
-                <div class="program-icon"><i class="fas fa-laptop-code"></i></div>
+                <div class="program-icon"><i class="fas fa-laptop-code" aria-hidden="true"></i></div>
                 <div>
                     <span class="eyebrow">Programa de formación</span>
                     <h2 data-apprentice-program="name">-</h2>
@@ -94,7 +96,7 @@
                         <div class="form-group"><label>Teléfono</label><input name="phone" type="tel" maxlength="30"></div>
                         <div class="form-group full-width"><label>Dirección</label><input name="address" type="text" maxlength="160"></div>
                     </div>
-                    <button type="submit" class="btn"><i class="fas fa-save"></i> Guardar cambios</button>
+                    <button type="submit" class="btn"><i class="fas fa-save" aria-hidden="true"></i> Guardar cambios</button>
                 </form>
             </section>
         </section>

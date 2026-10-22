@@ -24,12 +24,18 @@
     let nombreArchivo = document.getElementById("user-csv-file-name");
     let botonImportar = document.getElementById("user-csv-import-button");
     let resultadoImportacion = document.getElementById("user-import-result");
+    let botonBiometria = document.getElementById("user-biometric-enroll");
+    let estadoBiometria = document.getElementById("user-biometric-state");
+    let ayudaBiometria = document.getElementById("user-biometric-help");
+    let tarjetaBiometria = document.getElementById("user-biometric-card");
+    let usuarioBiometricoActual = null;
 
     let datos = {
         usuarios: [],
         fichas: [],
         filtro: "all",
-        archivo: null
+        archivo: null,
+        rolSesion: ""
     };
 
     function obtenerIniciales(nombre) {
@@ -151,7 +157,11 @@
             if (usuario.protected) {
                 acciones = '<span class="user-protected-account"><i class="fas fa-lock" aria-hidden="true"></i> Protegida</span>';
             } else {
+                const accionBiometrica = datos.rolSesion === "Administrador" && usuario.role === "Aprendiz"
+                    ? '<button type="button" class="biometric" data-user-action="biometric" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Gestionar huella de ' + escaparHtml(usuario.name) + '" title="Gestionar huella"><i class="fas fa-fingerprint" aria-hidden="true"></i></button>'
+                    : "";
                 acciones =
+                    accionBiometrica +
                     '<button type="button" data-user-action="edit" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Modificar ' + escaparHtml(usuario.name) + '" title="Modificar"><i class="fas fa-pen" aria-hidden="true"></i></button>' +
                     '<button type="button" data-user-action="status" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Cambiar estado de ' + escaparHtml(usuario.name) + '" title="Cambiar estado"><i class="fas ' + (usuario.status === "Activo" ? "fa-user-slash" : "fa-user-check") + '" aria-hidden="true"></i></button>' +
                     '<button type="button" class="danger" data-user-action="delete" data-user-id="' + escaparHtml(usuario.id) + '" aria-label="Eliminar ' + escaparHtml(usuario.name) + '" title="Eliminar"><i class="fas fa-trash" aria-hidden="true"></i></button>';
@@ -171,7 +181,7 @@
 
     function llenarFichas() {
         let fichaSeleccionada = listaFicha.value;
-        let opciones = ['<option value="">Seleccione una ficha...</option>'];
+        let opciones = ['<option value="">Seleccione una ficha…</option>'];
 
         datos.fichas.forEach(function (ficha) {
             opciones.push('<option value="' + escaparHtml(ficha.codigo) + '">' + escaparHtml(ficha.codigo) + " · " + escaparHtml(ficha.programa) + "</option>");
@@ -272,6 +282,56 @@
         });
     }
 
+    function mostrarEstadoBiometrico(tipo, texto, detalle) {
+        if (!estadoBiometria) return;
+        if (tarjetaBiometria) tarjetaBiometria.dataset.state = tipo || "idle";
+        estadoBiometria.className = "user-biometric-state" + (tipo ? " " + tipo : "");
+        const icono = tipo === "success" ? "fa-circle-check" : tipo === "error" ? "fa-triangle-exclamation" : tipo === "loading" ? "fa-circle-notch fa-spin" : "fa-circle-info";
+        estadoBiometria.innerHTML = '<i class="fas ' + icono + '" aria-hidden="true"></i> ' + escaparHtml(texto);
+        if (ayudaBiometria && detalle) ayudaBiometria.textContent = detalle;
+    }
+
+    function actualizarPanelBiometrico() {
+        if (!botonBiometria) return;
+        const esAprendiz = listaRol.value === "Aprendiz";
+        const esAdministrador = datos.rolSesion === "Administrador";
+        botonBiometria.disabled = !esAprendiz || !esAdministrador || !usuarioBiometricoActual;
+        if (!esAdministrador) {
+            mostrarEstadoBiometrico("", "Solo administrador", "Registrar, reemplazar o eliminar una huella es exclusivo del administrador.");
+            return;
+        }
+        if (!esAprendiz) {
+            usuarioBiometricoActual = null;
+            mostrarEstadoBiometrico("", "Disponible para aprendices", "Selecciona el rol Aprendiz para habilitar el enrolamiento biométrico.");
+            return;
+        }
+        if (!usuarioBiometricoActual) {
+            mostrarEstadoBiometrico("", "Sin usuario guardado", "Guarda primero el aprendiz. Después podrás abrir su registro biométrico centralizado.");
+            return;
+        }
+        mostrarEstadoBiometrico("success", "Aprendiz listo", "Abre la pantalla biométrica para consultar, registrar, verificar, revocar o volver a enrolar su huella.");
+        botonBiometria.innerHTML = '<i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> Abrir registro de huella';
+    }
+
+    async function consultarRolSesion() {
+        try {
+            const respuesta = await fetch("/api/auth/session", { credentials: "same-origin" });
+            const contenido = await respuesta.json().catch(function () { return {}; });
+            datos.rolSesion = contenido?.authenticated ? String(contenido.user?.role || "") : "";
+        } catch (_error) {
+            datos.rolSesion = "";
+        }
+        actualizarPanelBiometrico();
+        dibujarDirectorio();
+    }
+
+    function abrirRegistroBiometrico(usuarioObjetivo) {
+        if (!usuarioObjetivo || usuarioObjetivo.role !== "Aprendiz") return;
+        const destino = "huella_registro.html?usuario=" + encodeURIComponent(usuarioObjetivo.id)
+            + "&retorno=" + encodeURIComponent("crear_usuario.html");
+        window.location.assign(destino);
+    }
+
     function seleccionarFiltro(tarjeta) {
         datos.filtro = tarjeta.dataset.userFilter;
 
@@ -302,6 +362,10 @@
             case "delete":
                 eliminarUsuario(usuario);
                 break;
+            case "biometric":
+                usuarioBiometricoActual = usuario;
+                abrirRegistroBiometrico(usuario);
+                break;
         }
     }
 
@@ -328,7 +392,7 @@
         botonImportar.disabled = true;
         resultadoImportacion.hidden = false;
         resultadoImportacion.className = "user-import-result loading";
-        resultadoImportacion.textContent = "Validando y guardando usuarios...";
+        resultadoImportacion.textContent = "Validando y guardando usuarios…";
 
         try {
             let respuesta = await consultarApi("/import", {
@@ -374,8 +438,15 @@
                 body: JSON.stringify(nuevoUsuario)
             });
             aplicarDatos(respuesta);
+            usuarioBiometricoActual = respuesta.user && respuesta.user.role === "Aprendiz" ? respuesta.user : null;
+            const conservarAprendizParaBiometria = Boolean(usuarioBiometricoActual);
             formulario.reset();
+            if (conservarAprendizParaBiometria) {
+                listaRol.value = "Aprendiz";
+                listaFicha.value = usuarioBiometricoActual.ficha || "";
+            }
             ajustarCampoFicha();
+            actualizarPanelBiometrico();
             mostrarMensaje(respuesta.message || "Usuario creado correctamente.");
         } catch (error) {
             mostrarMensaje(error.message, "error");
@@ -391,7 +462,12 @@
     });
     buscador.addEventListener("input", dibujarDirectorio);
     cuerpoTabla.addEventListener("click", ejecutarAccion);
-    listaRol.addEventListener("change", ajustarCampoFicha);
+    listaRol.addEventListener("change", function () {
+        ajustarCampoFicha();
+        if (listaRol.value !== "Aprendiz") usuarioBiometricoActual = null;
+        actualizarPanelBiometrico();
+    });
+    if (botonBiometria) botonBiometria.addEventListener("click", function () { abrirRegistroBiometrico(usuarioBiometricoActual); });
     archivoCsv.addEventListener("change", revisarArchivo);
     formularioImportacion.addEventListener("submit", importarUsuarios);
     formulario.addEventListener("submit", crearUsuario);
@@ -403,9 +479,10 @@
     const sqlResult = document.getElementById("user-sql-result");
     const exportButton = document.getElementById("user-sql-export");
     const tabs = [document.getElementById("tab-csv"), document.getElementById("tab-sql")];
+    const maxSqlBytes = 10 * 1024 * 1024;
     function updateSqlFilePresentation() {
         const file = sqlFile.files && sqlFile.files[0];
-        const valid = Boolean(file && /\.sql$/i.test(file.name) && file.size > 0 && file.size <= 1048576);
+        const valid = Boolean(file && /\.sql$/i.test(file.name) && file.size > 0 && file.size <= maxSqlBytes);
         sqlImportButton.disabled = !valid;
         sqlFileName.classList.toggle("selected", valid);
         sqlFileName.classList.toggle("invalid", Boolean(file && !valid));
@@ -434,13 +511,13 @@
         sqlForm.querySelectorAll("button,input").forEach(item => { item.disabled = true; });
         sqlResult.hidden = false;
         sqlResult.className = "user-import-result loading";
-        sqlResult.innerHTML = '<i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i><span>Procesando archivo SQL...</span>';
+        sqlResult.innerHTML = '<i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i><span>Procesando archivo SQL…</span>';
         try {
             let body;
             if (!exporting) {
                 const file = sqlFile.files[0];
-                if (!file || !/\.sql$/i.test(file.name) || !file.size || file.size > 1048576) throw new Error("Selecciona un archivo .sql no vacío de máximo 1 MB (1048576 bytes).");
-                const types = ["application/sql", "application/x-sql", "text/sql", "text/x-sql", "text/plain"];
+                if (!file || !/\.sql$/i.test(file.name) || !file.size || file.size > maxSqlBytes) throw new Error("Selecciona un archivo .sql no vacío de máximo 10 MB.");
+                const types = ["application/sql", "application/x-sql", "text/sql", "text/x-sql", "text/plain", "application/octet-stream"];
                 if (file.type && !types.includes(file.type)) throw new Error("El tipo MIME del archivo no está permitido.");
                 body = new FormData();
                 // Windows puede no asignar MIME a .sql; se declara SQL y el servidor valida su gramática.
@@ -459,7 +536,7 @@
                 link.href = url; link.download = "Base_datos_SENA.sql";
                 document.body.appendChild(link); link.click(); link.remove();
                 setTimeout(() => URL.revokeObjectURL(url), 30000);
-                sqlResult.textContent = "Base_datos_SENA.sql descargado con los usuarios por roles y la base actual.";
+                sqlResult.textContent = "Base_datos_SENA.sql descargado. El archivo conserva columnas, filas y firma de integridad para poder reimportarlo completo.";
             } else {
                 const result = await response.json();
                 aplicarDatos(result); sqlForm.reset(); updateSqlFilePresentation();
@@ -479,6 +556,8 @@
     exportButton.addEventListener("click", () => sqlOperation(true));
 
     ajustarCampoFicha();
+    actualizarPanelBiometrico();
+    consultarRolSesion();
     cargarUsuarios().catch(function (error) {
         if (error.status === 403) {
             window.location.replace("login.html?returnTo=crear_usuario.html");

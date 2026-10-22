@@ -8,3 +8,4 @@ recursos/
     estadisticas_usuarios.css   Diseño de estadísticas de usuarios.
     estadisticas_reportes.css   Diseño de estadísticas y reportes.
     programas_indicadores.css   Programas, indicadores, filtros y tablas.
+    sistema_visual.css          Tokens, componentes compartidos, responsive y accesibilidad visual.

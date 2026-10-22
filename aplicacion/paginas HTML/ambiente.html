@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ambientes</title>
 
-    <link rel="stylesheet" href="estilos_generales.css">
+    <link rel="stylesheet" href="estilos_generales.css?v=sidebar-uniforme-20261015">
 
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -14,7 +14,9 @@
     <script>document.documentElement.classList.add("auth-pending");</script>
 </head>
 
-<body>
+<body class="ui-v72 environment-page">
+<script src="tema_inicial.js"></script>
+<script src="resiliencia_cliente.js"></script>
 
 <div class="container">
 
@@ -30,15 +32,22 @@
             </div>
 
             <button type="button" class="btn" data-action="new-environment">
-                <i class="fas fa-plus"></i>
+                <i class="fas fa-plus" aria-hidden="true"></i>
                 Nuevo Ambiente
             </button>
 
         </header>
 
         <section class="table-container">
+            <div class="ui-section-heading">
+                <div>
+                    <h2>Ambientes registrados</h2>
+                    <p>Consulta capacidad, tipo, estado y zona de cada ambiente.</p>
+                </div>
+            </div>
 
-            <table>
+            <div class="ui-table-scroll">
+            <table aria-label="Listado de ambientes">
 
                 <thead>
                     <tr>
@@ -117,6 +126,8 @@
                 </tbody>
 
             </table>
+            </div>
+            <p class="ui-table-note">Los controles de gestión mantienen la lógica existente del módulo.</p>
 
         </section>
 

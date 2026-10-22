@@ -194,7 +194,7 @@
         saveButton.disabled = isLoading || state.aprendices.length === 0 || Boolean(state.closure);
         closeButton.disabled = isLoading || !state.lastUpdated || Boolean(state.closure);
         reopenButton.disabled = isLoading;
-        if (isLoading) tableBody.innerHTML = '<tr><td colspan="6" class="attendance-empty"><i class="fas fa-circle-notch fa-spin"></i> Cargando aprendices...</td></tr>';
+        if (isLoading) tableBody.innerHTML = '<tr><td colspan="6" class="attendance-empty"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Cargando aprendices…</td></tr>';
     }
 
     async function loadSelectedFicha() {
@@ -294,7 +294,7 @@
     saveButton.addEventListener("click", async () => {
         saveButton.disabled = true;
         const original = saveButton.innerHTML;
-        saveButton.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Guardando...';
+        saveButton.innerHTML = '<i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Guardando…';
         try {
             const correctionReason = state.lastUpdated ? window.prompt("Motivo obligatorio de la corrección (mínimo 10 caracteres):", "") : "";
             if (state.lastUpdated && (!correctionReason || correctionReason.trim().length < 10)) throw new Error("La corrección fue cancelada: el motivo debe tener al menos 10 caracteres.");
@@ -365,6 +365,11 @@
         } catch (error) { showMessage(error.message, "error"); }
     });
     document.getElementById("excuses-refresh")?.addEventListener("click", loadExcuses);
+
+    // Recarga la tabla cuando otro método, como la huella digital, registra una asistencia.
+    window.addEventListener("sena:attendance-updated", () => {
+        if (!state.loading) loadSelectedFicha();
+    });
 
     document.getElementById("attendance-export-pdf").addEventListener("click", async (event) => {
         const button = event.currentTarget;

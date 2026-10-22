@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Programa de Formación</title>
 
-    <link rel="stylesheet" href="estilos_generales.css">
+    <link rel="stylesheet" href="estilos_generales.css?v=sidebar-uniforme-20261015">
 
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -14,7 +14,9 @@
     <script>document.documentElement.classList.add("auth-pending");</script>
 </head>
 
-<body class="programas-page">
+<body class="programas-page ui-v72">
+<script src="tema_inicial.js"></script>
+<script src="resiliencia_cliente.js"></script>
 
 <div class="container">
 
@@ -66,7 +68,7 @@
                     <span>Buscar programa</span>
                     <span class="program-input-icon"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><input id="program-search" type="search" placeholder="Busca por código, nombre o número de ficha" autocomplete="off"></span>
                 </label>
-                <label><span>Ficha</span><select id="program-ficha-filter"><option value="">Cargando fichas...</option></select></label>
+                <label><span>Ficha</span><select id="program-ficha-filter"><option value="">Cargando fichas…</option></select></label>
                 <label><span>Nivel</span><select id="program-level-filter"><option value="">Todos los niveles</option></select></label>
                 <label><span>Estado</span><select id="program-status-filter"><option value="">Todos los estados</option></select></label>
                 <label><span>Modalidad</span><select id="program-modality-filter"><option value="">Todas las modalidades</option></select></label>
@@ -77,7 +79,7 @@
             <div class="program-section-heading program-list-heading">
                 <div>
                     <h2 id="program-list-title">Listado de programas</h2>
-                    <p id="program-list-summary">Cargando información del sistema...</p>
+                    <p id="program-list-summary">Cargando información del sistema…</p>
                 </div>
                 <button type="button" class="program-export-button" id="program-export">
                     <i class="fas fa-file-arrow-down" aria-hidden="true"></i> Exportar CSV
@@ -99,7 +101,7 @@
                         </tr>
                     </thead>
                     <tbody id="tablaProgramas">
-                        <tr><td colspan="8" class="program-empty-state"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Cargando programas...</td></tr>
+                        <tr><td colspan="8" class="program-empty-state"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Cargando programas…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -128,7 +130,7 @@
                     <span class="program-mini-icon"><i class="fas fa-star" aria-hidden="true"></i></span>
                 </div>
                 <div id="program-featured" class="program-featured-content">
-                    <p class="program-empty-state">Cargando programa destacado...</p>
+                    <p class="program-empty-state">Cargando programa destacado…</p>
                 </div>
             </article>
         </section>

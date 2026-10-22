@@ -1,0 +1,150 @@
+/* Configuración: layout propio sin alterar los componentes de otros módulos. */
+.settings-page .settings-main{
+    min-width:0;
+}
+
+.settings-page .settings-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    align-items:stretch;
+}
+
+.settings-page .settings-card{
+    display:flex;
+    min-width:0;
+    min-height:260px;
+    flex-direction:column;
+    cursor:default;
+    border:1px solid #e1e8ec;
+    background:#fff;
+    box-shadow:0 8px 24px rgba(0,43,67,.08);
+}
+
+.settings-page .settings-card:hover{
+    transform:translateY(-3px);
+    border-color:#cbd9df;
+    box-shadow:0 14px 30px rgba(0,43,67,.12);
+}
+
+.settings-page .settings-card .top,
+.settings-page .settings-card .top span{
+    min-width:0;
+}
+
+.settings-page .settings-card .top span,
+.settings-page .settings-card > p{
+    overflow-wrap:anywhere;
+}
+
+.settings-page .settings-card > p{
+    margin:20px 0 24px;
+    color:#66737a;
+    line-height:1.55;
+}
+
+.settings-page .settings-card > .btn,
+.settings-page .settings-card-footer,
+.settings-page .settings-card-actions{
+    margin-top:auto;
+}
+
+.settings-page .btn{
+    display:inline-flex;
+    min-width:0;
+    min-height:44px;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:0 18px;
+    border-radius:10px;
+    background:#6ccb2f;
+    color:#001f31;
+    font-size:14px;
+    line-height:1.2;
+    text-align:center;
+}
+
+.settings-page .btn:hover{
+    background:#78d83d;
+    color:#001f31;
+}
+
+.settings-page .settings-card > .btn{
+    width:100%;
+}
+
+.settings-page .settings-card-actions{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+}
+
+.settings-page .settings-card-actions .btn{
+    width:100%;
+    min-height:44px;
+    margin:0;
+    padding:0 14px;
+}
+
+.settings-page .settings-card-footer{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.settings-page .backup-operation-status{
+    margin:0;
+    overflow-wrap:anywhere;
+}
+
+body.dark-mode.settings-page .settings-card{
+    border-color:#344954;
+    background:#1b2931;
+    box-shadow:0 8px 24px rgba(0,0,0,.22);
+}
+
+body.dark-mode.settings-page .settings-card:hover{
+    border-color:#48616d;
+    box-shadow:0 14px 30px rgba(0,0,0,.28);
+}
+
+body.dark-mode.settings-page .settings-card .top span{
+    color:#eef5f7;
+}
+
+body.dark-mode.settings-page .settings-card > p{
+    color:#bdc8ce;
+}
+
+body.dark-mode.settings-page .settings-secondary-action{
+    border-color:#52705d;
+    background:#23382b!important;
+    color:#b9efc3!important;
+}
+
+@media(max-width:1200px){
+    .settings-page .settings-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+}
+
+@media(max-width:680px){
+    .settings-page .settings-grid{
+        grid-template-columns:1fr;
+        gap:14px;
+    }
+
+    .settings-page .settings-card{
+        min-height:0;
+        padding:20px;
+    }
+
+    .settings-page .settings-card-actions{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(prefers-reduced-motion:reduce){
+    .settings-page .settings-card{
+        transition:none;
+    }
+}

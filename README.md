@@ -644,6 +644,7 @@ Documento	Contenido
 <a href="documentacion/guias/2026-08-21_configurar_correo.md">Configuración de correo</a>	Servicio de correo
 <a href="documentacion/guias/cierre_tecnico_mysql.md">Cierre MySQL</a>	Persistencia y recuperación
 <a href="documentacion/guias/acceso_publico_ssh.md">Acceso público</a>	Acceso temporal
+<a href="documentacion/guias/importacion_sql.md">Importación SQL</a>	Formato integral, validación y restauración
 
 
 <hr>
@@ -717,3 +718,93 @@ npm.cmd test
 Sistema web de gestión y control de asistencia
 <strong>Repositorio: SistemaDeAsistenciaADSO</strong>
 </div>
+
+
+## Resiliencia final 2026-10-12
+
+Build: `2026-10-12-final-resilience-r1`.
+
+Esta versión incorpora health checks `live/ready/full`, cierre ordenado, supervisor con protección de crash-loop, sesiones y QR compartidos en MySQL, lock distribuido para mutaciones, revisión de estado, idempotencia, outbox/circuit breaker de correo y archivos de ejemplo para dos instancias Node detrás de HAProxy/Nginx.
+
+Después de actualizar una instalación MySQL existente, ejecutar `npm run db:migrate` antes de iniciar el servidor. La guía completa está en `documentacion/CIERRE_FINAL_RESILIENCIA_BLUE_MAGIC_20261012.md`.
+
+## Biometría real — DigitalPersona U.are.U 4500
+
+Build biométrico: `version-8.9.1-biosecure-premium-motion-20261019` (actualización de la 8.5).
+
+La integración admite hardware real sin el SDK comercial de HID usando WSL2,
+Ubuntu 24.04, usbipd-win y libfprint. Desde **Crear usuario** se accede
+al flujo único de enrolamiento **huella_registro.html**, con confirmación de autorización documentada.
+La plantilla se almacena como plantilla cifrada AES-256-GCM y la pantalla de **Asistencia >
+Huella digital** identifica contra los aprendices enrolados de la ficha. Una
+identificación válida genera un ticket de 15 segundos y de un solo uso para
+registrar `presente` por huella.
+
+Preparación inicial en el PC:
+
+```text
+1. Conectar DigitalPersona 4500.
+2. Confirmar que usbipd list muestra 05ba:000a como Shared.
+3. Ejecutar puente_biometrico_real\INSTALAR_BIOMETRIA_REAL.cmd una sola vez.
+4. Ejecutar ABRIR_PROYECTO.cmd normalmente.
+```
+
+El modo `mock` permanece disponible como fallback. Consulta `docs/biometria.md`.
+
+### Diagnóstico biométrico real
+
+Con el DigitalPersona conectado puedes validar toda la cadena sin mostrar secretos:
+
+```powershell
+npm run doctor:biometria
+```
+
+El puerto del puente se toma de `BIOMETRIC_SERVICE_URL` (por defecto `http://127.0.0.1:4318`) y el supervisor usa automáticamente el mismo valor para Node, mock y puente real.
+
+
+## Actualización 8.9.1 (19/10/2026)
+
+- Enrolamiento centralizado: búsqueda por nombre/documento/ficha, reconexión del lector, confirmación explícita de autorización y progreso derivado de capturas reales.
+- Consola biométrica premium, con estados de hardware y adaptación responsive, modo oscuro y `prefers-reduced-motion`.
+- Corrección del guardado: el backend confirma la persistencia de la plantilla antes de marcarla como finalizada.
+- Cancelación del puente: conserva el bloqueo del dispositivo hasta que termine el proceso físico anterior.
+- Bloqueo de API biométrica desde URLs públicas/LAN: operar desde `http://localhost:3000` o `http://127.0.0.1:3000` en el PC del lector. Otras funcionalidades mantienen sus rutas originales.
+- Suite adicional de pruebas de contrato Python (sin hardware) y verificación de seguridad local.
+- ZIP de distribución sin `.env`, copias con claves, datos operativos, plantillas, credenciales ni `node_modules`. Incluye `package-lock.json` para `npm ci`.
+
+**Validación física pendiente:** se necesitan un dispositivo DigitalPersona conectado por USB a WSL2 y un aprendiz de prueba autorizado para registrar, verificar e identificar una huella. Las pruebas automáticas NO sustituyen esa verificación.
+
+Para actualizar una instalación existente: haz una copia de seguridad; conserva **tu `.env` original** (sobre todo `BIOMETRIC_ENCRYPTION_KEY`) y sus datos cifrados originales de forma privada; extrae la 8.9 en una carpeta nueva, copia solo los datos y configuraciones necesarios bajo tu control y ejecuta `npm ci`. No elimines ni generes otra clave de cifrado si necesitas recuperar plantillas antiguas.
+
+Documentación detallada: `docs/BIOMETRIA_VERSION_8_9.md`.
+
+
+## BioSecure SENA 9.1 (21-10-2026)
+
+- Desde **Estadísticas e informes** el administrador dispone de **Registrar huella** y de un resumen de registros de enrolamiento. El resumen no expone datos biométricos, solo conteos y el modo REAL/MOCK.
+- La API `GET /api/biometria/resumen` exige sesión de administrador y acceso desde localhost; los instructores y usuarios remotos no pueden consultar el resumen ni abrir desde allí los controles administrativos.
+- **Asistencia por huella** sigue en su módulo anterior; no se duplica el enrolamiento ni se crea una plantilla desde Estadísticas. La captura continúa exigiendo consentimiento documentado y el lector conectado.
+- Para abrir la **demostración visual** sin base de datos utiliza `ABRIR_DEMO_LOCAL.cmd`. Es independiente del inicio operativo `ABRIR_PROYECTO.cmd` y no verifica biometría real ni sustituye MySQL.
+- Para el funcionamiento real utiliza tu propio `.env` privado, MySQL, migraciones y el puente local WSL2/libfprint. Consulta `docs/BIOSECURE_VERSION_9_1.md`. **No copies las claves ni plantillas en Git o al ZIP.**
+
+## Planeacion GitHub / tablero / historia HID
+
+El desarrollo se gestiona con historias INVEST, criterios `Dado / cuando / entonces`, issues y un tablero publico. La trazabilidad vigente esta en:
+
+- [Backlog BioSecure 9.1](planeacion/backlog.md)
+- [Incidencias verificadas](planeacion/incidencias.md)
+- [Flujo permanente de trabajo](planeacion/flujo_de_trabajo.md)
+- [Historial honesto del 16 al 21 de octubre](planeacion/historial_16_al_21_octubre.md)
+- [Entrega Git/GitHub II](ENTREGA.md)
+- [Issues del repositorio](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues)
+- [Tablero publico BioSecure HID](https://github.com/users/cannalombia/projects/1)
+
+Antes de publicar una tarea, ejecuta:
+
+```powershell
+node verificar-plan.js
+git status -sb
+git diff --cached --check
+```
+
+La historia HID no se declara terminada por detectar el lector. La homologacion requiere captura autorizada, identificacion, registro unico en MySQL y una repeticion despues de reiniciar WSL2.

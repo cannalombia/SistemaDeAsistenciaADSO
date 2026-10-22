@@ -1,0 +1,51 @@
+BIOSECURE SENA 9.1 - ZIP CORREGIDO (21-oct-2026)
+===================================================
+
+ESTE ZIP ESTA PREPARADO SIN CARPETA INTERNA ADICIONAL.
+Cuando Windows use "Extraer todo", aparecera una carpeta y,
+DENTRO de ella, estos archivos deben estar al mismo nivel:
+
+  ABRIR_DEMO_LOCAL.cmd
+  ABRIR_PROYECTO.cmd
+  COMPROBAR_ARCHIVOS.cmd
+  package.json
+  pruebas\servidor_visual.js
+  servidor\servidor.js
+
+NO EJECUTES los comandos desde C:\WINDOWS\system32.
+
+PRUEBA RAPIDA SIN MYSQL
+1. Extrae TODO el archivo ZIP, preferiblemente en el Escritorio.
+2. Abre la carpeta extraida (la que contiene package.json).
+3. Ejecuta COMPROBAR_ARCHIVOS.cmd. Debe indicar [OK] en los archivos.
+4. Ejecuta ABRIR_DEMO_LOCAL.cmd.
+5. Espera a que aparezca "Servidor visual listo".
+6. Se abrira el navegador automaticamente en:
+   http://127.0.0.1:3100/login.html
+   Si no se abre, pega la direccion en Chrome/Edge.
+7. Inicio de sesion de demostracion: admin / visual-test
+8. NO CIERRES la ventana de servidor durante la prueba.
+
+ALTERNATIVA DESDE POWERSHELL en la carpeta extraida:
+    npm.cmd ci
+    npm.cmd run demo
+    (abre http://127.0.0.1:3100/login.html)
+
+IMPORTANTE
+- El modo DEMO utiliza datos ficticios y NO registra huellas fisicas.
+- ABRIR_PROYECTO.cmd es la aplicacion real y requiere tu archivo .env
+  PRIVADO, MySQL disponible y (para huellas) el puente biometrico
+  con WSL, libfprint y el lector HID fisico correctamente conectado.
+- No se entregan contrasenas reales, claves biometricas ni huellas.
+- Esta entrega se verifico mediante pruebas automatizadas y HTTP;
+  no se ha verificado el sensor conectado en tu Windows.
+
+SI SIGUE APARECIENDO ERR_CONNECTION_REFUSED
+- Confirma que sigue abierta la ventana "BioSecure SENA 9.1 - DEMO LOCAL".
+- Busca errores visibles en esa ventana.
+- Verifica que no hay otro programa usando el puerto 3100.
+- Ejecuta COMPROBAR_ARCHIVOS.cmd y comparte el resultado.
+
+Archivo originario: VERSION 9.1 HID DIGITAL - BioSecure SENA FINAL.zip
+Cambios de empaquetado: raiz plana, diagnostico, iniciador tolerante a rutas
+con espacios y apertura de navegador despues de iniciar el servidor.

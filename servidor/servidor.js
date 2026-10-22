@@ -13,8 +13,9 @@ const { createEmailService } = require("./modulos/correo");
 const { normalizeProgramText: normalizedProgramText, canonicalProgramStatus, displayProgramLevel, validateProgramInput } = require("./dominio/programas");
 const { canonicalRole, canonicalUserStatus, csvValue, registryRowFromUser } = require("./dominio/usuarios");
 const { localDate, dateKey, addDays, rateFor, statusSummary, resolveDashboardRange } = require("./dominio/estadisticas");
+const { buildReportSnapshot, reportStatus, reportMetadata, validateReportTransition, archiveReport, restoreReport, removeReport, pruneOldestArchivedReports } = require("./dominio/reportes");
 const { createReportPdf } = require("./modulos/reporte_pdf");
-const { readSqlFile, parseUsersSql, createDump } = require("./modulos/sqlfile");
+const { readSqlFile, parseDatabaseSql, createDump } = require("./modulos/sqlfile");
 const { createBackup, readBackupFile } = require("./modulos/respaldo");
 const { writeFilesAtomically } = require("./modulos/transaccion_archivos");
 const { validateDatabaseEnv } = require("./base_datos/configuracion");
@@ -23,16 +24,25 @@ const { assertMigrationsCurrent } = require("./base_datos/migraciones");
 const { createMysqlRepository } = require("./base_datos/repositorio");
 const { readExcuseSubmission } = require("./modulos/excusas");
 const { sendJson, readRequestJsonBody } = require("./modulos/http");
+const { crearClienteBiometrico, ErrorBiometrico } = require("./modulos/cliente_biometrico");
+const { crearEstadoBiometriaMock } = require("./modulos/estado_biometria_mock");
+const { crearAlmacenBiometricoReal } = require("./modulos/almacen_biometrico_real");
 
 const root = rutasProyecto.raizProyecto;
 const dataDirectory = rutasProyecto.datos;
 const pagesDirectory = rutasProyecto.paginas;
 const publicDirectories = rutasProyecto.directoriosPublicos;
+const buildIdFile = path.join(root, "BUILD_ID.txt");
+const buildId = fs.existsSync(buildIdFile)
+    ? fs.readFileSync(buildIdFile, "utf8").trim()
+    : "development";
 const mimeTypes = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
-    ".png": "image/png"
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".mp4": "video/mp4"
 };
 
 function loadEnvFile() {
@@ -97,11 +107,32 @@ function createProjectServer(options = {}) {
         emailMinIntervalMs: options.emailSender && options.emailMinIntervalMs == null
             ? 0
             : boundedInteger(options.emailMinIntervalMs ?? process.env.EMAIL_MIN_INTERVAL_MS, 300, 100, 5000),
-        emailHistoryLimit: boundedInteger(options.emailHistoryLimit ?? process.env.EMAIL_HISTORY_LIMIT, 500, 50, 5000)
+        emailHistoryLimit: boundedInteger(options.emailHistoryLimit ?? process.env.EMAIL_HISTORY_LIMIT, 500, 50, 5000),
+        emailCircuitFailureThreshold: boundedInteger(options.emailCircuitFailureThreshold ?? process.env.EMAIL_CIRCUIT_FAILURE_THRESHOLD, 5, 2, 10),
+        emailCircuitResetMs: boundedInteger(options.emailCircuitResetMs ?? process.env.EMAIL_CIRCUIT_RESET_MS, 30000, 5000, 300000),
+        trustProxy: options.trustProxy ?? process.env.TRUST_PROXY === "1",
+        biometriaHabilitada: options.biometriaHabilitada
+            ?? ["1", "true"].includes(String(process.env.BIOMETRIC_ENABLED || "false").trim().toLowerCase()),
+        biometriaModo: String(options.biometriaModo ?? process.env.BIOMETRIC_MODE ?? "mock").trim().toLowerCase(),
+        biometriaUrlServicio: String(options.biometriaUrlServicio ?? process.env.BIOMETRIC_SERVICE_URL ?? "http://127.0.0.1:4318").trim(),
+        biometriaClaveServicio: String(options.biometriaClaveServicio ?? process.env.BIOMETRIC_SERVICE_KEY ?? ""),
+        biometriaClaveCifrado: String(options.biometriaClaveCifrado ?? process.env.BIOMETRIC_ENCRYPTION_KEY ?? ""),
+        biometriaTiempoLimiteMs: boundedInteger(options.biometriaTiempoLimiteMs ?? process.env.BIOMETRIC_TIMEOUT_MS, 5000, 50, 30000)
     };
+    if (config.biometriaHabilitada && !["mock", "real"].includes(config.biometriaModo)) {
+        throw new Error("BIOMETRIC_MODE debe ser mock o real.");
+    }
+    const clienteBiometrico = options.clienteBiometrico || crearClienteBiometrico({
+        habilitado: config.biometriaHabilitada,
+        url_servicio: config.biometriaUrlServicio,
+        clave_local: config.biometriaClaveServicio,
+        tiempo_limite_ms: config.biometriaTiempoLimiteMs
+    });
     const codes = new Map();
     const sessions = new Map();
     const attendanceTokens = new Map();
+    const capturasBiometricas = new Map();
+    const ticketsAsistenciaBiometrica = new Map();
     const hourlyRequests = new Map();
     const pendingCodeRequests = new Set();
     const now = typeof options.now === "function" ? options.now : Date.now;
@@ -111,13 +142,25 @@ function createProjectServer(options = {}) {
     let adminRecovery = null;
     let adminRecoveryRequestPending = false;
     const persistentRuntime = !options.apprentices && !options.emailSender;
+    const estadoBiometriaMock = crearEstadoBiometriaMock({
+        archivo: persistentRuntime ? path.join(dataDirectory, "biometria_mock_estado.json") : null,
+        inicial: options.biometriaMockEstado || {}
+    });
+    const almacenBiometricoReal = config.biometriaModo === "real"
+        ? crearAlmacenBiometricoReal({
+            directorio: options.biometriaDirectorioReal || path.join(dataDirectory, "biometria_real", "plantillas"),
+            clave: config.biometriaClaveCifrado
+        })
+        : null;
     const authStateFile = options.authStateFile === null
         ? null
         : (options.authStateFile || (persistentRuntime ? path.join(dataDirectory, "estado_autenticacion_correo.json") : null));
     const emailHistoryFile = options.emailHistoryFile === null
         ? null
         : (options.emailHistoryFile || (persistentRuntime ? path.join(dataDirectory, "historial_envios_correo.json") : null));
-    const storedAuthState = readJsonFile(authStateFile, {});
+    const storedAuthState = options.authState
+        ? JSON.parse(JSON.stringify(options.authState))
+        : readJsonFile(authStateFile, {});
     const nowAtStartup = now();
     for (const item of Array.isArray(storedAuthState.codes) ? storedAuthState.codes : []) {
         const document = String(item.document || "").replace(/\D/g, "");
@@ -158,7 +201,22 @@ function createProjectServer(options = {}) {
     if (!Array.isArray(emailHistory)) emailHistory = [];
     emailHistory = emailHistory.slice(-config.emailHistoryLimit);
     const serverStartedAt = new Date().toISOString();
-    const emailService = createEmailService(config, { appendHistory: appendEmailHistory });
+    const instanceId = String(options.instanceId || process.env.INSTANCE_ID || `${os.hostname()}-${process.pid}`).trim();
+    const serverState = { draining: false };
+    function clientAddress(request) {
+        if (config.trustProxy) {
+            const forwarded = String(request.headers["x-forwarded-for"] || "").split(",")[0].trim();
+            if (forwarded) return forwarded;
+        }
+        return request.socket.remoteAddress || "local";
+    }
+    const configuredBackupDirectory = path.resolve(String(options.backupDirectory || process.env.BACKUP_DIR || path.join(root, "respaldos", "restauraciones")));
+    const outboxAdapter = repository?.enqueueEmailOutbox ? {
+        enqueue: (item) => repository.enqueueEmailOutbox(item),
+        mark: (requestId, status, details) => repository.markEmailOutbox(requestId, status, details),
+        listPending: (limit) => repository.listPendingEmailOutbox(limit)
+    } : null;
+    const emailService = createEmailService(config, { appendHistory: appendEmailHistory, outbox: outboxAdapter });
     const selectedEmailProvider = emailService.provider;
     const resendTestMode = emailService.testMode;
     const adminCredentialsFile = options.adminCredentialsFile || path.join(dataDirectory, "credenciales_administrador.json");
@@ -511,14 +569,54 @@ function createProjectServer(options = {}) {
         return entry;
     }
 
-    function persistAuthState() {
-        writeJsonFileAtomic(authStateFile, {
-            version: 1,
+    let authPersistTail = Promise.resolve();
+
+    function authStateSnapshot() {
+        return {
+            version: 2,
             savedAt: new Date().toISOString(),
             codes: [...codes.entries()].map(([document, item]) => ({ document, ...item })),
             hourlyRequests: [...hourlyRequests.entries()].map(([key, item]) => ({ key, ...item })),
             adminRecovery
-        });
+        };
+    }
+
+    function applyAuthRuntimeState(value) {
+        if (!value || typeof value !== "object") return;
+        const currentTime = now();
+        codes.clear();
+        for (const item of Array.isArray(value.codes) ? value.codes : []) {
+            const document = String(item.document || "").replace(/\D/g, "");
+            const email = normalizeEmail(item.email);
+            if (document && email && /^[a-f0-9]{64}$/i.test(String(item.hash || "")) && Number(item.expiresAt) > currentTime) {
+                codes.set(document, { hash: String(item.hash), email, expiresAt: Number(item.expiresAt), nextSendAt: Number(item.nextSendAt) || currentTime, attempts: boundedInteger(item.attempts, 0, 0, 5) });
+            }
+        }
+        hourlyRequests.clear();
+        for (const item of Array.isArray(value.hourlyRequests) ? value.hourlyRequests : []) {
+            const key = String(item.key || "");
+            if (key && Number(item.windowEndsAt) > currentTime) hourlyRequests.set(key, { count: boundedInteger(item.count, 0, 0, 5), windowEndsAt: Number(item.windowEndsAt) });
+        }
+        const storedRecovery = value.adminRecovery;
+        adminRecovery = storedRecovery && normalizeEmail(storedRecovery.email) && /^[a-f0-9]{64}$/i.test(String(storedRecovery.hash || "")) && Number(storedRecovery.expiresAt) > currentTime
+            ? { hash: String(storedRecovery.hash), email: normalizeEmail(storedRecovery.email), expiresAt: Number(storedRecovery.expiresAt), nextSendAt: Number(storedRecovery.nextSendAt) || currentTime, attempts: boundedInteger(storedRecovery.attempts, 0, 0, recoveryAttemptLimit) }
+            : null;
+    }
+
+    function persistAuthState() {
+        const snapshot = authStateSnapshot();
+        writeJsonFileAtomic(authStateFile, snapshot);
+        if (!repository?.setRuntimeState) return Promise.resolve();
+        const persist = () => repository.setRuntimeState("auth", snapshot);
+        const execution = authPersistTail.then(persist, persist);
+        authPersistTail = execution.catch((error) => console.error("No se pudo compartir el estado de autenticación:", error.message));
+        return execution;
+    }
+
+    async function hydrateAuthStateFromRepository() {
+        if (!repository?.getRuntimeState) return;
+        const shared = await repository.getRuntimeState("auth");
+        if (shared) applyAuthRuntimeState(shared);
     }
 
     function appendEmailHistory(entry) {
@@ -616,19 +714,33 @@ function createProjectServer(options = {}) {
         };
     }
 
-    function createSession(response, user) {
+    async function createSession(response, user) {
         const token = crypto.randomBytes(32).toString("base64url");
         const expiresAt = Date.now() + 8 * 60 * 60 * 1000;
-        sessions.set(token, { user, expiresAt, academicAlertShown: false });
+        const session = { user, expiresAt, academicAlertShown: false };
+        sessions.set(token, session);
+        if (repository?.saveSession) await repository.saveSession(token, session);
         const cookie = `sena_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${8 * 60 * 60}${config.secureCookie ? "; Secure" : ""}`;
         sendJson(response, 200, { ok: true, user }, { "Set-Cookie": cookie });
+    }
+
+    async function hydrateSessionFromRepository(request) {
+        if (!repository?.getSession) return;
+        const token = readCookies(request).sena_session;
+        if (!token) return;
+        const shared = await repository.getSession(token);
+        if (shared) sessions.set(token, shared);
+        else sessions.delete(token);
     }
 
     function currentSession(request) {
         const token = readCookies(request).sena_session;
         const session = token ? sessions.get(token) : null;
         if (!session || session.expiresAt <= Date.now()) {
-            if (token) sessions.delete(token);
+            if (token) {
+                sessions.delete(token);
+                repository?.deleteSession?.(token).catch?.(() => {});
+            }
             return null;
         }
         return { token, ...session };
@@ -713,7 +825,7 @@ function createProjectServer(options = {}) {
         }
 
         const clientKey = crypto.createHash("sha256")
-            .update(`admin-recovery:${request.socket.remoteAddress || "local"}:${account.id}`)
+            .update(`admin-recovery:${clientAddress(request)}:${account.id}`)
             .digest("hex");
         const rate = hourlyRequests.get(clientKey);
         if (rate && rate.windowEndsAt > currentTime && rate.count >= 5) {
@@ -725,13 +837,15 @@ function createProjectServer(options = {}) {
 
         const code = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
         const requestId = crypto.randomUUID();
+        const previousRecovery = adminRecovery ? { ...adminRecovery } : null;
+        const previousRate = rate ? { ...rate } : null;
+        const expiresAt = currentTime + recoveryCodeTtlMs;
         adminRecoveryRequestPending = true;
         try {
-            await emailService.enqueuePasswordRecoveryCode(account, code, requestId);
             adminRecovery = {
                 hash: hashRecoveryCode(email, code),
                 email,
-                expiresAt: currentTime + recoveryCodeTtlMs,
+                expiresAt,
                 nextSendAt: currentTime + recoveryResendDelayMs,
                 attempts: 0
             };
@@ -739,7 +853,15 @@ function createProjectServer(options = {}) {
                 count: rate && rate.windowEndsAt > currentTime ? rate.count + 1 : 1,
                 windowEndsAt: rate && rate.windowEndsAt > currentTime ? rate.windowEndsAt : currentTime + 60 * 60 * 1000
             });
-            persistAuthState();
+            await persistAuthState();
+            try {
+                await emailService.enqueuePasswordRecoveryCode(account, code, requestId, { expiresAt });
+            } catch (error) {
+                adminRecovery = previousRecovery;
+                if (previousRate) hourlyRequests.set(clientKey, previousRate); else hourlyRequests.delete(clientKey);
+                await persistAuthState();
+                throw error;
+            }
             audit(null, "request", "admin_password_recovery", account.id, null, null, {
                 requestId,
                 recipient: maskEmail(email)
@@ -769,7 +891,7 @@ function createProjectServer(options = {}) {
         }
         if (!adminRecovery || adminRecovery.email !== normalizeEmail(account.email) || adminRecovery.expiresAt <= now()) {
             adminRecovery = null;
-            persistAuthState();
+            await persistAuthState();
             audit(null, "reject", "admin_password_recovery", account.id, null, null, { reason: "expired_or_missing" });
             return sendJson(response, 401, { ok: false, message: genericCodeError });
         }
@@ -777,7 +899,7 @@ function createProjectServer(options = {}) {
             adminRecovery.attempts += 1;
             const limitReached = adminRecovery.attempts >= recoveryAttemptLimit;
             if (limitReached) adminRecovery = null;
-            persistAuthState();
+            await persistAuthState();
             audit(null, "reject", "admin_password_recovery", account.id, null, null, {
                 reason: limitReached ? "attempt_limit" : "invalid_code",
                 attempts: limitReached ? recoveryAttemptLimit : adminRecovery.attempts
@@ -793,7 +915,7 @@ function createProjectServer(options = {}) {
 
         const recipient = maskEmail(adminRecovery.email);
         adminRecovery = null;
-        persistAuthState();
+        await persistAuthState();
         account.salt = crypto.randomBytes(16).toString("hex");
         account.passwordHash = crypto.scryptSync(newPassword, account.salt, 64).toString("hex");
         adminCredentials.salt = account.salt;
@@ -806,6 +928,9 @@ function createProjectServer(options = {}) {
                 sessions.delete(token);
                 sessionsInvalidated += 1;
             }
+        }
+        if (repository?.deleteSessionsForUser) {
+            try { sessionsInvalidated += await repository.deleteSessionsForUser(account); } catch (error) { console.error("No se pudieron invalidar todas las sesiones administrativas compartidas:", error.message); }
         }
         audit(null, "reset_password", "admin_password_recovery", account.id, null, null, {
             method: "email_otp",
@@ -832,7 +957,7 @@ function createProjectServer(options = {}) {
         }
 
         const clientKey = crypto.createHash("sha256")
-            .update(`${request.socket.remoteAddress || "local"}:${document}`)
+            .update(`${clientAddress(request)}:${document}`)
             .digest("hex");
         const rate = hourlyRequests.get(clientKey);
         if (rate && rate.windowEndsAt > now && rate.count >= 5) {
@@ -844,13 +969,15 @@ function createProjectServer(options = {}) {
 
         const code = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
         const requestId = crypto.randomUUID();
+        const expiresAt = now + 10 * 60 * 1000;
+        const previousCode = existing ? { ...existing } : null;
+        const previousRate = rate ? { ...rate } : null;
         pendingCodeRequests.add(document);
         try {
-            await emailService.enqueueVerificationCode(user, code, requestId);
             codes.set(document, {
                 hash: hashCode(email, code),
                 email,
-                expiresAt: now + 10 * 60 * 1000,
+                expiresAt,
                 nextSendAt: now + 60 * 1000,
                 attempts: 0
             });
@@ -858,7 +985,15 @@ function createProjectServer(options = {}) {
                 count: rate && rate.windowEndsAt > now ? rate.count + 1 : 1,
                 windowEndsAt: rate && rate.windowEndsAt > now ? rate.windowEndsAt : now + 60 * 60 * 1000
             });
-            persistAuthState();
+            await persistAuthState();
+            try {
+                await emailService.enqueueVerificationCode(user, code, requestId, { expiresAt });
+            } catch (error) {
+                if (previousCode) codes.set(document, previousCode); else codes.delete(document);
+                if (previousRate) hourlyRequests.set(clientKey, previousRate); else hourlyRequests.delete(clientKey);
+                await persistAuthState();
+                throw error;
+            }
 
             const maskedEmail = maskEmail(email);
             const result = { ok: true, message: `Código enviado a ${maskedEmail}. Revisa también la carpeta de spam.` };
@@ -880,22 +1015,22 @@ function createProjectServer(options = {}) {
         const pending = codes.get(document);
         if (!pending || pending.expiresAt <= Date.now()) {
             codes.delete(document);
-            persistAuthState();
+            await persistAuthState();
             return sendJson(response, 401, { ok: false, message: "El código venció. Solicita uno nuevo." });
         }
         pending.attempts += 1;
         if (pending.attempts > 5) {
             codes.delete(document);
-            persistAuthState();
+            await persistAuthState();
             return sendJson(response, 429, { ok: false, message: "Demasiados intentos. Solicita un código nuevo." });
         }
         if (!safeEqual(pending.hash, hashCode(pending.email, code))) {
-            persistAuthState();
+            await persistAuthState();
             return sendJson(response, 401, { ok: false, message: "El código no es correcto." });
         }
 
         codes.delete(document);
-        persistAuthState();
+        await persistAuthState();
         const user = codeAccessUser(document);
         if (!user || normalizeEmail(user.email) !== pending.email) return sendJson(response, 404, { ok: false, message: "No se encontró el perfil del usuario." });
         if (!codeAccessUserIsEnabled(user)) return sendJson(response, 403, { ok: false, message: "La cuenta del usuario se encuentra desactivada." });
@@ -977,33 +1112,122 @@ function createProjectServer(options = {}) {
         return sendJson(response, 200, { ok: true, total: auditRecords.length, entries: selected });
     }
 
-    async function handleSystemHealth(_request, response) {
-        const emailHealth = emailService.getHealth();
-        let database = { source: repository ? "mysql" : "legacy", ready: true };
-        if (repository) {
-            try { database = { source: "mysql", ...(await checkDatabase(repository.pool)) }; }
-            catch (error) { return sendJson(response, 503, { ok: false, service: "sistema-asistencia-sena", status: "unavailable", database: { source: "mysql", ready: false, error: error.message } }); }
+    async function databaseHealthPayload() {
+        if (!repository) return { source: "legacy", ready: true, mode: "single-process" };
+        try {
+            return { source: "mysql", ...(await checkDatabase(repository.pool)) };
+        } catch (error) {
+            return { source: "mysql", ready: false, error: error.message };
         }
+    }
+
+    async function storageHealthPayload() {
+        if (!persistentRuntime) return { ready: true, mode: "test-or-memory" };
+        try {
+            await fs.promises.mkdir(configuredBackupDirectory, { recursive: true });
+            await fs.promises.access(configuredBackupDirectory, fs.constants.R_OK | fs.constants.W_OK);
+            return { ready: true, backupDirectory: configuredBackupDirectory };
+        } catch (error) {
+            return { ready: false, backupDirectory: configuredBackupDirectory, error: error.message };
+        }
+    }
+
+    async function handleSystemLiveness(_request, response) {
         return sendJson(response, 200, {
             ok: true,
             service: "sistema-asistencia-sena",
-            status: "ready",
+            status: "alive",
+            instanceId,
+            buildId,
+            pid: process.pid,
+            uptimeSeconds: Math.floor(process.uptime())
+        });
+    }
+
+    async function handleSystemReadiness(_request, response) {
+        const database = await databaseHealthPayload();
+        const ready = !serverState.draining && database.ready !== false;
+        return sendJson(response, ready ? 200 : 503, {
+            ok: ready,
+            service: "sistema-asistencia-sena",
+            status: ready ? "ready" : (serverState.draining ? "draining" : "unavailable"),
+            instanceId,
+            buildId,
+            database
+        });
+    }
+
+    async function handleSystemHealth(_request, response) {
+        const emailHealth = emailService.getHealth();
+        const database = await databaseHealthPayload();
+        const storage = await storageHealthPayload();
+        let biometricHealth = { habilitada: config.biometriaHabilitada, modo: config.biometriaModo, disponible: false, estado: config.biometriaHabilitada ? "no_disponible" : "deshabilitada" };
+        if (config.biometriaHabilitada) {
+            try {
+                const [saludBiometrica, lectorBiometrico] = await Promise.all([clienteBiometrico.consultar_salud(), clienteBiometrico.consultar_lector()]);
+                biometricHealth = {
+                    habilitada: true,
+                    modo: String(saludBiometrica.modo || config.biometriaModo),
+                    disponible: lectorBiometrico.lector?.disponible === true,
+                    estado: String(lectorBiometrico.lector?.estado || "desconocido"),
+                    simulado: lectorBiometrico.lector?.simulado === true,
+                    hardware_detectado: lectorBiometrico.lector?.hardware_detectado === true
+                };
+            } catch (error) {
+                biometricHealth = { habilitada: true, modo: config.biometriaModo, disponible: false, estado: "no_disponible", codigo: error?.codigo || "ERROR_BIOMETRICO" };
+            }
+        }
+        let instances = [];
+        if (repository?.activeInstances) {
+            try { instances = await repository.activeInstances({ maxAgeMs: 30000 }); } catch (_) { /* health remains useful without cluster metadata */ }
+        }
+        const ready = !serverState.draining && database.ready !== false;
+        const degraded = ready && (emailHealth.ready === false || storage.ready === false || (config.biometriaHabilitada && biometricHealth.disponible === false));
+        const memory = process.memoryUsage();
+        return sendJson(response, ready ? 200 : 503, {
+            ok: ready,
+            service: "sistema-asistencia-sena",
+            status: ready ? (degraded ? "degraded" : "ready") : (serverState.draining ? "draining" : "unavailable"),
+            buildId,
+            instanceId,
+            pid: process.pid,
+            hostName: os.hostname(),
             startedAt: serverStartedAt,
             uptimeSeconds: Math.floor(process.uptime()),
+            memory: {
+                rssMb: Math.round(memory.rss / 1048576),
+                heapUsedMb: Math.round(memory.heapUsed / 1048576),
+                heapTotalMb: Math.round(memory.heapTotal / 1048576)
+            },
             database,
+            storage,
+            biometria: biometricHealth,
+            resilience: {
+                sharedSessions: Boolean(repository?.saveSession),
+                sharedQr: Boolean(repository?.saveQrToken),
+                distributedMutationLock: Boolean(repository?.withMutationLock),
+                idempotency: Boolean(repository?.saveIdempotency),
+                emailOutbox: Boolean(repository?.enqueueEmailOutbox),
+                activeInstances: instances.length,
+                instances
+            },
             email: {
                 provider: selectedEmailProvider,
                 configured: emailHealth.configured,
                 ready: emailHealth.ready,
                 checkedAt: emailHealth.checkedAt,
-                mode: resendTestMode ? "test" : "production"
+                mode: resendTestMode ? "test" : "production",
+                circuit: emailHealth.circuit || null
             }
         });
     }
 
-    function handleLogout(request, response) {
+    async function handleLogout(request, response) {
         const token = readCookies(request).sena_session;
-        if (token) sessions.delete(token);
+        if (token) {
+            sessions.delete(token);
+            if (repository?.deleteSession) await repository.deleteSession(token);
+        }
         const cookie = `sena_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${config.secureCookie ? "; Secure" : ""}`;
         return sendJson(response, 200, { ok: true }, { "Set-Cookie": cookie });
     }
@@ -1017,14 +1241,17 @@ function createProjectServer(options = {}) {
         return session;
     }
 
-    function handleApprenticeProfile(request, response) {
+    async function handleApprenticeProfile(request, response) {
         const session = requireApprentice(request, response);
         if (!session) return;
         const apprentice = apprentices.find((item) => item.id === session.user.id);
         if (!apprentice) return sendJson(response, 404, { ok: false, message: "No se encontró el perfil." });
         const storedSession = sessions.get(session.token);
         const academicAlert = storedSession?.academicAlertShown ? null : academicAlertFor(apprentice);
-        if (academicAlert && storedSession) storedSession.academicAlertShown = true;
+        if (academicAlert && storedSession) {
+            storedSession.academicAlertShown = true;
+            if (repository?.saveSession) await repository.saveSession(session.token, storedSession);
+        }
         return sendJson(response, 200, { ok: true, apprentice: publicApprentice(apprentice), academicAlert });
     }
 
@@ -1051,11 +1278,52 @@ function createProjectServer(options = {}) {
         return session;
     }
 
+    function qrPublicOrigin(request) {
+        if (publicUrl) return publicUrl;
+        const forwardedProto = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim().toLowerCase();
+        const protocol = forwardedProto === "https" ? "https" : "http";
+        const rawHost = String(request.headers.host || "").trim();
+        let origin;
+        try { origin = new URL(`${protocol}://${rawHost || "localhost"}`); }
+        catch (_) { origin = new URL(`${protocol}://localhost`); }
+        const loopback = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+        if (!loopback.has(origin.hostname.toLowerCase())) return origin.origin;
+        const interfaces = Object.values(os.networkInterfaces()).flat().filter(Boolean);
+        const lan = interfaces.find((item) => item.family === "IPv4" && !item.internal && item.address && !item.address.startsWith("169.254."));
+        if (!lan) return origin.origin;
+        const port = origin.port ? `:${origin.port}` : "";
+        return `${protocol}://${lan.address}${port}`;
+    }
+
     function attendanceFichas() {
         const byCode = new Map();
+        const historicalCodes = new Set(
+            sqlData.fichas
+                .filter((ficha) => ficha?.restauradaDesdeHistorico === true)
+                .map((ficha) => String(ficha.numero || "").trim())
+                .filter(Boolean)
+        );
+
+        // La operación diaria parte de las fichas activas configuradas en formación.
+        // Así el administrador puede generar QR para las ocho fichas actuales aunque
+        // todavía no exista un registro de asistencia para el día seleccionado.
+        sqlData.fichas.forEach((ficha) => {
+            const code = String(ficha.numero || "").trim();
+            const status = String(ficha.estado || "Activa").trim().toLowerCase();
+            if (!code || historicalCodes.has(code) || ["inactiva", "inactivo"].includes(status)) return;
+            const program = programRecords.find((item) => String(item.id) === String(ficha.programaId));
+            byCode.set(code, {
+                codigo: code,
+                programa: String(program?.nombre || "Programa de formación"),
+                jornada: String(ficha.jornada || "Por definir")
+            });
+        });
+
+        // Compatibilidad con datos/importaciones donde una ficha válida puede existir
+        // en el perfil del aprendiz antes de ser incorporada al catálogo de formación.
         apprentices.filter(apprenticeIsEnabled).forEach((apprentice) => {
             const code = String(apprentice.program?.ficha || apprentice.program?.code || "").trim();
-            if (!code || byCode.has(code)) return;
+            if (!code || historicalCodes.has(code) || byCode.has(code)) return;
             byCode.set(code, {
                 codigo: code,
                 programa: String(apprentice.program?.name || "Programa de formación"),
@@ -1128,15 +1396,15 @@ function createProjectServer(options = {}) {
         const token = crypto.randomBytes(32).toString("hex");
         const now = Date.now();
         const expiresAt = now + 60000;
-        const base_url = publicUrl ||
-                        `${config.secureCookie ? "https" : "http"}://${request.headers.host}`;
-
+        const base_url = qrPublicOrigin(request);
         const url = new URL("/asistencia_qr.html", base_url);
         url.searchParams.set("token", token);
         const image = await QRCode.toDataURL(url.href, { width: 320, margin: 4, errorCorrectionLevel: "M" });
-        // One active QR per staff session; rotation revokes the previous image.
+        // One active QR per staff session; rotation revokes the previous image in every Node instance.
         for (const [key, item] of attendanceTokens) if (item.owner === session.token) attendanceTokens.delete(key);
-        attendanceTokens.set(token, { ficha, jornada, fecha: dateKey(new Date(now)), expiresAt, owner: session.token });
+        const entry = { ficha, jornada, fecha: dateKey(new Date(now)), expiresAt, owner: session.token };
+        attendanceTokens.set(token, entry);
+        if (repository?.saveQrToken) await repository.saveQrToken(token, entry, session.token);
         return sendJson(response, 201, { ok: true, image, url: url.href, expiresAt, remainingMs: Math.max(0, expiresAt - Date.now()) });
     }
 
@@ -1144,7 +1412,15 @@ function createProjectServer(options = {}) {
         const body = await readJsonBody(request);
         const session = requireApprentice(request, response);
         if (!session) return;
-        const entry = attendanceTokens.get(String(body.token || ""));
+        const qrToken = String(body.token || "");
+        let entry = attendanceTokens.get(qrToken);
+        if (repository?.getQrToken) {
+            const sharedEntry = await repository.getQrToken(qrToken);
+            if (sharedEntry) {
+                entry = sharedEntry;
+                attendanceTokens.set(qrToken, sharedEntry);
+            }
+        }
         if (!entry || entry.expiresAt <= Date.now() || entry.fecha !== dateKey(new Date())) {
             return sendJson(response, 410, { ok: false, message: "QR inexistente o vencido. Escanea el QR actual." });
         }
@@ -1358,6 +1634,527 @@ function createProjectServer(options = {}) {
         return session;
     }
 
+    let ultimaAuditoriaPuenteBiometrico = 0;
+
+    function esAdministradorBiometrico(session) {
+        return String(session?.user?.role || "").trim().toLowerCase() === "administrador";
+    }
+
+    function esModoBiometricoReal() {
+        return config.biometriaModo === "real";
+    }
+
+    function enviarErrorBiometrico(response, error) {
+        const codigo = error instanceof ErrorBiometrico ? error.codigo : "ERROR_BIOMETRICO";
+        const mensajes = {
+            BIOMETRIA_DESHABILITADA: "La integración biométrica está deshabilitada.",
+            PUENTE_NO_DISPONIBLE: "El servicio biométrico local no está disponible.",
+            PUENTE_NO_AUTORIZADO: "El servidor principal no pudo autenticarse con el puente biométrico.",
+            CAPTURA_EN_CURSO: "Ya existe una captura biométrica en curso.",
+            CAPTURA_NO_ENCONTRADA: "La captura biométrica solicitada no existe.",
+            TIEMPO_AGOTADO: "Se agotó el tiempo disponible para la operación biométrica.",
+            MUESTRA_INVALIDA: "La muestra biométrica fue rechazada.",
+            LECTOR_NO_DISPONIBLE: "El lector biométrico no está disponible.",
+            PLANTILLA_INVALIDA: "La plantilla biométrica no pudo procesarse.",
+            PLANTILLA_INCOMPATIBLE: "La plantilla biométrica no es compatible con el lector actual.",
+            IDENTIFICACION_NO_SOPORTADA: "El controlador biométrico actual no permite identificación 1:N.",
+            SIN_PLANTILLAS: "No hay huellas enroladas disponibles para esta operación.",
+            ERROR_BIOMETRICO: "No fue posible completar la operación biométrica."
+        };
+        const estado_http = error instanceof ErrorBiometrico ? error.estado_http : 502;
+        return sendJson(response, estado_http, {
+            correcto: false,
+            error: {
+                codigo: mensajes[codigo] ? codigo : "ERROR_BIOMETRICO",
+                mensaje: mensajes[codigo] || mensajes.ERROR_BIOMETRICO
+            }
+        });
+    }
+
+    function verificarBiometriaHabilitada() {
+        if (!config.biometriaHabilitada) {
+            throw new ErrorBiometrico("BIOMETRIA_DESHABILITADA", "La integración biométrica está deshabilitada.", 503);
+        }
+    }
+
+    function auditarFallaPuenteBiometrico(session, error) {
+        if (!["PUENTE_NO_DISPONIBLE", "PUENTE_NO_AUTORIZADO", "TIEMPO_AGOTADO", "ERROR_BIOMETRICO", "LECTOR_NO_DISPONIBLE"].includes(error?.codigo)) return;
+        const momento = now();
+        if (momento - ultimaAuditoriaPuenteBiometrico < 60000) return;
+        ultimaAuditoriaPuenteBiometrico = momento;
+        audit(session, "BIOMETRIA_PUENTE_NO_DISPONIBLE", "biometria_puente", "local", null, null, {
+            codigo: error.codigo,
+            modo: config.biometriaModo
+        });
+    }
+
+    function mensajeErrorCaptura(codigo) {
+        const simulada = !esModoBiometricoReal();
+        const mensajes = {
+            TIEMPO_AGOTADO: "Se agotó el tiempo de la captura biométrica.",
+            MUESTRA_INVALIDA: simulada ? "La muestra simulada fue marcada como inválida." : "La lectura de la huella no tuvo calidad suficiente.",
+            LECTOR_NO_DISPONIBLE: "El lector biométrico no está disponible.",
+            CAPTURA_CANCELADA: "La captura biométrica fue cancelada.",
+            IDENTIFICACION_NO_SOPORTADA: "El lector no permite identificación contra varias plantillas con el controlador actual."
+        };
+        return mensajes[codigo] || "La captura biométrica terminó con un error.";
+    }
+
+    function limpiarCapturaBiometrica(captura, operacion_solicitada) {
+        const resultado_origen = captura?.resultado && typeof captura.resultado === "object"
+            ? captura.resultado
+            : null;
+        let resultado = null;
+        if (resultado_origen) {
+            resultado = {
+                ...(Object.hasOwn(resultado_origen, "coincidencia")
+                    ? { coincidencia: resultado_origen.coincidencia === true }
+                    : {}),
+                ...(Object.hasOwn(resultado_origen, "enrolamiento_completado")
+                    ? { enrolamiento_completado: resultado_origen.enrolamiento_completado === true }
+                    : {}),
+                ...(Object.hasOwn(resultado_origen, "usuario_id")
+                    ? { usuario_id: String(resultado_origen.usuario_id || "") }
+                    : {}),
+                ...(Object.hasOwn(resultado_origen, "dedo")
+                    ? { dedo: String(resultado_origen.dedo || "indice_derecho") }
+                    : {}),
+                calidad: String(resultado_origen.calidad || (esModoBiometricoReal() ? "aceptada" : "simulada")),
+                puntaje: Number.isFinite(resultado_origen.puntaje) ? resultado_origen.puntaje : null,
+                plantilla_biometrica: null
+            };
+        }
+        const codigo_error = String(captura?.error?.codigo || "");
+        return {
+            id: String(captura?.id || ""),
+            operacion: operacion_solicitada || String(captura?.operacion || ""),
+            estado: String(captura?.estado || ""),
+            modo: config.biometriaModo,
+            usuario_id: String(captura?.usuario_id || ""),
+            creada_en: captura?.creada_en || null,
+            vence_en: captura?.vence_en || null,
+            finalizada_en: captura?.finalizada_en || null,
+            progreso: captura?.progreso && typeof captura.progreso === "object" ? {
+                etapa_actual: Math.max(0, Number(captura.progreso.etapa_actual) || 0),
+                etapas_totales: Math.max(1, Number(captura.progreso.etapas_totales) || 1),
+                requiere_repetir: captura.progreso.requiere_repetir === true,
+                mensaje: String(captura.progreso.mensaje || "").slice(0, 240)
+            } : null,
+            resultado,
+            error: codigo_error ? { codigo: codigo_error, mensaje: mensajeErrorCaptura(codigo_error) } : null
+        };
+    }
+
+    function datosCapturaAutorizada(request, response, id) {
+        const session = requireStaff(request, response);
+        if (!session) return null;
+        const datos = capturasBiometricas.get(id);
+        if (!datos) {
+            enviarErrorBiometrico(response, new ErrorBiometrico("CAPTURA_NO_ENCONTRADA", "Captura no encontrada.", 404));
+            return null;
+        }
+        if (datos.propietario !== session.token && !esAdministradorBiometrico(session)) {
+            sendJson(response, 403, {
+                correcto: false,
+                error: { codigo: "ACCESO_DENEGADO", mensaje: "No puedes consultar o cancelar esta captura biométrica." }
+            });
+            return null;
+        }
+        return { session, datos };
+    }
+
+    async function handleBiometricStatus(request, response) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        try {
+            verificarBiometriaHabilitada();
+            const [salud, estado_lector] = await Promise.all([
+                clienteBiometrico.consultar_salud(),
+                clienteBiometrico.consultar_lector()
+            ]);
+            if (salud.modo !== config.biometriaModo || estado_lector.modo !== config.biometriaModo) {
+                throw new ErrorBiometrico("ERROR_BIOMETRICO", "El modo del puente no coincide con la configuración.", 502);
+            }
+            const lector = estado_lector.lector;
+            return sendJson(response, 200, {
+                correcto: true,
+                habilitado: true,
+                modo: config.biometriaModo,
+                lector: {
+                    disponible: lector.disponible === true,
+                    simulado: config.biometriaModo === "mock",
+                    hardware_detectado: config.biometriaModo === "real" && lector.hardware_detectado === true,
+                    modelo: String(lector.modelo || (esModoBiometricoReal() ? "DigitalPersona U.are.U 4500" : "DigitalPersona U.are.U 4500 simulado")),
+                    estado: String(lector.estado || "desconocido"),
+                    ...(esModoBiometricoReal() ? {
+                        driver: String(lector.driver || "libfprint"),
+                        identificacion_1_n: lector.identificacion_1_n !== false
+                    } : {})
+                },
+                mensaje: esModoBiometricoReal() ? "LECTOR BIOMÉTRICO REAL" : "MODO BIOMÉTRICO DE PRUEBA"
+            });
+        } catch (error) {
+            auditarFallaPuenteBiometrico(session, error);
+            return enviarErrorBiometrico(response, error);
+        }
+    }
+
+
+    // Resumen administrativo: sólo metadatos agregados, sin plantilla, nombres ni documentos.
+    // La misma protección localhost del enrutador biométrico aplica a esta ruta.
+    function handleBiometricSummary(request, response) {
+        const session = currentSession(request);
+        if (!session || !esAdministradorBiometrico(session)) {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "ACCESO_DENEGADO", mensaje: "El resumen biométrico es exclusivo del administrador." } });
+        }
+        const aprendices = systemUsers().filter((usuario) => usuario.role === "Aprendiz");
+        let registrados = 0;
+        try {
+            for (const usuario of aprendices) {
+                const registro = esModoBiometricoReal()
+                    ? almacenBiometricoReal.consultar(usuario.id)
+                    : estadoBiometriaMock.consultar(usuario.id);
+                if (registro) registrados += 1;
+            }
+        } catch (_error) {
+            return sendJson(response, 503, { correcto: false, error: { codigo: "RESUMEN_NO_DISPONIBLE", mensaje: "No fue posible consultar los estados de registro biométrico." } });
+        }
+        return sendJson(response, 200, {
+            correcto: true,
+            modo: config.biometriaModo,
+            habilitado: config.biometriaHabilitada,
+            total_aprendices: aprendices.length,
+            registrados,
+            pendientes: Math.max(0, aprendices.length - registrados),
+            registros_reales: esModoBiometricoReal(),
+            mensaje: esModoBiometricoReal()
+                ? "Se cuentan plantillas cifradas asociadas a aprendices; no se comprueba aquí el lector físico."
+                : "Se cuentan únicamente estados simulados; no existen huellas físicas en este modo."
+        });
+    }
+
+    async function handleBiometricCaptureStart(request, response) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        try {
+            verificarBiometriaHabilitada();
+            const body = await readJsonBody(request);
+            const operacion = String(body.operacion || "").trim().toLowerCase();
+            const usuario_id = String(body.usuario_id || "").trim();
+            const ficha = String(body.ficha || "").trim();
+            const jornada = String(body.jornada || "").trim();
+            const tiempo_limite_segundos = Number(body.tiempo_limite_segundos ?? 30);
+            if (!["verificacion", "identificacion", "enrolamiento"].includes(operacion)) {
+                return sendJson(response, 400, { correcto: false, error: { codigo: "SOLICITUD_INVALIDA", mensaje: "La operación biométrica no es válida." } });
+            }
+            if (operacion === "enrolamiento" && !esAdministradorBiometrico(session)) {
+                return sendJson(response, 403, { correcto: false, error: { codigo: "ACCESO_DENEGADO", mensaje: "El enrolamiento biométrico es exclusivo para administradores." } });
+            }
+            if (operacion === "enrolamiento" && body.consentimiento_confirmado !== true) {
+                return sendJson(response, 400, { correcto: false, error: { codigo: "AUTORIZACION_REQUERIDA", mensaje: "Confirma la existencia de autorización documentada para el tratamiento de datos biométricos." } });
+            }
+            if (!Number.isInteger(tiempo_limite_segundos) || tiempo_limite_segundos < 1 || tiempo_limite_segundos > 120) {
+                return sendJson(response, 400, { correcto: false, error: { codigo: "SOLICITUD_INVALIDA", mensaje: "El tiempo límite debe estar entre 1 y 120 segundos." } });
+            }
+
+            let solicitudPuente;
+            let candidatos = [];
+            if (operacion === "identificacion") {
+                if (!/^\d+$/.test(ficha)) {
+                    return sendJson(response, 400, { correcto: false, error: { codigo: "SOLICITUD_INVALIDA", mensaje: "Debes indicar una ficha válida para identificar por huella." } });
+                }
+                if (esModoBiometricoReal() && !["Mañana", "Tarde", "Noche"].includes(jornada)) {
+                    return sendJson(response, 400, { correcto: false, error: { codigo: "SOLICITUD_INVALIDA", mensaje: "Debes indicar una jornada válida para identificar por huella." } });
+                }
+                candidatos = apprentices
+                    .filter((aprendiz) => String(aprendiz.status || "").toLowerCase() === "activo"
+                        && String(aprendiz.program?.ficha || aprendiz.program?.code || "") === ficha)
+                    .map((aprendiz) => ({
+                        id: String(aprendiz.id || aprendiz.document || ""),
+                        documento: String(aprendiz.document || ""),
+                        nombre: String(aprendiz.name || "Aprendiz"),
+                        ficha
+                    }))
+                    .filter((aprendiz) => aprendiz.id)
+                    .sort((a, b) => a.documento.localeCompare(b.documento, "es"));
+                if (!candidatos.length) {
+                    return sendJson(response, 404, { correcto: false, error: { codigo: "SIN_CANDIDATOS", mensaje: "No hay aprendices activos en la ficha seleccionada." } });
+                }
+                if (esModoBiometricoReal()) {
+                    const plantillas = candidatos.map((candidato) => ({
+                        usuario_id: candidato.id,
+                        plantilla_biometrica: almacenBiometricoReal.obtenerPlantilla(candidato.id)
+                    })).filter((item) => item.plantilla_biometrica);
+                    if (!plantillas.length) {
+                        return sendJson(response, 404, { correcto: false, error: { codigo: "SIN_HUELLAS_ENROLADAS", mensaje: "Ningún aprendiz activo de esta ficha tiene una huella real enrolada." } });
+                    }
+                    solicitudPuente = { operacion: "identificacion", ficha, jornada, plantillas, tiempo_limite_segundos };
+                } else {
+                    solicitudPuente = { operacion: "identificacion", ficha, jornada, candidatos: candidatos.map((aprendiz) => aprendiz.id), tiempo_limite_segundos };
+                }
+            } else {
+                if (!usuario_id || usuario_id.length > 128) {
+                    return sendJson(response, 400, { correcto: false, error: { codigo: "SOLICITUD_INVALIDA", mensaje: "Debes indicar un usuario_id válido." } });
+                }
+                const objetivo = findDirectoryUser(usuario_id);
+                if (!objetivo || objetivo.role !== "Aprendiz") {
+                    return sendJson(response, 404, { correcto: false, error: { codigo: "USUARIO_NO_ENCONTRADO", mensaje: "El aprendiz solicitado no existe." } });
+                }
+                if (operacion === "verificacion" && esModoBiometricoReal()) {
+                    const plantilla_biometrica = almacenBiometricoReal.obtenerPlantilla(usuario_id);
+                    if (!plantilla_biometrica) {
+                        return sendJson(response, 404, { correcto: false, error: { codigo: "HUELLA_NO_REGISTRADA", mensaje: "El aprendiz no tiene una huella real registrada." } });
+                    }
+                    solicitudPuente = { operacion, usuario_id, plantilla_biometrica, tiempo_limite_segundos };
+                } else {
+                    solicitudPuente = { operacion, usuario_id, tiempo_limite_segundos };
+                }
+            }
+
+            const contenido = await clienteBiometrico.iniciar_captura(solicitudPuente);
+            const limpieza = setTimeout(() => capturasBiometricas.delete(contenido.captura.id), (tiempo_limite_segundos + 300) * 1000);
+            if (typeof limpieza.unref === "function") limpieza.unref();
+            capturasBiometricas.set(contenido.captura.id, {
+                propietario: session.token,
+                usuario_sesion: session.user.id,
+                operacion,
+                usuario_id,
+                ficha,
+                jornada,
+                candidatos,
+                enrolamiento_guardado: false,
+                limpieza
+            });
+            audit(session, "BIOMETRIA_CAPTURA_INICIADA", "biometria_captura", contenido.captura.id, null, null, { operacion, modo: config.biometriaModo, ficha: ficha || null, jornada: jornada || null, ...(operacion === "enrolamiento" ? { autorizacion_documentada_confirmada: true } : {}) });
+            return sendJson(response, 202, {
+                correcto: true,
+                captura: limpiarCapturaBiometrica(contenido.captura, operacion),
+                mensaje: esModoBiometricoReal() ? "Captura biométrica real iniciada." : "Captura biométrica simulada iniciada. No existe captura real."
+            });
+        } catch (error) {
+            auditarFallaPuenteBiometrico(session, error);
+            return enviarErrorBiometrico(response, error);
+        }
+    }
+
+    async function handleBiometricCaptureGet(request, response, id) {
+        const acceso = datosCapturaAutorizada(request, response, id);
+        if (!acceso) return;
+        try {
+            verificarBiometriaHabilitada();
+            const contenido = await clienteBiometrico.consultar_captura(id);
+            const captura_origen = contenido.captura;
+
+            if (captura_origen?.estado === "completada"
+                && acceso.datos.operacion === "enrolamiento"
+                && !acceso.datos.enrolamiento_guardado) {
+                // Una única persistencia y auditoría incluso si el navegador envía
+                // dos consultas GET simultáneas sobre la captura finalizada.
+                if (!acceso.datos.enrolamiento_guardando) {
+                    acceso.datos.enrolamiento_guardando = (async () => {
+                // No marcar como persistido hasta que el cifrado y la escritura finalicen.
+                // Así una falla de disco puede reintentarse en una nueva consulta.
+                if (esModoBiometricoReal()) {
+                    const plantilla = String(captura_origen?.resultado?.plantilla_biometrica || "");
+                    if (!plantilla) throw new ErrorBiometrico("ERROR_BIOMETRICO", "El puente no devolvió la plantilla enrolada.", 502);
+                    almacenBiometricoReal.guardar(acceso.datos.usuario_id, plantilla, {
+                        dedo: captura_origen?.resultado?.dedo || "indice_derecho",
+                        fecha_registro: new Date(now()).toISOString()
+                    });
+                    audit(acceso.session, "BIOMETRIA_ENROLAMIENTO_REAL", "biometria_usuario", acceso.datos.usuario_id, null, null, {
+                        modo: "real", plantilla_cifrada: true, dedo: captura_origen?.resultado?.dedo || "indice_derecho"
+                    });
+                } else {
+                    estadoBiometriaMock.registrar(acceso.datos.usuario_id, {
+                        registrado_por: acceso.session.user.id,
+                        fecha: new Date(now()).toISOString()
+                    });
+                    audit(acceso.session, "BIOMETRIA_ENROLAMIENTO_SIMULADO", "biometria_usuario", acceso.datos.usuario_id, null, null, {
+                        modo: "mock", plantilla_generada: false
+                    });
+                }
+                acceso.datos.enrolamiento_guardado = true;
+
+                    })();
+                }
+                try {
+                    await acceso.datos.enrolamiento_guardando;
+                } catch (error) {
+                    acceso.datos.enrolamiento_guardando = null;
+                    throw error;
+                }
+            }
+
+            const captura = limpiarCapturaBiometrica(captura_origen, acceso.datos.operacion);
+            if (captura.estado === "completada" && acceso.datos.operacion === "identificacion" && captura.resultado?.coincidencia === true) {
+                const identificado = acceso.datos.candidatos.find((candidato) => candidato.id === captura.resultado.usuario_id);
+                if (!identificado) {
+                    throw new ErrorBiometrico("ERROR_BIOMETRICO", "El puente devolvió un candidato fuera de la ficha autorizada.", 502);
+                }
+                captura.resultado.usuario = { ...identificado };
+                if (esModoBiometricoReal()) {
+                    if (!acceso.datos.ticket_asistencia) {
+                        const token = crypto.randomBytes(32).toString("hex");
+                        const expira = now() + 15000;
+                        ticketsAsistenciaBiometrica.set(token, {
+                            propietario: acceso.datos.propietario,
+                            usuario_id: identificado.id,
+                            ficha: acceso.datos.ficha,
+                            jornada: acceso.datos.jornada,
+                            expira,
+                            captura_id: id
+                        });
+                        acceso.datos.ticket_asistencia = token;
+                        acceso.datos.ticket_expira = expira;
+                        const limpiarTicket = setTimeout(() => ticketsAsistenciaBiometrica.delete(token), 16000);
+                        if (typeof limpiarTicket.unref === "function") limpiarTicket.unref();
+                    }
+                    captura.resultado.ticket_asistencia = acceso.datos.ticket_asistencia;
+                    captura.resultado.ticket_vence_en = new Date(acceso.datos.ticket_expira).toISOString();
+                }
+            }
+
+            let mensaje = esModoBiometricoReal() ? "Estado de captura biométrica real consultado." : "Estado de captura biométrica simulada consultado.";
+            if (captura.estado === "completada") {
+                if (acceso.datos.operacion === "enrolamiento") mensaje = esModoBiometricoReal()
+                    ? "Huella real enrolada y plantilla cifrada correctamente."
+                    : "Enrolamiento simulado completado. No se creó una plantilla biométrica.";
+                else if (acceso.datos.operacion === "identificacion") mensaje = esModoBiometricoReal()
+                    ? "Identificación biométrica real completada contra las huellas enroladas de la ficha."
+                    : "Identificación simulada completada contra los aprendices activos de la ficha.";
+                else mensaje = esModoBiometricoReal()
+                    ? "Verificación biométrica real completada."
+                    : "Verificación simulada completada. No existe captura biométrica real.";
+            }
+            return sendJson(response, 200, { correcto: true, captura, mensaje });
+        } catch (error) {
+            auditarFallaPuenteBiometrico(acceso.session, error);
+            return enviarErrorBiometrico(response, error);
+        }
+    }
+
+    async function handleBiometricCaptureCancel(request, response, id) {
+        const acceso = datosCapturaAutorizada(request, response, id);
+        if (!acceso) return;
+        try {
+            verificarBiometriaHabilitada();
+            const contenido = await clienteBiometrico.cancelar_captura(id);
+            audit(acceso.session, "BIOMETRIA_CAPTURA_CANCELADA", "biometria_captura", id, null, null, {
+                operacion: acceso.datos.operacion,
+                modo: config.biometriaModo
+            });
+            return sendJson(response, 200, {
+                correcto: true,
+                captura: limpiarCapturaBiometrica(contenido.captura, acceso.datos.operacion),
+                mensaje: "Captura biométrica cancelada."
+            });
+        } catch (error) {
+            auditarFallaPuenteBiometrico(acceso.session, error);
+            return enviarErrorBiometrico(response, error);
+        }
+    }
+
+    async function handleBiometricAttendanceConfirm(request, response) {
+        const session = requireStaff(request, response);
+        if (!session) return;
+        if (!esModoBiometricoReal()) {
+            return sendJson(response, 409, { correcto: false, error: { codigo: "MODO_PRUEBA", mensaje: "El modo mock no puede registrar asistencia real por huella." } });
+        }
+        const body = await readJsonBody(request);
+        const token = String(body.ticket_asistencia || "").trim();
+        const ticket = ticketsAsistenciaBiometrica.get(token);
+        if (!token || !ticket || ticket.expira <= now()) {
+            if (token) ticketsAsistenciaBiometrica.delete(token);
+            return sendJson(response, 410, { correcto: false, error: { codigo: "TICKET_BIOMETRICO_INVALIDO", mensaje: "La autorización biométrica venció. Vuelve a colocar el dedo." } });
+        }
+        if (ticket.propietario !== session.token && !esAdministradorBiometrico(session)) {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "ACCESO_DENEGADO", mensaje: "Este ticket biométrico pertenece a otra sesión." } });
+        }
+        // Se consume antes de mutar para que sea estrictamente de un solo uso.
+        ticketsAsistenciaBiometrica.delete(token);
+        const apprentice = apprentices.find((item) => String(item.id || item.document || "") === ticket.usuario_id);
+        if (!apprentice || !apprenticeIsEnabled(apprentice) || (canonicalUserStatus(apprentice.status) || "Activo") !== "Activo") {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "USUARIO_NO_DISPONIBLE", mensaje: "El aprendiz identificado ya no está activo." } });
+        }
+        if (String(apprentice.program?.ficha || apprentice.program?.code || "") !== ticket.ficha) {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "FICHA_NO_COINCIDE", mensaje: "El aprendiz identificado no pertenece a la ficha del registro." } });
+        }
+        const fecha = dateKey(new Date(now()));
+        if (attendanceRecords.some((item) => item.identificacion === apprentice.document && item.ficha === ticket.ficha && item.fecha === fecha && item.jornada === ticket.jornada)) {
+            return sendJson(response, 409, { correcto: false, error: { codigo: "ASISTENCIA_DUPLICADA", mensaje: "El aprendiz ya tiene asistencia registrada para esta fecha y jornada." } });
+        }
+        const record = {
+            identificacion: apprentice.document,
+            nombre: apprentice.name,
+            ficha: ticket.ficha,
+            fecha,
+            jornada: ticket.jornada,
+            estado: "presente",
+            observacion: "Registro por huella digital",
+            metodo: "huella",
+            hora_registro: new Date(now()).toISOString(),
+            registrado_por: session.user.email || session.user.id
+        };
+        attendanceRecords.push(record);
+        try { persistAttendance(); } catch (error) { attendanceRecords.pop(); throw error; }
+        audit(session, "register_fingerprint", "asistencia", `${record.fecha}:${record.jornada}:${record.ficha}:${record.identificacion}`, null, record, {
+            captura_id: ticket.captura_id,
+            metodo: "huella"
+        });
+        return sendJson(response, 201, { correcto: true, mensaje: "Asistencia registrada correctamente por huella digital.", registro: record });
+    }
+
+    function handleBiometricUserState(request, response, id) {
+        const session = currentSession(request);
+        if (!session || !esAdministradorBiometrico(session)) {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "ACCESO_DENEGADO", mensaje: "La gestión biométrica de usuarios es exclusiva del administrador." } });
+        }
+        const target = findDirectoryUser(id);
+        if (!target || target.role !== "Aprendiz") {
+            return sendJson(response, 404, { correcto: false, error: { codigo: "USUARIO_NO_ENCONTRADO", mensaje: "No se encontró el aprendiz solicitado." } });
+        }
+        const registro = esModoBiometricoReal() ? almacenBiometricoReal.consultar(id) : estadoBiometriaMock.consultar(id);
+        return sendJson(response, 200, {
+            correcto: true,
+            modo: config.biometriaModo,
+            usuario_id: id,
+            enrolado: Boolean(registro),
+            estado: registro || null,
+            mensaje: esModoBiometricoReal()
+                ? (registro ? "Huella real registrada y protegida con cifrado AES-256-GCM." : "Sin huella real registrada.")
+                : (registro ? "SIMULACIÓN COMPLETADA. No existe una plantilla biométrica real." : "Sin enrolamiento biométrico simulado.")
+        });
+    }
+
+    async function handleBiometricUserStateDelete(request, response, id) {
+        const session = currentSession(request);
+        if (!session || !esAdministradorBiometrico(session)) {
+            return sendJson(response, 403, { correcto: false, error: { codigo: "ACCESO_DENEGADO", mensaje: "La gestión biométrica de usuarios es exclusiva del administrador." } });
+        }
+        const target = findDirectoryUser(id);
+        if (!target || target.role !== "Aprendiz") {
+            return sendJson(response, 404, { correcto: false, error: { codigo: "USUARIO_NO_ENCONTRADO", mensaje: "No se encontró el aprendiz solicitado." } });
+        }
+        const body = await readJsonBody(request);
+        const motivo = String(body.motivo || "").trim();
+        if (motivo.length < 10 || motivo.length > 300) {
+            return sendJson(response, 400, { correcto: false, error: { codigo: "MOTIVO_REQUERIDO", mensaje: "Indica un motivo de revocación de 10 a 300 caracteres." } });
+        }
+        const eliminado = esModoBiometricoReal() ? almacenBiometricoReal.eliminar(id) : estadoBiometriaMock.eliminar(id);
+        audit(session, esModoBiometricoReal() ? "BIOMETRIA_HUELLA_REAL_REVOCADA" : "BIOMETRIA_ESTADO_SIMULADO_REVOCADO", "biometria_usuario", id, null, null, {
+            modo: config.biometriaModo,
+            existia: eliminado,
+            motivo
+        });
+        return sendJson(response, 200, {
+            correcto: true,
+            enrolado: false,
+            mensaje: esModoBiometricoReal()
+                ? "Plantilla biométrica cifrada eliminada."
+                : "Estado biométrico simulado eliminado. No se eliminó ninguna huella real."
+        });
+    }
+
     function requireBackupAdministrator(request, response) {
         const session = currentSession(request);
         if (!session || String(session.user?.role || "").trim().toLowerCase() !== "administrador") {
@@ -1462,9 +2259,14 @@ function createProjectServer(options = {}) {
         adminCredentials.salt = account.salt;
         adminCredentials.passwordHash = account.passwordHash;
         saveAdminAccount();
-        // La sesión que hizo el cambio continúa; las demás sesiones administrativas se cierran.
+        // La sesión que hizo el cambio continúa; las demás sesiones administrativas se cierran también entre instancias.
         for (const [token, storedSession] of sessions) {
             if (token !== session.token && storedSession.user?.id === "admin-sena") sessions.delete(token);
+        }
+        if (repository?.deleteSessionsForUser) {
+            await repository.deleteSessionsForUser(account);
+            const currentStored = sessions.get(session.token);
+            if (currentStored && repository?.saveSession) await repository.saveSession(session.token, currentStored);
         }
         return sendJson(response, 200, { ok: true, message: "Contraseña actualizada correctamente." });
     }
@@ -1695,6 +2497,7 @@ function createProjectServer(options = {}) {
         for (const [token, session] of sessions.entries()) {
             if ((user.id && session.user?.id === user.id) || (user.document && session.user?.document === user.document) || (user.email && normalizeEmail(session.user?.email) === normalizeEmail(user.email))) sessions.delete(token);
         }
+        if (repository?.deleteSessionsForUser) repository.deleteSessionsForUser(user).catch((error) => console.error("No se pudieron invalidar sesiones compartidas:", error.message));
     }
 
     function apprenticeIsEnabled(apprentice) {
@@ -1857,6 +2660,7 @@ function createProjectServer(options = {}) {
         if (csvUsers.some((user) => normalizeEmail(user.correo) === email)) return sendJson(response, 409, { ok: false, message: "El correo ya existe en la base principal de usuarios." });
         if (username && accounts.some((user) => String(user.username || "").toLowerCase() === username)) return sendJson(response, 409, { ok: false, message: "Ese nombre de usuario ya está en uso." });
 
+        const previous = JSON.parse(JSON.stringify(backupData()));
         const id = `usuario-${crypto.randomUUID()}`;
         const createdAt = new Date().toISOString();
         const user = {
@@ -1884,11 +2688,18 @@ function createProjectServer(options = {}) {
         }
         upsertCsvUser(user);
         if (role === "Aprendiz") syncApprenticeProfile(user);
-        persistCsvUsers();
-        persistManagedUsers();
-        if (role === "Aprendiz") persistApprentices();
         const createdUser = systemUsers().find((item) => item.document === document && normalizeEmail(item.email) === email);
-        audit(session, "create", "usuario", createdUser?.id || document, null, createdUser);
+        appendAuditEntry(createAuditEntry(session, "create", "usuario", createdUser?.id || document, null, createdUser));
+        try {
+            if (csvFileBacked && readUsersCsvSource() !== csvSource) {
+                throw Object.assign(new Error("La base principal cambió durante la operación. Revisa los datos y vuelve a guardar."), { status: 409 });
+            }
+            writeFilesAtomically(restoredFileEntries());
+            if (csvFileBacked) csvSource = serializeCsvUsers(csvUsers);
+        } catch (error) {
+            applyRestoredData(previous);
+            throw Object.assign(new Error(`No se pudo crear el usuario; no se guardó ningún cambio. ${error.message}`), { status: error.status || 500 });
+        }
 
         return sendJson(response, 201, {
             ok: true,
@@ -1996,6 +2807,8 @@ function createProjectServer(options = {}) {
         const apprenticeIndex = apprentices.findIndex((user) => user.id === target.id || user.document === target.document || normalizeEmail(user.email) === normalizeEmail(target.email));
         if (apprenticeIndex >= 0) apprentices.splice(apprenticeIndex, 1);
         invalidateUserSessions(target);
+        if (esModoBiometricoReal()) almacenBiometricoReal.eliminar(target.id);
+        else estadoBiometriaMock.eliminar(target.id);
         persistCsvUsers();
         persistManagedUsers();
         persistApprentices();
@@ -2038,7 +2851,9 @@ function createProjectServer(options = {}) {
             const sql = await readSqlFile(request);
             refreshUsersFromCsv();
             if (!requireAdministrator(request, response)) return;
-            body = { fileName: "SQLFILE.csv", csv: serializeCsvUsers(parseUsersSql(sql)) };
+            const parsed = parseDatabaseSql(sql);
+            if (parsed.integral) return restoreDatabaseSql(parsed, session, response);
+            body = { fileName: "SQLFILE.csv", csv: serializeCsvUsers(parsed.users) };
         } else body = await readJsonBody(request, 512 * 1024);
         const fileName = String(body.fileName || "").trim();
         const csvText = String(body.csv || "");
@@ -2163,13 +2978,82 @@ function createProjectServer(options = {}) {
         });
     }
 
+    async function restoreDatabaseSql(parsed, session, response) {
+        const requiredTables = ["ambientes", "fichas", "horarios", "programas", "aprendices", "asistencia", "reportes", "cuentas", "auditoria", "excusas", "formacion_configuracion"];
+        const missing = requiredTables.filter(name => !Object.hasOwn(parsed.tables, name));
+        if (missing.length) {
+            return sendJson(response, 400, {
+                ok: false,
+                message: `El respaldo SQL integral está incompleto. Faltan las tablas: ${missing.join(", ")}. Exporta nuevamente desde la aplicación.`
+            });
+        }
+        if (parsed.tables.formacion_configuracion.length !== 1) {
+            return sendJson(response, 400, { ok: false, message: "La tabla formacion_configuracion debe contener exactamente una fila." });
+        }
+        const trainingConfiguration = parsed.tables.formacion_configuracion[0];
+        const restored = validateRestoredData({
+            users: parsed.users,
+            apprentices: parsed.tables.aprendices,
+            managedUsers: parsed.tables.cuentas,
+            attendance: parsed.tables.asistencia,
+            programs: parsed.tables.programas,
+            training: {
+                ...trainingConfiguration,
+                fichas: parsed.tables.fichas,
+                horarios: parsed.tables.horarios,
+                ambientes: parsed.tables.ambientes
+            },
+            reports: parsed.tables.reportes,
+            audit: parsed.tables.auditoria,
+            excuses: parsed.tables.excusas
+        });
+        const previous = JSON.parse(JSON.stringify(backupData()));
+        try {
+            applyRestoredData(restored);
+            appendAuditEntry(createAuditEntry(session, "restore", "sql", parsed.metadata.checksum, null, null, {
+                users: csvUsers.length,
+                attendance: attendanceRecords.length,
+                programs: programRecords.length,
+                fichas: sqlData.fichas.length
+            }));
+            writeFilesAtomically(restoredFileEntries());
+            if (csvFileBacked) csvSource = serializeCsvUsers(csvUsers);
+        } catch (error) {
+            applyRestoredData(previous);
+            throw Object.assign(new Error(`No se pudo importar la base SQL; se conservaron todos los datos anteriores. ${error.message}`), { status: error.status || 500 });
+        }
+        codes.clear();
+        attendanceTokens.clear();
+        for (const token of sessions.keys()) if (token !== session.token) sessions.delete(token);
+        if (repository?.cleanupRuntime) await repository.cleanupRuntime();
+        await persistAuthState();
+        return sendJson(response, 201, {
+            ok: true,
+            message: `Base SQL restaurada correctamente: ${csvUsers.length} usuarios, ${attendanceRecords.length} asistencias, ${programRecords.length} programas y ${sqlData.fichas.length} fichas. Las estadísticas ya usan los datos importados.`,
+            importResult: {
+                integral: true,
+                checksum: parsed.metadata.checksum,
+                users: csvUsers.length,
+                attendance: attendanceRecords.length,
+                programs: programRecords.length,
+                fichas: sqlData.fichas.length
+            },
+            ...userDirectoryPayload()
+        });
+    }
+
     function exportDatabaseSql() {
         refreshUsersFromCsv();
+        const trainingConfiguration = Object.fromEntries(Object.entries(trainingState)
+            .filter(([key]) => !["fichas", "horarios", "ambientes"].includes(key)));
         return createDump(csvUsers, {
             ambientes: sqlData.ambientes, fichas: sqlData.fichas,
             horarios: sqlData.horarios, programas: programRecords,
             aprendices: apprentices, asistencia: attendanceRecords, reportes: reports,
-            cuentas: accounts.map(({ passwordHash, salt, password, ...profile }) => profile)
+            cuentas: managedUsers.map(({ passwordHash, salt, password, ...profile }) => profile),
+            auditoria: auditRecords,
+            excusas: excuses,
+            formacion_configuracion: [trainingConfiguration]
         });
     }
 
@@ -2497,28 +3381,77 @@ function createProjectServer(options = {}) {
 
     const reportsFile = options.reportsFile === null ? null : (options.reportsFile || (persistentRuntime ? path.join(dataDirectory, "reportes_estadisticas.json") : null));
     const reports = options.reports ? JSON.parse(JSON.stringify(options.reports)) : (reportsFile && fs.existsSync(reportsFile) ? JSON.parse(fs.readFileSync(reportsFile, "utf8")) : []);
-    const reportMetadata = ({ id, createdAt, createdBy, filters, distribution, students }) => ({ id, createdAt, createdBy, filters: { from: filters.from, to: filters.to, ficha: filters.ficha, jornada: filters.jornada }, total: distribution.total, attendance: distribution.attendance, students: students.length });
+    const reportsRetentionLimit = options.reportsRetentionLimit == null
+        ? boundedInteger(process.env.REPORTS_RETENTION_LIMIT, 500, 10, 5000)
+        : boundedInteger(options.reportsRetentionLimit, 500, 2, 5000);
+    function persistReports() {
+        writeJsonFileAtomic(reportsFile, reports);
+    }
 
     async function handleReports(request, response) {
         const session = requireStaff(request, response);
         if (!session) return;
-        if (request.method === "GET") return sendJson(response, 200, { ok: true, reports: reports.map(reportMetadata).reverse() });
+        if (request.method === "GET") {
+            const role = String(session.user.role || "").trim().toLowerCase();
+            return sendJson(response, 200, {
+                ok: true,
+                reports: reports.map(reportMetadata).reverse(),
+                permissions: { manage: ["administrador", "coordinador"].includes(role) },
+                retention: { limit: reportsRetentionLimit, strategy: "Los informes archivados más antiguos se eliminan primero al alcanzar el límite." }
+            });
+        }
         const body = await readJsonBody(request);
         if (!localDate(body.from) || !localDate(body.to)) return sendJson(response, 400, { ok: false, message: "Selecciona las dos fechas del informe." });
         const params = new URLSearchParams({ from: body.from, to: body.to, ficha: String(body.ficha || ""), jornada: String(body.jornada || ""), period: "custom" });
         const payload = statisticsPayload(new URL(`/api/statistics?${params}`, "http://localhost"), session);
         if (!payload.distribution.total) return sendJson(response, 400, { ok: false, message: "No hay asistencia guardada en este rango. Registra la asistencia o selecciona otras fechas." });
-        const report = { ...payload, id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: session.user.name || session.user.username };
-        writeJsonFileAtomic(reportsFile, [...reports, report]);
+        const removals = pruneOldestArchivedReports(reports, reportsRetentionLimit);
+        if (removals === null) return sendJson(response, 409, { ok: false, message: `Se alcanzó el límite de ${reportsRetentionLimit} informes activos. Archiva o elimina uno antes de generar otro.` });
+        const report = buildReportSnapshot(payload, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), createdBy: session.user.name || session.user.username });
         reports.push(report);
+        persistReports();
+        if (removals.length) {
+            const removed = removals.map(item => item.before);
+            audit(session, "retention_delete", "reporte", removed.map(item => item.id).join(","), removed, null, { limit: reportsRetentionLimit, count: removed.length });
+        }
+        audit(session, "create", "reporte", report.id, null, reportMetadata(report));
         return sendJson(response, 201, { ok: true, report: reportMetadata(report) });
     }
 
     async function handleReport(request, response, id, pdf) {
-        if (!requireStaff(request, response)) return;
+        const session = request.method === "GET" ? requireStaff(request, response) : requireAdministrator(request, response);
+        if (!session) return;
         const report = reports.find((item) => item.id === id);
         if (!report) return sendJson(response, 404, { ok: false, message: "No se encontró el informe." });
-        if (!pdf) return sendJson(response, 200, { ok: true, report });
+        if (request.method === "PATCH") {
+            const body = await readJsonBody(request);
+            const action = String(body.action || "").trim().toLowerCase();
+            const transition = validateReportTransition(report, action);
+            if (transition.reason === "invalid_action") return sendJson(response, 400, { ok: false, message: "La acción debe ser archive o restore." });
+            if (!transition.ok) return sendJson(response, 409, { ok: false, message: transition.reason === "already_archived" ? "El informe ya está archivado." : "El informe no está archivado." });
+            const before = reportMetadata(report);
+            if (action === "archive") {
+                archiveReport(report, {
+                    archivedAt: new Date().toISOString(),
+                    archivedBy: session.user.name || session.user.username
+                });
+            } else {
+                restoreReport(report);
+            }
+            persistReports();
+            audit(session, action, "reporte", report.id, before, reportMetadata(report));
+            return sendJson(response, 200, { ok: true, report: reportMetadata(report), message: action === "archive" ? "Informe archivado." : "Informe restaurado." });
+        }
+        if (request.method === "DELETE") {
+            const body = await readJsonBody(request);
+            if (body.confirm !== true) return sendJson(response, 400, { ok: false, message: "Confirma explícitamente la eliminación del informe." });
+            const removal = removeReport(reports, report);
+            if (!removal) return sendJson(response, 404, { ok: false, message: "No se encontró el informe." });
+            persistReports();
+            audit(session, "delete", "reporte", removal.removed.id, removal.before, null);
+            return sendJson(response, 200, { ok: true, message: "Informe eliminado permanentemente." });
+        }
+        if (!pdf) return sendJson(response, 200, { ok: true, report: { ...report, status: reportStatus(report) } });
         const buffer = await createReportPdf(report);
         response.writeHead(200, { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="informe-${report.filters.ficha || 'general'}-${report.filters.from}-${id.slice(0, 8)}.pdf"`, "Cache-Control": "no-store", "Content-Length": buffer.length });
         response.end(buffer);
@@ -2633,7 +3566,7 @@ function createProjectServer(options = {}) {
         const restored = validateRestoredData(await readBackupFile(request));
         refreshUsersFromCsv();
         const previous = JSON.parse(JSON.stringify(backupData()));
-        const automaticDirectory = options.backupDirectory || path.join(root, "respaldos", "restauraciones");
+        const automaticDirectory = configuredBackupDirectory;
         const automaticName = `Pre_restauracion_${new Date().toISOString().replace(/[:.]/g, "-")}_${crypto.randomUUID().slice(0, 8)}.json`;
         const automaticFile = path.join(automaticDirectory, automaticName);
         const automaticBackup = createBackup(previous);
@@ -2658,7 +3591,15 @@ function createProjectServer(options = {}) {
         codes.clear();
         attendanceTokens.clear();
         for (const token of sessions.keys()) if (token !== session.token) sessions.delete(token);
-        persistAuthState();
+        if (repository?.cleanupRuntime) await repository.cleanupRuntime();
+        if (repository?.deleteSessionsForUser) {
+            // Tras una restauración conservamos únicamente la sesión administrativa que ejecutó la operación.
+            const currentStored = sessions.get(session.token);
+            await repository.pool.query("DELETE FROM app_sessions");
+            await repository.pool.query("DELETE FROM app_qr_tokens");
+            if (currentStored && repository?.saveSession) await repository.saveSession(session.token, currentStored);
+        }
+        await persistAuthState();
         return sendJson(response, 200, {
             ok: true,
             message: "Respaldo restaurado correctamente. Se creó una copia automática del estado anterior y la actualización se aplicó de forma integral.",
@@ -2678,7 +3619,10 @@ function createProjectServer(options = {}) {
             response.end("Recurso no encontrado");
             return;
         }
-        response.writeHead(200, { "Content-Type": mimeTypes[extension], "Cache-Control": "no-store" });
+        const cacheControl = [".mp4", ".webp"].includes(extension)
+            ? "public, max-age=31536000, immutable"
+            : "no-store";
+        response.writeHead(200, { "Content-Type": mimeTypes[extension], "Cache-Control": cacheControl });
         if (request.method === "HEAD") return response.end();
         fs.createReadStream(file).pipe(response);
     }
@@ -2741,42 +3685,144 @@ function createProjectServer(options = {}) {
             reportes: handleReports,
             consultarReporte: handleReport
         },
-        sistema: { consultarEstado: handleSystemHealth, consultarAuditoria: handleAudit, consultarNotificaciones: handleNotifications, exportarRespaldo: handleBackupExport, restaurarRespaldo: handleBackupRestore }
+        biometria: {
+            consultarEstado: handleBiometricStatus,
+            consultarResumen: handleBiometricSummary,
+            iniciarCaptura: handleBiometricCaptureStart,
+            consultarCaptura: handleBiometricCaptureGet,
+            cancelarCaptura: handleBiometricCaptureCancel,
+            confirmarAsistencia: handleBiometricAttendanceConfirm,
+            consultarEstadoUsuario: handleBiometricUserState,
+            eliminarEstadoUsuario: handleBiometricUserStateDelete
+        },
+        sistema: { consultarEstado: handleSystemHealth, consultarVida: handleSystemLiveness, consultarDisponibilidad: handleSystemReadiness, consultarAuditoria: handleAudit, consultarNotificaciones: handleNotifications, exportarRespaldo: handleBackupExport, restaurarRespaldo: handleBackupRestore }
     });
 
-    const server = http.createServer(async (request, response) => {
+    const cloneSnapshot = (value) => JSON.parse(JSON.stringify(value));
+    let mutationTail = Promise.resolve();
+    let sharedStateSyncTail = Promise.resolve();
+    let knownRevision = Math.max(0, Number(options.dataRevision) || 0);
+
+    function enqueuePersistedMutation(task) {
+        const execution = mutationTail.then(task, task);
+        mutationTail = execution.catch(() => {});
+        return execution;
+    }
+
+    async function syncSharedState(force = false, connection = null) {
+        if (!repository?.getRevision || !repository?.loadState) return;
+        const synchronize = async () => {
+            const source = connection || repository.pool;
+            const revision = await repository.getRevision(source);
+            if (!force && revision === knownRevision) return;
+            const shared = await repository.loadState(source);
+            applyRestoredData(shared);
+            knownRevision = revision;
+        };
+        if (connection) return synchronize();
+        const execution = sharedStateSyncTail.then(synchronize, synchronize);
+        sharedStateSyncTail = execution.catch(() => {});
+        return execution;
+    }
+
+    function validIdempotencyKey(value) {
+        const key = String(value || "").trim();
+        return key.length >= 8 && key.length <= 200 && /^[A-Za-z0-9._:-]+$/.test(key) ? key : "";
+    }
+
+    async function replayIdempotentResponse(request, response, requestPath, connection) {
+        if (!repository?.getIdempotency || requestPath.startsWith("/api/auth/")) return false;
+        const key = validIdempotencyKey(request.headers["idempotency-key"]);
+        if (!key) return false;
+        const stored = await repository.getIdempotency(key, request.method, requestPath, connection || repository.pool);
+        if (!stored) return false;
+        const headers = { ...(stored.headers || {}), "Idempotency-Replayed": "true" };
+        delete headers["set-cookie"];
+        delete headers["Set-Cookie"];
+        delete headers["content-length"];
+        delete headers["Content-Length"];
+        headers["Content-Length"] = Buffer.byteLength(stored.body || "");
+        response.writeHead(stored.statusCode, headers);
+        response.end(stored.body || "");
+        return true;
+    }
+
+    async function handleHttpRequest(request, response) {
+        const requestId = String(request.headers["x-request-id"] || crypto.randomUUID()).slice(0, 128);
+        request.blueMagicRequestId = requestId;
+        response.setHeader("X-Request-Id", requestId);
+        response.setHeader("X-Blue-Magic-Instance", instanceId);
         response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-        if (repository && ["POST", "PATCH", "DELETE"].includes(request.method) && String(request.url || "").startsWith("/api/")) {
-            deferResponseUntilMysqlCommit(request, response);
-        }
+        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, X-Request-Id");
         if (request.method === "OPTIONS") {
             response.writeHead(204);
             return response.end();
         }
-        cleanExpired();
         try {
             const requestUrl = new URL(request.url, "http://localhost");
             const pathname = decodeURIComponent(requestUrl.pathname);
-            if (pathname.startsWith("/api/")) refreshUsersFromCsv();
+            const isApi = pathname.startsWith("/api/");
+            const isHealth = pathname.startsWith("/api/health");
+            if (isApi && !isHealth) {
+                if (!request.__blueMagicSynced) await syncSharedState(false);
+                await hydrateSessionFromRepository(request);
+                if (pathname.startsWith("/api/auth/")) await hydrateAuthStateFromRepository();
+                refreshUsersFromCsv();
+            }
+            cleanExpired();
             if (await atenderApi({ request, response, requestUrl, pathname })) return;
-            if (pathname.startsWith("/api/")) return sendJson(response, 404, { ok: false, message: "Ruta de API no encontrada." });
+            if (isApi) return sendJson(response, 404, { ok: false, message: "Ruta de API no encontrada." });
             return serveStatic(request, response, pathname);
         } catch (error) {
-            console.error("Error de API:", error.message);
-            return sendJson(response, error.status || 500, { ok: false, message: error.message || "Error interno del servidor." });
+            console.error(`[${requestId}] Error de API:`, error.message);
+            if (!response.headersSent) return sendJson(response, error.status || 500, { ok: false, message: error.message || "Error interno del servidor.", requestId });
+            response.destroy(error);
         }
+    }
+
+    const server = http.createServer(async (request, response) => {
+        const requestPath = new URL(request.url || "/", "http://localhost").pathname;
+        const isEphemeralQrGeneration = request.method === "POST" && requestPath === "/api/attendance/qr";
+        const isEphemeralBiometricOperation = requestPath.startsWith("/api/biometria/") && requestPath !== "/api/biometria/asistencia/confirmar";
+        const persistedMutation = repository
+            && ["POST", "PATCH", "DELETE"].includes(request.method)
+            && requestPath.startsWith("/api/")
+            && !isEphemeralQrGeneration
+            && !isEphemeralBiometricOperation;
+        if (!persistedMutation) return handleHttpRequest(request, response);
+
+        return enqueuePersistedMutation(async () => {
+            const execute = async (connection = null) => {
+                if (repository?.getRevision && repository?.loadState) {
+                    await syncSharedState(true, connection);
+                    request.__blueMagicSynced = true;
+                }
+                if (await replayIdempotentResponse(request, response, requestPath, connection)) return;
+                const previous = cloneSnapshot(backupData());
+                const completed = deferResponseUntilMysqlCommit(response, previous, {
+                    connection,
+                    request,
+                    requestPath,
+                    idempotencyKey: validIdempotencyKey(request.headers["idempotency-key"])
+                });
+                await handleHttpRequest(request, response);
+                await completed;
+            };
+            if (repository?.withMutationLock) return repository.withMutationLock(execute);
+            return execute(null);
+        });
     });
 
-    function deferResponseUntilMysqlCommit(_request, response) {
-        const previous = JSON.parse(JSON.stringify(backupData()));
+    function deferResponseUntilMysqlCommit(response, previous, context = {}) {
         const originalWriteHead = response.writeHead.bind(response);
         const originalEnd = response.end.bind(response);
         let statusCode = 200;
         let statusMessage;
         let headers;
         let ended = false;
+        let resolveCompleted;
+        const completed = new Promise((resolve) => { resolveCompleted = resolve; });
         response.writeHead = function deferredWriteHead(status, messageOrHeaders, possibleHeaders) {
             statusCode = status;
             if (typeof messageOrHeaders === "string") {
@@ -2789,36 +3835,107 @@ function createProjectServer(options = {}) {
         response.end = function deferredEnd(chunk, encoding, callback) {
             if (ended) return response;
             ended = true;
-            const flush = () => {
-                if (statusMessage) originalWriteHead(statusCode, statusMessage, headers);
-                else originalWriteHead(statusCode, headers);
-                originalEnd(chunk, encoding, callback);
-            };
-            if (statusCode < 200 || statusCode >= 400) { flush(); return response; }
-            repository.saveSnapshot(backupData()).then(flush).catch((error) => {
-                applyRestoredData(previous);
-                console.error("No se confirmó la operación en MySQL:", error.message);
-                for (const name of response.getHeaderNames()) response.removeHeader(name);
-                const body = JSON.stringify({ ok: false, message: "MySQL rechazó la operación; no se aplicaron cambios. Revisa la conexión y vuelve a intentar." });
-                originalWriteHead(503, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Content-Length": Buffer.byteLength(body) });
-                originalEnd(body, undefined, callback);
+            const flush = (finalStatus = statusCode, finalHeaders = headers, finalChunk = chunk) => new Promise((resolve) => {
+                const finish = () => {
+                    response.off("finish", finish);
+                    response.off("close", finish);
+                    resolve();
+                };
+                response.once("finish", finish);
+                response.once("close", finish);
+                if (finalStatus === statusCode && statusMessage) originalWriteHead(finalStatus, statusMessage, finalHeaders);
+                else originalWriteHead(finalStatus, finalHeaders);
+                originalEnd(finalChunk, encoding, callback);
             });
+            (async () => {
+                if (statusCode < 200 || statusCode >= 400) {
+                    applyRestoredData(previous);
+                    await flush();
+                    return;
+                }
+                try {
+                    const next = cloneSnapshot(backupData());
+                    let idempotency = null;
+                    if (context.idempotencyKey && repository?.saveIdempotency && !context.requestPath.startsWith("/api/auth/")) {
+                        const responseBody = Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk ?? "");
+                        if (Buffer.byteLength(responseBody) <= 1024 * 1024) {
+                            const combinedHeaders = { ...response.getHeaders(), ...(headers || {}) };
+                            delete combinedHeaders["set-cookie"];
+                            delete combinedHeaders["Set-Cookie"];
+                            delete combinedHeaders["content-length"];
+                            delete combinedHeaders["Content-Length"];
+                            idempotency = {
+                                key: context.idempotencyKey,
+                                method: context.request.method,
+                                requestPath: context.requestPath,
+                                response: { statusCode, headers: combinedHeaders, body: responseBody }
+                            };
+                        }
+                    }
+                    const revision = await repository.saveSnapshot(next, context.connection || undefined, { idempotency });
+                    if (Number.isFinite(Number(revision))) knownRevision = Number(revision);
+                    await flush();
+                } catch (error) {
+                    applyRestoredData(previous);
+                    console.error("No se confirmó la operación en MySQL:", error.message);
+                    for (const name of response.getHeaderNames()) response.removeHeader(name);
+                    const body = JSON.stringify({ ok: false, message: "MySQL rechazó la operación; no se aplicaron cambios. Revisa la conexión y vuelve a intentar." });
+                    await flush(503, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Content-Length": Buffer.byteLength(body), "X-Blue-Magic-Instance": instanceId }, body);
+                }
+            })().finally(resolveCompleted);
             return response;
         };
+        return completed;
     }
 
+    // Límites explícitos para evitar sockets y solicitudes colgados indefinidamente.
+    server.requestTimeout = boundedInteger(process.env.HTTP_REQUEST_TIMEOUT_MS, 30000, 5000, 120000);
+    server.headersTimeout = boundedInteger(process.env.HTTP_HEADERS_TIMEOUT_MS, 15000, 5000, Math.max(5000, server.requestTimeout));
+    server.keepAliveTimeout = boundedInteger(process.env.HTTP_KEEPALIVE_TIMEOUT_MS, 5000, 1000, 30000);
+    server.maxRequestsPerSocket = boundedInteger(process.env.HTTP_MAX_REQUESTS_PER_SOCKET, 1000, 50, 10000);
+
     let emailHealthTimer = null;
+    let outboxTimer = null;
+    let runtimeCleanupTimer = null;
+    let heartbeatTimer = null;
+
+    async function publishHeartbeat(ready = !serverState.draining) {
+        if (!repository?.heartbeatInstance) return;
+        await repository.heartbeatInstance({
+            instanceId,
+            buildId,
+            pid: process.pid,
+            hostName: os.hostname(),
+            startedAt: serverStartedAt,
+            ready,
+            metadata: { port: server.address()?.port || null, dataSource: "mysql" }
+        });
+    }
+
     server.on("listening", () => {
         emailService.probe().catch(() => {});
+        emailService.drainOutbox?.().catch((error) => console.error("No se pudo recuperar el outbox de correo:", error.message));
+        repository?.cleanupRuntime?.().catch((error) => console.error("No se pudo limpiar el estado temporal compartido:", error.message));
+        publishHeartbeat(true).catch((error) => console.error("No se pudo publicar el heartbeat:", error.message));
+
         emailHealthTimer = setInterval(() => emailService.probe().catch(() => {}), 5 * 60 * 1000);
+        outboxTimer = setInterval(() => emailService.drainOutbox?.().catch((error) => console.error("Outbox:", error.message)), 30 * 1000);
+        runtimeCleanupTimer = setInterval(() => repository?.cleanupRuntime?.().catch((error) => console.error("Limpieza runtime:", error.message)), 60 * 1000);
+        heartbeatTimer = setInterval(() => publishHeartbeat(!serverState.draining).catch(() => {}), 10 * 1000);
         emailHealthTimer.unref?.();
+        outboxTimer.unref?.();
+        runtimeCleanupTimer.unref?.();
+        heartbeatTimer.unref?.();
     });
     server.on("close", () => {
-        if (emailHealthTimer) clearInterval(emailHealthTimer);
-        emailHealthTimer = null;
+        for (const timer of [emailHealthTimer, outboxTimer, runtimeCleanupTimer, heartbeatTimer]) if (timer) clearInterval(timer);
+        emailHealthTimer = outboxTimer = runtimeCleanupTimer = heartbeatTimer = null;
+        publishHeartbeat(false).catch(() => {});
     });
 
     server.exportDatabaseSql = exportDatabaseSql;
+    server.setDraining = (value) => { serverState.draining = Boolean(value); publishHeartbeat(!serverState.draining).catch(() => {}); };
+    server.instanceId = instanceId;
     return server;
 }
 
@@ -2835,6 +3952,8 @@ async function startApplication() {
             repository = createMysqlRepository(pool);
             if (!(await repository.isActivated())) throw new Error("MySQL todavía no está validado como fuente definitiva. Ejecuta npm run db:cutover y completa la validación final antes de usar --activate.");
             const state = await repository.loadState();
+            const authState = await repository.getRuntimeState?.("auth");
+            const dataRevision = await repository.getRevision?.();
             serverOptions = {
                 repository,
                 csvUsers: state.users,
@@ -2849,8 +3968,12 @@ async function startApplication() {
                 auditFile: null,
                 excuses: state.excuses,
                 excusesFile: null,
+                authState,
+                dataRevision,
                 authStateFile: null,
-                emailHistoryFile: null
+                emailHistoryFile: null,
+                instanceId: process.env.INSTANCE_ID || undefined,
+                backupDirectory: process.env.BACKUP_DIR || undefined
             };
         } catch (error) {
             await pool.end();
@@ -2860,14 +3983,36 @@ async function startApplication() {
     const port = Number(process.env.PORT || 3000);
     const server = createProjectServer(serverOptions);
     let closing = false;
-    const shutdown = async (signal) => {
+    const sockets = new Set();
+    server.on("connection", (socket) => {
+        sockets.add(socket);
+        socket.on("close", () => sockets.delete(socket));
+    });
+    const shutdown = async (signal, exitCode = 0) => {
         if (closing) return;
         closing = true;
-        console.log(`${signal}: cerrando servidor y pool MySQL...`);
+        server.setDraining?.(true);
+        console.log(`${signal}: drenando tráfico, cerrando servidor y pool MySQL...`);
+        const forceTimer = setTimeout(() => {
+            for (const socket of sockets) socket.destroy();
+        }, boundedInteger(process.env.SHUTDOWN_GRACE_MS, 10000, 1000, 30000));
+        forceTimer.unref?.();
+        server.closeIdleConnections?.();
         await new Promise((resolve) => server.listening ? server.close(resolve) : resolve());
+        clearTimeout(forceTimer);
         if (pool) await pool.end();
+        if (exitCode) process.exitCode = exitCode;
     };
-    for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => shutdown(signal).then(() => process.exit(0)).catch((error) => { console.error(error); process.exit(1); }));
+    for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => shutdown(signal, 0).then(() => process.exit(0)).catch((error) => { console.error(error); process.exit(1); }));
+    process.once("unhandledRejection", (reason) => {
+        const error = reason instanceof Error ? reason : new Error(String(reason));
+        console.error("UNHANDLED_REJECTION:", error.stack || error.message);
+        shutdown("unhandledRejection", 1).then(() => process.exit(1)).catch(() => process.exit(1));
+    });
+    process.once("uncaughtException", (error) => {
+        console.error("UNCAUGHT_EXCEPTION:", error.stack || error.message);
+        shutdown("uncaughtException", 1).then(() => process.exit(1)).catch(() => process.exit(1));
+    });
     server.listen(port, "0.0.0.0", () => {
         console.log(`Sistema SENA disponible en http://localhost:${port}/login.html`);
         console.log(`Escuchando en 0.0.0.0:${port}`);
