@@ -98,7 +98,11 @@ function createProjectServer(options = {}) {
         otpSecret: loadOrCreateOtpSecret(options),
         allowedEmails: String(options.allowedEmails ?? process.env.ALLOWED_EMAILS ?? "").split(",").map(normalizeEmail).filter(Boolean),
         allowedDomain: String(options.allowedDomain ?? process.env.ALLOWED_EMAIL_DOMAIN ?? "").trim().toLowerCase().replace(/^@/, ""),
-        secureCookie: options.secureCookie ?? process.env.COOKIE_SECURE === "1",
+        secureCookie: options.secureCookie ?? (
+            process.env.NODE_ENV === "production"
+                ? true
+                : process.env.COOKIE_SECURE === "1"
+        ),
         exposeTestCode: options.exposeTestCode === true,
         emailSender: options.emailSender,
         emailTimeoutMs: boundedInteger(options.emailTimeoutMs ?? process.env.EMAIL_TIMEOUT_MS, 10000, 2000, 30000),
@@ -286,14 +290,14 @@ function createProjectServer(options = {}) {
         }
     ];
     if (instructorCredentials) builtInAccounts.push({
-            id: "instructor-sena",
-            username: "instructor",
-            email: normalizeEmail(process.env.INSTRUCTOR_AUTH_EMAIL || "instructor@sena.edu.co"),
-            name: String(process.env.INSTRUCTOR_AUTH_NAME || "Instructor SENA").trim(),
-            role: "Instructor",
-            salt: instructorCredentials.salt,
-            passwordHash: instructorCredentials.passwordHash
-        });
+        id: "instructor-sena",
+        username: "instructor",
+        email: normalizeEmail(process.env.INSTRUCTOR_AUTH_EMAIL || "instructor@sena.edu.co"),
+        name: String(process.env.INSTRUCTOR_AUTH_NAME || "Instructor SENA").trim(),
+        role: "Instructor",
+        salt: instructorCredentials.salt,
+        passwordHash: instructorCredentials.passwordHash
+    });
     const managedUsersFile = path.join(dataDirectory, "usuarios_gestionados.json");
     if (persistentRuntime) ensureOperationalFile(
         managedUsersFile,
@@ -465,8 +469,10 @@ function createProjectServer(options = {}) {
         csvUsers = rows;
         csvSource = source;
         for (const row of csvUsers) {
-            const user = { document: row.identificacion, documentType: row.tipo_documento, name: row.nombre, email: row.correo,
-                role: canonicalRole(row.rol), status: canonicalUserStatus(row.estado), ficha: row.ficha };
+            const user = {
+                document: row.identificacion, documentType: row.tipo_documento, name: row.nombre, email: row.correo,
+                role: canonicalRole(row.rol), status: canonicalUserStatus(row.estado), ficha: row.ficha
+            };
             if (user.role === "Aprendiz") syncApprenticeProfile(user);
             const account = managedUsers.find(item => item.document === user.document);
             if (account) Object.assign(account, user);
@@ -739,7 +745,7 @@ function createProjectServer(options = {}) {
         if (!session || session.expiresAt <= Date.now()) {
             if (token) {
                 sessions.delete(token);
-                repository?.deleteSession?.(token).catch?.(() => {});
+                repository?.deleteSession?.(token).catch?.(() => { });
             }
             return null;
         }
@@ -1952,28 +1958,28 @@ function createProjectServer(options = {}) {
                 // dos consultas GET simultáneas sobre la captura finalizada.
                 if (!acceso.datos.enrolamiento_guardando) {
                     acceso.datos.enrolamiento_guardando = (async () => {
-                // No marcar como persistido hasta que el cifrado y la escritura finalicen.
-                // Así una falla de disco puede reintentarse en una nueva consulta.
-                if (esModoBiometricoReal()) {
-                    const plantilla = String(captura_origen?.resultado?.plantilla_biometrica || "");
-                    if (!plantilla) throw new ErrorBiometrico("ERROR_BIOMETRICO", "El puente no devolvió la plantilla enrolada.", 502);
-                    almacenBiometricoReal.guardar(acceso.datos.usuario_id, plantilla, {
-                        dedo: captura_origen?.resultado?.dedo || "indice_derecho",
-                        fecha_registro: new Date(now()).toISOString()
-                    });
-                    audit(acceso.session, "BIOMETRIA_ENROLAMIENTO_REAL", "biometria_usuario", acceso.datos.usuario_id, null, null, {
-                        modo: "real", plantilla_cifrada: true, dedo: captura_origen?.resultado?.dedo || "indice_derecho"
-                    });
-                } else {
-                    estadoBiometriaMock.registrar(acceso.datos.usuario_id, {
-                        registrado_por: acceso.session.user.id,
-                        fecha: new Date(now()).toISOString()
-                    });
-                    audit(acceso.session, "BIOMETRIA_ENROLAMIENTO_SIMULADO", "biometria_usuario", acceso.datos.usuario_id, null, null, {
-                        modo: "mock", plantilla_generada: false
-                    });
-                }
-                acceso.datos.enrolamiento_guardado = true;
+                        // No marcar como persistido hasta que el cifrado y la escritura finalicen.
+                        // Así una falla de disco puede reintentarse en una nueva consulta.
+                        if (esModoBiometricoReal()) {
+                            const plantilla = String(captura_origen?.resultado?.plantilla_biometrica || "");
+                            if (!plantilla) throw new ErrorBiometrico("ERROR_BIOMETRICO", "El puente no devolvió la plantilla enrolada.", 502);
+                            almacenBiometricoReal.guardar(acceso.datos.usuario_id, plantilla, {
+                                dedo: captura_origen?.resultado?.dedo || "indice_derecho",
+                                fecha_registro: new Date(now()).toISOString()
+                            });
+                            audit(acceso.session, "BIOMETRIA_ENROLAMIENTO_REAL", "biometria_usuario", acceso.datos.usuario_id, null, null, {
+                                modo: "real", plantilla_cifrada: true, dedo: captura_origen?.resultado?.dedo || "indice_derecho"
+                            });
+                        } else {
+                            estadoBiometriaMock.registrar(acceso.datos.usuario_id, {
+                                registrado_por: acceso.session.user.id,
+                                fecha: new Date(now()).toISOString()
+                            });
+                            audit(acceso.session, "BIOMETRIA_ENROLAMIENTO_SIMULADO", "biometria_usuario", acceso.datos.usuario_id, null, null, {
+                                modo: "mock", plantilla_generada: false
+                            });
+                        }
+                        acceso.datos.enrolamiento_guardado = true;
 
                     })();
                 }
@@ -3074,33 +3080,41 @@ function createProjectServer(options = {}) {
     const publicFicha = ficha => {
         const program = programRecords.find(item => String(item.id) === String(ficha.programaId));
         const code = String(ficha.numero || "");
-        return { id: String(ficha.id), code: String(ficha.numero || ""), plan: fichaPlan(code), program: String(program?.nombre || ficha.programa || "Sin programa"),
+        return {
+            id: String(ficha.id), code: String(ficha.numero || ""), plan: fichaPlan(code), program: String(program?.nombre || ficha.programa || "Sin programa"),
             programId: String(ficha.programaId || ""), schedule: normalizeSqlText(ficha.jornada || ""), mode: String(ficha.modalidad || ""),
             status: String(ficha.estado || ""), instructorId: ficha.instructorId == null ? "" : String(ficha.instructorId), dependencies: {
                 aprendices: csvUsers.filter(item => canonicalRole(item.rol) === "Aprendiz" && String(item.ficha) === code).length,
                 horarios: sqlData.horarios.filter(item => String(item.fichaId) === String(ficha.id)).length,
                 asistencias: attendanceRecords.filter(item => item.ficha === code).length
-            } };
+            }
+        };
     };
-    const publicEnvironment = item => ({ id: String(item.id), code: String(item.codigo || ""), name: String(item.nombre || ""),
+    const publicEnvironment = item => ({
+        id: String(item.id), code: String(item.codigo || ""), name: String(item.nombre || ""),
         capacity: Number(item.capacidad) || 0, type: String(item.tipo || ""), status: String(item.estado || ""), zone: String(item.zona || ""),
-        dependencies: { horarios: sqlData.horarios.filter(schedule => String(schedule.ambienteId) === String(item.id)).length } });
+        dependencies: { horarios: sqlData.horarios.filter(schedule => String(schedule.ambienteId) === String(item.id)).length }
+    });
     const publicSchedule = item => {
         const ficha = sqlData.fichas.find(value => String(value.id) === String(item.fichaId));
         const environment = sqlData.ambientes.find(value => String(value.id) === String(item.ambienteId));
         const instructor = systemUsers().find(value => String(value.id) === String(item.instructorId) || value.document === String(item.instructorId));
         const code = String(ficha?.numero || item.ficha || ""), journey = fichaPlan(code)?.schedule || (Number(String(item.horaInicio || "00").slice(0, 2)) < 12 ? "Mañana" : Number(String(item.horaInicio || "00").slice(0, 2)) < 18 ? "Tarde" : "Noche");
-        return { id: String(item.id), ficha: code, day: normalizeSqlText(item.dia || ""),
+        return {
+            id: String(item.id), ficha: code, day: normalizeSqlText(item.dia || ""),
             start: String(item.horaInicio || ""), end: String(item.horaFin || ""), time: `${item.horaInicio || ""} - ${item.horaFin || ""}`,
             environmentId: String(item.ambienteId || ""), environment: environment ? `${environment.codigo} · ${environment.nombre}` : "Sin ambiente",
             zone: String(environment?.zona || ""), instructorId: String(item.instructorId || ""), instructor: instructor?.name || "Sin instructor", status: String(item.estado || "Activo"),
-            dependencies: { asistencias: attendanceRecords.filter(record => record.ficha === code && record.jornada === journey).length } };
+            dependencies: { asistencias: attendanceRecords.filter(record => record.ficha === code && record.jornada === journey).length }
+        };
     };
     function trainingPayload() {
-        return { scale: SCALE, weeklyPlan: weeklyPlan(sqlData.fichas), fichas: sqlData.fichas.map(publicFicha).sort((a, b) => a.code.localeCompare(b.code, "es", { numeric: true })),
+        return {
+            scale: SCALE, weeklyPlan: weeklyPlan(sqlData.fichas), fichas: sqlData.fichas.map(publicFicha).sort((a, b) => a.code.localeCompare(b.code, "es", { numeric: true })),
             schedules: sqlData.horarios.map(publicSchedule), environments: sqlData.ambientes.map(publicEnvironment),
             programs: programRecords.map(item => ({ id: String(item.id), name: String(item.nombre || "") })),
-            instructors: systemUsers().filter(item => item.role === "Instructor" && item.status === "Activo").map(item => ({ id: item.id, name: item.name, document: item.document })) };
+            instructors: systemUsers().filter(item => item.role === "Instructor" && item.status === "Activo").map(item => ({ id: item.id, name: item.name, document: item.document }))
+        };
     }
     function handleTrainingData(request, response) {
         if (!requireStaff(request, response)) return;
@@ -3121,15 +3135,19 @@ function createProjectServer(options = {}) {
         return { code, programId, schedule, mode, status, instructorId: instructorId || null };
     }
     function validateEnvironmentInput(body, current = {}) {
-        const value = { code: cleanText(body.code ?? current.codigo, 30), name: cleanText(body.name ?? current.nombre), capacity: Number(body.capacity ?? current.capacidad),
-            type: cleanText(body.type ?? current.tipo, 40), status: cleanText(body.status ?? current.estado, 30), zone: cleanText(body.zone ?? current.zona, 60) };
+        const value = {
+            code: cleanText(body.code ?? current.codigo, 30), name: cleanText(body.name ?? current.nombre), capacity: Number(body.capacity ?? current.capacidad),
+            type: cleanText(body.type ?? current.tipo, 40), status: cleanText(body.status ?? current.estado, 30), zone: cleanText(body.zone ?? current.zona, 60)
+        };
         if (!/^[A-Za-z0-9._-]{1,30}$/.test(value.code) || !value.name || !Number.isInteger(value.capacity) || value.capacity < 1 || value.capacity > 1000 || !value.zone) throw Object.assign(new Error("Revisa el código, nombre, capacidad y zona del ambiente."), { status: 400 });
         if (!["Aula", "Laboratorio", "Especializado", "Taller", "Auditorio"].includes(value.type) || !["Disponible", "Ocupado", "Mantenimiento", "Inactivo"].includes(value.status)) throw Object.assign(new Error("El tipo o estado del ambiente no es válido."), { status: 400 });
         return value;
     }
     function validateScheduleInput(body, current = {}) {
-        const value = { fichaId: cleanText(body.fichaId ?? current.fichaId, 30), ambienteId: cleanText(body.environmentId ?? current.ambienteId, 30), instructorId: cleanText(body.instructorId ?? current.instructorId, 80),
-            day: cleanText(body.day ?? current.dia, 20), start: cleanText(body.start ?? current.horaInicio, 5), end: cleanText(body.end ?? current.horaFin, 5), status: cleanText(body.status ?? current.estado ?? "Activo", 20) };
+        const value = {
+            fichaId: cleanText(body.fichaId ?? current.fichaId, 30), ambienteId: cleanText(body.environmentId ?? current.ambienteId, 30), instructorId: cleanText(body.instructorId ?? current.instructorId, 80),
+            day: cleanText(body.day ?? current.dia, 20), start: cleanText(body.start ?? current.horaInicio, 5), end: cleanText(body.end ?? current.horaFin, 5), status: cleanText(body.status ?? current.estado ?? "Activo", 20)
+        };
         const selectedFicha = sqlData.fichas.find(item => String(item.id) === value.fichaId);
         const selectedEnvironment = sqlData.ambientes.find(item => String(item.id) === value.ambienteId);
         if (!selectedFicha || !selectedEnvironment || !systemUsers().some(item => (item.id === value.instructorId || item.document === value.instructorId) && item.role === "Instructor" && item.status === "Activo")) throw Object.assign(new Error("Selecciona ficha, ambiente e instructor válidos."), { status: 400 });
@@ -3705,7 +3723,7 @@ function createProjectServer(options = {}) {
 
     function enqueuePersistedMutation(task) {
         const execution = mutationTail.then(task, task);
-        mutationTail = execution.catch(() => {});
+        mutationTail = execution.catch(() => { });
         return execution;
     }
 
@@ -3721,7 +3739,7 @@ function createProjectServer(options = {}) {
         };
         if (connection) return synchronize();
         const execution = sharedStateSyncTail.then(synchronize, synchronize);
-        sharedStateSyncTail = execution.catch(() => {});
+        sharedStateSyncTail = execution.catch(() => { });
         return execution;
     }
 
@@ -3748,36 +3766,48 @@ function createProjectServer(options = {}) {
     }
 
     function configurar_cors(request, response) {
-    const es_produccion = process.env.NODE_ENV === "production";
+        const es_produccion = process.env.NODE_ENV === "production";
 
-    if (!es_produccion) {
-        response.setHeader("Access-Control-Allow-Origin", "*");
+        if (!es_produccion) {
+            response.setHeader("Access-Control-Allow-Origin", "*");
+            return true;
+        }
+
+        const origen_solicitud = String(request.headers.origin || "").trim();
+        const origen_permitido = publicUrl
+            ? new URL(publicUrl).origin
+            : "";
+
+        if (!origen_solicitud) {
+            return true;
+        }
+
+        if (!origen_permitido || origen_solicitud !== origen_permitido) {
+            return false;
+        }
+
+        response.setHeader("Access-Control-Allow-Origin", origen_permitido);
+        response.setHeader("Vary", "Origin");
         return true;
     }
-
-    const origen_solicitud = String(request.headers.origin || "").trim();
-    const origen_permitido = publicUrl
-        ? new URL(publicUrl).origin
-        : "";
-
-    if (!origen_solicitud) {
-        return true;
-    }
-
-    if (!origen_permitido || origen_solicitud !== origen_permitido) {
-        return false;
-    }
-
-    response.setHeader("Access-Control-Allow-Origin", origen_permitido);
-    response.setHeader("Vary", "Origin");
-    return true;
-}
 
     async function handleHttpRequest(request, response) {
         const requestId = String(request.headers["x-request-id"] || crypto.randomUUID()).slice(0, 128);
         request.blueMagicRequestId = requestId;
         response.setHeader("X-Request-Id", requestId);
         response.setHeader("X-Blue-Magic-Instance", instanceId);
+        const forwarded_proto = String(
+            request.headers["x-forwarded-proto"] || ""
+        ).split(",")[0].trim().toLowerCase();
+
+        const solicitud_https = config.trustProxy && forwarded_proto === "https";
+
+        if (process.env.NODE_ENV === "production" && solicitud_https) {
+            response.setHeader(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains"
+            );
+        }
         const cors_permitido = configurar_cors(request, response);
         response.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS");
         response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, X-Request-Id");
@@ -3945,15 +3975,15 @@ function createProjectServer(options = {}) {
     }
 
     server.on("listening", () => {
-        emailService.probe().catch(() => {});
+        emailService.probe().catch(() => { });
         emailService.drainOutbox?.().catch((error) => console.error("No se pudo recuperar el outbox de correo:", error.message));
         repository?.cleanupRuntime?.().catch((error) => console.error("No se pudo limpiar el estado temporal compartido:", error.message));
         publishHeartbeat(true).catch((error) => console.error("No se pudo publicar el heartbeat:", error.message));
 
-        emailHealthTimer = setInterval(() => emailService.probe().catch(() => {}), 5 * 60 * 1000);
+        emailHealthTimer = setInterval(() => emailService.probe().catch(() => { }), 5 * 60 * 1000);
         outboxTimer = setInterval(() => emailService.drainOutbox?.().catch((error) => console.error("Outbox:", error.message)), 30 * 1000);
         runtimeCleanupTimer = setInterval(() => repository?.cleanupRuntime?.().catch((error) => console.error("Limpieza runtime:", error.message)), 60 * 1000);
-        heartbeatTimer = setInterval(() => publishHeartbeat(!serverState.draining).catch(() => {}), 10 * 1000);
+        heartbeatTimer = setInterval(() => publishHeartbeat(!serverState.draining).catch(() => { }), 10 * 1000);
         emailHealthTimer.unref?.();
         outboxTimer.unref?.();
         runtimeCleanupTimer.unref?.();
@@ -3962,11 +3992,11 @@ function createProjectServer(options = {}) {
     server.on("close", () => {
         for (const timer of [emailHealthTimer, outboxTimer, runtimeCleanupTimer, heartbeatTimer]) if (timer) clearInterval(timer);
         emailHealthTimer = outboxTimer = runtimeCleanupTimer = heartbeatTimer = null;
-        publishHeartbeat(false).catch(() => {});
+        publishHeartbeat(false).catch(() => { });
     });
 
     server.exportDatabaseSql = exportDatabaseSql;
-    server.setDraining = (value) => { serverState.draining = Boolean(value); publishHeartbeat(!serverState.draining).catch(() => {}); };
+    server.setDraining = (value) => { serverState.draining = Boolean(value); publishHeartbeat(!serverState.draining).catch(() => { }); };
     server.instanceId = instanceId;
     return server;
 }

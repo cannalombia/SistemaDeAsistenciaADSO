@@ -11,9 +11,11 @@ async function main() {
         adminPassword: "prueba-publica",
         apprentices: [{ id: "prueba", document: "123456", name: "Prueba", email: "prueba@example.com", status: "Activo", program: { ficha: "123" }, attendance: [] }], attendanceRecords: [], managedUsers: [],
         emailSender: async () => ({ id: "prueba" }),
-        sqlData: { ambientes: [], horarios: [], programas: [], fichas: [
-            { numero: 123, jornada: "Mañana", estado: "Activa" }
-        ] }
+        sqlData: {
+            ambientes: [], horarios: [], programas: [], fichas: [
+                { numero: 123, jornada: "Mañana", estado: "Activa" }
+            ]
+        }
     };
     try {
         assert.throws(() => createProjectServer({ ...options, publicUrl: "javascript:alert(1)" }), /PUBLIC_URL/);
@@ -34,10 +36,12 @@ async function main() {
                     await response.text();
                 }
                 for (const route of ["/api/auth/password", "/api/attendance/qr/register"]) {
-                    const response = await fetch(base + route, { method: "OPTIONS", headers: {
-                        Origin: "https://otro.example", "Access-Control-Request-Method": "POST",
-                        "Access-Control-Request-Headers": "content-type"
-                    } });
+                    const response = await fetch(base + route, {
+                        method: "OPTIONS", headers: {
+                            Origin: "https://otro.example", "Access-Control-Request-Method": "POST",
+                            "Access-Control-Request-Headers": "content-type"
+                        }
+                    });
                     assert.equal(response.status, 204);
                     assert.equal(response.headers.get("access-control-allow-origin"), "*");
                     assert.match(response.headers.get("access-control-allow-headers"), /Content-Type/);
@@ -82,41 +86,72 @@ async function main() {
         }
         process.env.NODE_ENV = "production";
 
-const production_server = createProjectServer({
-    ...options,
-    publicUrl: "https://prueba-publica.lhr.life"
-});
+        const production_server = createProjectServer({
+            ...options,
+            publicUrl: "https://prueba-publica.lhr.life",
+            trustProxy: true
+        });
 
-await new Promise((resolve, reject) => {
-    production_server.once("error", reject);
-    production_server.listen(0, "0.0.0.0", resolve);
-});
+        await new Promise((resolve, reject) => {
+            production_server.once("error", reject);
+            production_server.listen(0, "0.0.0.0", resolve);
+        });
 
-const production_base = `http://127.0.0.1:${production_server.address().port}`;
+        const production_base = `http://127.0.0.1:${production_server.address().port}`;
 
-try {
-    const allowed = await fetch(production_base + "/api/health", {
-        headers: {
-            Origin: "https://prueba-publica.lhr.life"
+        try {
+            const allowed = await fetch(production_base + "/api/health", {
+                headers: {
+                    Origin: "https://prueba-publica.lhr.life",
+                    "X-Forwarded-Proto": "https"
+                }
+            });
+
+            assert.equal(allowed.status, 200);
+            assert.equal(
+                allowed.headers.get("access-control-allow-origin"),
+                "https://prueba-publica.lhr.life"
+            );
+
+            assert.equal(
+                allowed.headers.get("strict-transport-security"),
+                "max-age=31536000; includeSubDomains"
+            );
+
+            const production_login = await fetch(production_base + "/api/auth/password", {
+                method: "POST",
+                headers: {
+                    Origin: "https://prueba-publica.lhr.life",
+                    "X-Forwarded-Proto": "https",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    identifier: "admin",
+                    password: "prueba-publica"
+                })
+            });
+
+            assert.equal(production_login.status, 200);
+
+            const production_cookie = production_login.headers.get("set-cookie") || "";
+
+            assert.match(
+                production_cookie,
+                /(?:^|;\s*)Secure(?:;|$)/i
+            );
+
+            await production_login.text();
+
+            const denied = await fetch(production_base + "/api/health", {
+                headers: {
+                    Origin: "https://otro.example"
+                }
+            });
+
+            assert.equal(denied.status, 403);
+        } finally {
+            await new Promise(resolve => production_server.close(resolve));
         }
-    });
-
-    assert.equal(allowed.status, 200);
-    assert.equal(
-        allowed.headers.get("access-control-allow-origin"),
-        "https://prueba-publica.lhr.life"
-    );
-
-    const denied = await fetch(production_base + "/api/health", {
-        headers: {
-            Origin: "https://otro.example"
-        }
-    });
-
-    assert.equal(denied.status, 403);
-} finally {
-    await new Promise(resolve => production_server.close(resolve));
-}
         console.log("OK: PUBLIC_URL, QR público/local, login, CORS, OPTIONS y escucha IPv4.");
     } finally {
         if (previous === undefined) delete process.env.PUBLIC_URL;
