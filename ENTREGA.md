@@ -18,7 +18,7 @@
 | BUG-01 Permisos/fprintd | [#8](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/8) | Abierto: falta reinicio WSL | Sin cierre |
 | BUG-02 servidor visual ausente | [#9](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/9) | Cerrado / Done | [`a789cd9`](https://github.com/cannalombia/SistemaDeAsistenciaADSO/commit/a789cd9) |
 | BUG-03 sidebar blanca | [#10](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/10) | Cerrado / Done | [`a789cd9`](https://github.com/cannalombia/SistemaDeAsistenciaADSO/commit/a789cd9) |
-| DOC-01 Historial verificable 16–23 de octubre | [#11](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/11) | Abierto / In Progress | Cierre documental en preparacion |
+| DOC-01 Historial verificable 16–23 de octubre | [#11](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/11) | Abierto / In Progress | [`e68d297`](https://github.com/cannalombia/SistemaDeAsistenciaADSO/commit/e68d2974ba856d8c31951078424ac41c12b2acb0) publicado; cierre automatizado pendiente |
 | BUG-04 resumen de huellas blanco en modo oscuro | [#12](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/12) | Abierto / Todo; validado localmente | Cambio local sin commit |
 | BUG-05 telemetria biometrica blanca en modo oscuro | [#13](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/13) | Abierto / Todo; validado localmente | Cambio local sin commit |
 
