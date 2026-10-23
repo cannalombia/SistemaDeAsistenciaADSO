@@ -794,7 +794,7 @@ El desarrollo se gestiona con historias INVEST, criterios `Dado / cuando / enton
 - [Backlog BioSecure 9.1](planeacion/backlog.md)
 - [Incidencias verificadas](planeacion/incidencias.md)
 - [Flujo permanente de trabajo](planeacion/flujo_de_trabajo.md)
-- [Historial honesto del 16 al 21 de octubre](planeacion/historial_16_al_21_octubre.md)
+- [Historial verificable del 16 al 23 de octubre](planeacion/historial_16_al_21_octubre.md)
 - [Entrega Git/GitHub II](ENTREGA.md)
 - [Issues del repositorio](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues)
 - [Tablero publico BioSecure HID](https://github.com/users/cannalombia/projects/1)
@@ -808,3 +808,11 @@ git diff --cached --check
 ```
 
 La historia HID no se declara terminada por detectar el lector. La homologacion requiere captura autorizada, identificacion, registro unico en MySQL y una repeticion despues de reiniciar WSL2.
+
+### Evidencia real del 16 al 23 de octubre de 2026
+
+- Del 16 al 20 no hay commits publicados. La bitacora separa expresamente la cronologia inferida y los documentos importados el 21; no se presentan como actividad Git historica.
+- El 21 se publicaron la integracion BioSecure 9.1 (`a789cd9`) y la planeacion GitHub (`df9dcb1`). El lector `05ba:000a`, WSL2, `lsusb`, `fprintd`, el puente `:4318` y Node `:3000` quedaron documentados, junto con el limite de la prueba fisica.
+- El 22 se publicaron cuatro commits reales de preparacion para produccion: `63f299e`, `edb33c8`, `fc6bdb4` y `1bde09e`.
+- El 23 se documentaron y verificaron localmente [BUG-04 #12](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/12) y [BUG-05 #13](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/13) de modo oscuro. Sus cambios no se declaran publicados mientras no exista un commit que los relacione y llegue a GitHub.
+- [#4](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/4) permanece abierto por la asistencia fisica y MySQL. [#8](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/8) permanece abierto por la prueba posterior al reinicio de WSL2. [#11](https://github.com/cannalombia/SistemaDeAsistenciaADSO/issues/11) concentra este cierre documental.

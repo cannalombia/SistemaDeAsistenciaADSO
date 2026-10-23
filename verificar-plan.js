@@ -10,6 +10,12 @@ const checks = [];
 const read = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
 const add = (name, ok, detail = "") => checks.push({ name, ok: Boolean(ok), detail });
 const run = (command, args) => execFileSync(command, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+const section = (text, heading) => {
+  const start = text.indexOf(`## ${heading}`);
+  const end = text.indexOf("\n## ", start + 1);
+  return start < 0 ? "" : text.slice(start, end < 0 ? undefined : end);
+};
+const acceptanceCriteria = (text) => text.match(/^\s*- \[[ xX]\] Dado\b.*\bcuando\b.*\bentonces\b.*$/gim) || [];
 
 function frontMatter(text) {
   const match = text.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
@@ -32,12 +38,20 @@ add("config.yml presente", fs.existsSync(path.join(root, ".github/ISSUE_TEMPLATE
 const backlog = read("planeacion/backlog.md");
 for (let number = 1; number <= 6; number += 1) {
   const id = String(number).padStart(2, "0");
-  const start = backlog.indexOf(`## HU-${id}`);
-  const end = backlog.indexOf("\n## HU-", start + 1);
-  const block = backlog.slice(start, end < 0 ? undefined : end);
-  const criteria = block.match(/^\s*- \[[ xX]\] Dado\b.*\bcuando\b.*\bentonces\b.*$/gim) || [];
-  add(`HU-${id}: historia INVEST y 3 criterios`, start >= 0 && /\*\*Historia:\*\* Como\b.*\bquiero\b.*\bpara\b/i.test(block) && criteria.length >= 3);
+  const block = section(backlog, `HU-${id}`);
+  const criteria = acceptanceCriteria(block);
+  add(`HU-${id}: historia INVEST y 3 criterios`, Boolean(block) && /\*\*Historia:\*\* Como\b.*\bquiero\b.*\bpara\b/i.test(block) && criteria.length >= 3);
   add(`HU-${id}: numero real de issue`, /\*\*Issue:\*\* #\d+/.test(block), "Publica el issue y sincroniza el numero.");
+}
+
+const documentationStory = section(backlog, "DOC-01");
+add("DOC-01: historia y 3 criterios", /\*\*Historia:\*\* Como\b.*\bquiero\b.*\bpara\b/i.test(documentationStory) && acceptanceCriteria(documentationStory).length >= 3);
+add("DOC-01: issue #11 sincronizado", /\*\*Issue:\*\* #11\b/.test(documentationStory));
+
+for (let number = 1; number <= 5; number += 1) {
+  const id = String(number).padStart(2, "0");
+  const block = section(backlog, `BUG-${id}`);
+  add(`BUG-${id}: 3 criterios comprobables`, acceptanceCriteria(block).length >= 3);
 }
 
 for (const relative of [
@@ -65,11 +79,11 @@ try {
   const auth = run("gh", ["auth", "status"]);
   const repo = JSON.parse(run("gh", ["repo", "view", "--json", "nameWithOwner,url"]));
   const issues = JSON.parse(run("gh", ["issue", "list", "--state", "all", "--limit", "100", "--json", "number,title,labels,assignees"]));
-  const planned = issues.filter((issue) => /^(HU-0[1-6]|BUG-0[1-3])\b/.test(issue.title));
+  const planned = issues.filter((issue) => /^(HU-0[1-6]|BUG-0[1-5]|DOC-01)\b/.test(issue.title));
   add("GitHub CLI autenticado", /Logged in|github\.com/i.test(auth));
   add("Remoto correcto en GitHub", repo.nameWithOwner === "cannalombia/SistemaDeAsistenciaADSO");
-  add("6 HU y 3 bugs reales", planned.filter((i) => /^HU-/.test(i.title)).length >= 6 && planned.filter((i) => /^BUG-/.test(i.title)).length >= 3);
-  add("Issues asignados y etiquetados", planned.length >= 9 && planned.every((i) => i.labels.length && i.assignees.length));
+  add("6 HU, 5 bugs y DOC-01 reales", planned.filter((i) => /^HU-/.test(i.title)).length >= 6 && planned.filter((i) => /^BUG-/.test(i.title)).length >= 5 && planned.some((i) => /^DOC-01\b/.test(i.title)));
+  add("Issues asignados y etiquetados", planned.length >= 12 && planned.every((i) => i.labels.length && i.assignees.length));
 } catch (error) {
   add("Verificacion remota GitHub", false, "Autentica gh y publica antes de la entrega.");
 }
