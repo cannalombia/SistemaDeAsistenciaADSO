@@ -22,6 +22,8 @@ Esta bitacora describe el trabajo conservado en archivos y pruebas. No sustituye
 - `a789cd9` — 21/10/2026 — integracion legitima de BioSecure 9.1; cierra #2, #3, #5, #6, #7, #9 y #10, y referencia #4 sin cerrarlo.
 - `df9dcb1` — 21/10/2026 — publica plantillas, backlog, issues, tablero y evidencias de planeacion.
 - `63f299e`, `edb33c8`, `fc6bdb4`, `1bde09e` — 22/10/2026 — preparacion y documentacion de despliegue.
+- `e68d297` — 23/10/2026 — documentacion verificable, backlog, incidencias, entrega y verificador relacionados con #11, #12 y #13.
+- `b0c6986` — 23/10/2026 — cierre trazable de #11 mediante `closes #11`; GitHub movio su tarjeta a Done.
 
 ## Limites comprobados
 

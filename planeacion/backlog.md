@@ -90,14 +90,14 @@ Las historias son necesidades reales del Sistema de Asistencia SENA y se mantien
 
 **Historia:** Como instructor, quiero consultar una cronologia verificable de BioSecure SENA, para distinguir el trabajo documentado, los commits autenticos y las pruebas que todavia faltan.
 
-**Etiquetas:** docs · **Responsable:** cannalombia · **Estimacion:** S · **Estado del tablero:** In Progress
+**Etiquetas:** docs · **Responsable:** cannalombia · **Estimacion:** S · **Estado del tablero:** Done
 
 **Criterios de aceptacion:**
 
 - [x] Dado el historial real de Git, cuando reviso la cronologia, entonces distingo los commits autenticos de las fechas descritas solo por bitacoras o artefactos.
 - [x] Dado un avance documentado, cuando sigo su referencia, entonces encuentro un issue, commit, prueba o documento real del repositorio.
 - [x] Dado que existen limites de hardware y MySQL, cuando reviso el cierre, entonces #4 y #8 permanecen abiertos y sus pendientes estan explicados sin afirmar un resultado no probado.
-- [ ] Dado el trabajo documental terminado, cuando se publique el commit en `main`, entonces #11 se cierra mediante `closes #11` y su tarjeta pasa a Done.
+- [x] Dado el trabajo documental terminado, cuando se publique el commit en `main`, entonces #11 se cierra mediante `closes #11` y su tarjeta pasa a Done.
 
 **Issue:** #11
 
