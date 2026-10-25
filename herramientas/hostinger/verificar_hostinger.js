@@ -101,6 +101,14 @@ fallos += comprobar(
     "falta configurar el servidor MySQL"
 );
 
+const db_port = Number(process.env.DB_PORT || 0);
+
+fallos += comprobar(
+    "DB_PORT",
+    Number.isInteger(db_port) && db_port > 0 && db_port <= 65535,
+    "debe ser un puerto MySQL valido"
+);
+
 fallos += comprobar(
     "DB_NAME",
     Boolean(process.env.DB_NAME),
@@ -117,6 +125,18 @@ fallos += comprobar(
     "DB_PASSWORD",
     Boolean(process.env.DB_PASSWORD),
     "falta configurar la contrasena MySQL"
+);
+
+fallos += comprobar(
+    "DB_MIGRATION_USER",
+    Boolean(process.env.DB_MIGRATION_USER),
+    "falta configurar el usuario de migraciones MySQL"
+);
+
+fallos += comprobar(
+    "DB_MIGRATION_PASSWORD",
+    Boolean(process.env.DB_MIGRATION_PASSWORD),
+    "falta configurar la contrasena de migraciones MySQL"
 );
 
 if (valor_activo(process.env.BIOMETRIC_ENABLED)) {

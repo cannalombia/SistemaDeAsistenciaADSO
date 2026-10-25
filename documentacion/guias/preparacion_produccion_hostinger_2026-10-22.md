@@ -175,3 +175,40 @@ Quedan pendientes:
 - configuración definitiva del hosting;
 - dominio y SSL;
 - adaptación de la biometría para el sistema publicado.
+
+## Prueba automatica de configuracion para hosting
+
+Se agrego una prueba automatica para comprobar la configuracion MySQL necesaria antes del despliegue.
+
+La prueba se puede ejecutar de forma independiente con:
+
+```bash
+npm.cmd run test:hostinger
+
+```
+
+Esta validacion comprueba:
+
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_MIGRATION_USER`
+- `DB_MIGRATION_PASSWORD`
+
+La prueba verifica que las variables necesarias existan y que las contrasenas no aparezcan en la salida del verificador.
+
+Resultado esperado:
+
+```text
+OK: verificador Hostinger valida MySQL sin exponer contrasenas.
+```
+
+La prueba tambien fue integrada en la suite general del proyecto, por lo que se ejecuta mediante:
+
+```bash
+NODE_ENV=test npm.cmd test
+```
+
+Las variables propias del hosting como `NODE_ENV=production`, `PUBLIC_URL`, `COOKIE_SECURE` y `TRUST_PROXY` se configuraran cuando se disponga del servidor real.

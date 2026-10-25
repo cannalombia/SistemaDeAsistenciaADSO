@@ -86,6 +86,20 @@ Las historias son necesidades reales del Sistema de Asistencia SENA y se mantien
 
 **Issue:** #7
 
+## HU-07 · Preparar MySQL para despliegue en hosting
+
+**Historia:** Como administrador del Sistema de Asistencia SENA, quiero validar que la base de datos MySQL pueda prepararse y reconstruirse correctamente antes del despliegue, para reducir errores cuando el sistema sea trasladado al hosting.
+
+**Etiquetas:** historia, backend, mysql, prioridad-alta · **Estimacion:** M
+
+**Criterios de aceptacion:**
+
+- [x] Dado un servidor MySQL limpio, cuando se ejecutan las migraciones del proyecto, entonces se crean correctamente las estructuras `001_esquema_aplicacion`, `002_excusas` y `003_resiliencia_multiinstancia`.
+- [x] Dado que MySQL fue reconstruido, cuando se ejecuta el proceso de corte y validacion, entonces los datos de archivos y MySQL coinciden sin `differences` ni `relationErrors`.
+- [x] Dado que la base esta preparada para produccion, cuando se ejecuta una comprobacion previa al despliegue, entonces se validan host, puerto, nombre de base, usuario y configuracion requerida sin mostrar contrasenas.
+
+**Issue:** #14
+
 ## DOC-01 · Historial verificable del desarrollo
 
 **Historia:** Como instructor, quiero consultar una cronologia verificable de BioSecure SENA, para distinguir el trabajo documentado, los commits autenticos y las pruebas que todavia faltan.
