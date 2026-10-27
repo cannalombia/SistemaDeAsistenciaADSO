@@ -783,31 +783,65 @@ function createProjectServer(options = {}) {
     }
 
     async function handlePasswordLogin(request, response) {
-        const body = await readJsonBody(request);
-        const identifier = String(body.identifier || body.email || "").trim().toLowerCase();
-        const email = normalizeEmail(identifier);
-        const account = accounts.find((item) => item.username === identifier || (email && item.email === email));
-        if (!account || !verifyPassword(account, body.password)) {
-            return sendJson(response, 401, { ok: false, message: "Usuario, correo o contraseña incorrectos." });
-        }
-        if (csvFileBacked && !userIsProtected(account) && !csvUsers.some(row => row.identificacion === account.document)) {
-            return sendJson(response, 403, { ok: false, message: "La cuenta ya no está en la base principal." });
-        }
-        if ((canonicalUserStatus(account.status) || "Activo") !== "Activo") {
-            return sendJson(response, 403, { ok: false, message: "Esta cuenta se encuentra desactivada." });
-        }
-        return createSession(response, {
-            id: account.id,
-            document: account.document || "",
-            username: account.username,
-            name: account.name,
-            email: account.email,
-            role: account.role,
-            picture: "logo_sena.png",
-            method: "password"
+    const body = await readJsonBody(request);
+    const identifier = String(body.identifier || body.email || "").trim().toLowerCase();
+
+    const currentTime = now();
+    const loginKey = crypto.createHash("sha256")
+        .update(`login:${clientAddress(request)}:${identifier || "vacio"}`)
+        .digest("hex");
+    const loginRate = hourlyRequests.get(loginKey);
+
+    if (loginRate && loginRate.windowEndsAt > currentTime && loginRate.count >= 5) {
+        return sendJson(response, 429, {
+            ok: false,
+            message: "Demasiados intentos de inicio de sesion. Espera unos minutos e intenta nuevamente."
         });
     }
 
+    const email = normalizeEmail(identifier);
+    const account = accounts.find((item) => item.username === identifier || (email && item.email === email));
+
+    if (!account || !verifyPassword(account, body.password)) {
+        const activeRate = loginRate && loginRate.windowEndsAt > currentTime;
+
+        hourlyRequests.set(loginKey, {
+            count: activeRate ? Math.min(loginRate.count + 1, 5) : 1,
+            windowEndsAt: activeRate ? loginRate.windowEndsAt : currentTime + 15 * 60 * 1000
+        });
+
+        await persistAuthState();
+
+        return sendJson(response, 401, {
+            ok: false,
+            message: "Usuario, correo o contraseña incorrectos."
+        });
+    }
+
+    if (hourlyRequests.has(loginKey)) {
+        hourlyRequests.delete(loginKey);
+        await persistAuthState();
+    }
+
+    if (csvFileBacked && !userIsProtected(account) && !csvUsers.some(row => row.identificacion === account.document)) {
+        return sendJson(response, 403, { ok: false, message: "La cuenta ya no está en la base principal." });
+    }
+
+    if ((canonicalUserStatus(account.status) || "Activo") !== "Activo") {
+        return sendJson(response, 403, { ok: false, message: "Esta cuenta se encuentra desactivada." });
+    }
+
+    return createSession(response, {
+        id: account.id,
+        document: account.document || "",
+        username: account.username,
+        name: account.name,
+        email: account.email,
+        role: account.role,
+        picture: "logo_sena.png",
+        method: "password"
+    });
+}
     const recoveryRequestMessage = "Si los datos corresponden a la cuenta administrativa, recibirás un código para continuar.";
 
     function isAdminRecoveryIdentifier(identifier, account) {
